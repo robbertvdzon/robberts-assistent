@@ -37,7 +37,7 @@
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:taskAffinity=""
-            android:theme="@android:style/Theme.Translucent.NoDisplay" />
+            android:theme="@android:style/Theme.NoDisplay" />
 
         <!-- Trampoline-activity: "voorspelling". Geen zichtbaar scherm. -->
         <activity
@@ -46,7 +46,7 @@
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:taskAffinity=""
-            android:theme="@android:style/Theme.Translucent.NoDisplay" />
+            android:theme="@android:style/Theme.NoDisplay" />
 
         <!-- Vereist door de v2 Flutter-embedding. -->
         <meta-data
