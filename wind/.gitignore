@@ -1,0 +1,25 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Android
+android/.gradle/
+android/captures/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/.cxx/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Bewust WEL gecommit (CI regenereert deze niet): android/gradlew,
+# android/gradlew.bat en android/gradle/wrapper/gradle-wrapper.jar.

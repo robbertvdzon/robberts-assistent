@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App Actions capabilities. Elke capability koppelt een gesproken intentie aan
+  een native trampoline-activity die het antwoord uitspreekt en notificeert.
+
+  Custom intents zijn voldoende voor een PoC en werken met de App Actions
+  test-tool (Google Assistant-plugin in Android Studio).
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- "huidige windsnelheid" -->
+    <capability android:name="custom.actions.intent.GET_WIND_SPEED">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="nl.vdzon.wind"
+            android:targetClass="nl.vdzon.wind.WindSpeedActivity" />
+    </capability>
+
+    <!-- "voorspelling" -->
+    <capability android:name="custom.actions.intent.GET_WIND_FORECAST">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="nl.vdzon.wind"
+            android:targetClass="nl.vdzon.wind.ForecastActivity" />
+    </capability>
+
+</shortcuts>
