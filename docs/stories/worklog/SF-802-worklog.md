@@ -61,3 +61,15 @@ Zet een nieuw Flutter/Android-project 'Wind' op met redelijke defaults (package-
 - Handmatige verificatie op echte hardware (App Actions test-tool,
   "Hey Google, vraag Wind ..."-flow, Garmin-notificatiecheck) staat als
   instructie in de PR-beschrijving.
+
+## Review (SF-803, reviewer)
+
+- Volledige story-diff t.o.v. `main` beoordeeld (`git diff main...HEAD`).
+- Alle 9 acceptatiecriteria afgedekt; teksten `wind_data.dart` ↔ `WindAnswers.kt`
+  1-op-1 identiek geverifieerd; trampoline-flow (TTS `onDone` → finish,
+  notificatie met POST_NOTIFICATIONS-guard, `Theme.Translucent.NoDisplay`) correct.
+- CI: `files:`-pad in `action-gh-release` is root-relatief en juist.
+- [suggestie] Kotlin-test `WindAnswersTest.kt` draait niet in CI (workflow doet
+  alleen `flutter test`, geen `./gradlew test`); worklog-claim daarover bijstellen
+  of een gradle-teststap toevoegen. Niet blokkerend.
+- Geen bugs/regressies/scope-issues. Resultaat: reviewed (akkoord).
