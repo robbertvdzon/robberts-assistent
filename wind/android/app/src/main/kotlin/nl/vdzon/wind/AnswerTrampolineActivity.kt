@@ -16,9 +16,11 @@ import java.util.Locale
 
 /**
  * Basis voor de "trampoline"-activities. Een trampoline-activity toont geen
- * zichtbaar scherm (zie `Theme.Translucent.NoDisplay` in het manifest): ze
- * spreekt het antwoord uit via [TextToSpeech], post een notificatie met exact
- * dezelfde tekst en sluit zichzelf daarna direct af.
+ * zichtbaar scherm (zie `@style/TrampolineTheme` in het manifest — bewust
+ * geen `Theme.NoDisplay`, want dat eist een synchrone `finish()` in
+ * `onCreate`, terwijl wij asynchroon op TTS wachten): ze spreekt het antwoord
+ * uit via [TextToSpeech], post een notificatie met exact dezelfde tekst en
+ * sluit zichzelf daarna direct af.
  *
  * Subklassen leveren alleen de [answer] (de tekst) en de [notificationTitle].
  */

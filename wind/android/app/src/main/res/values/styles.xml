@@ -8,4 +8,21 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+
+    <!--
+      Thema voor de trampoline-activities. Bewust GEEN `Theme.NoDisplay`: dat
+      thema vereist dat de activity zichzelf synchroon sluit in `onCreate`,
+      vóór er een window wordt aangemaakt — onze activity wacht asynchroon op
+      TTS voordat ze zichzelf sluit, en dat crasht met `Theme.NoDisplay`. Dit
+      thema is in plaats daarvan gewoon volledig transparant, zonder die eis.
+    -->
+    <style name="TrampolineTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>
