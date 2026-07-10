@@ -5,7 +5,7 @@ void main() {
   group('WindData', () {
     test('windsnelheid-antwoord is niet leeg en noemt een eenheid', () {
       expect(WindData.windSpeedAnswer, isNotEmpty);
-      expect(WindData.windSpeedAnswer.toLowerCase(), contains('kilometer'));
+      expect(WindData.windSpeedAnswer.toLowerCase(), contains('knopen'));
     });
 
     test('voorspelling-antwoord is niet leeg', () {

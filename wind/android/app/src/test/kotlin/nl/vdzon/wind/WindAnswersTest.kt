@@ -12,7 +12,7 @@ class WindAnswersTest {
     @Test
     fun windSpeedAnswerIsNotBlankAndMentionsUnit() {
         assertTrue(WindAnswers.WIND_SPEED.isNotBlank())
-        assertTrue(WindAnswers.WIND_SPEED.lowercase().contains("kilometer"))
+        assertTrue(WindAnswers.WIND_SPEED.lowercase().contains("knopen"))
     }
 
     @Test

@@ -10,8 +10,7 @@ class WindData {
 
   /// Antwoord op "huidige windsnelheid". Hardcoded zodat het scherm, de
   /// gesproken tekst en de notificatietekst exact overeenkomen.
-  static const String windSpeedAnswer =
-      'De huidige windsnelheid is 18 kilometer per uur uit het zuidwesten.';
+  static const String windSpeedAnswer = 'De huidige windsnelheid is 18 knopen.';
 
   /// Antwoord op "voorspelling". Hardcoded voorspellingstekst.
   static const String forecastAnswer =

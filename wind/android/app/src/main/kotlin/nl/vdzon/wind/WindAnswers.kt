@@ -11,8 +11,7 @@ package nl.vdzon.wind
 object WindAnswers {
 
     /** Antwoord op "huidige windsnelheid" (hardcoded). */
-    const val WIND_SPEED =
-        "De huidige windsnelheid is 18 kilometer per uur uit het zuidwesten."
+    const val WIND_SPEED = "De huidige windsnelheid is 18 knopen."
 
     /** Antwoord op "voorspelling" (hardcoded voorspellingstekst). */
     const val FORECAST =
