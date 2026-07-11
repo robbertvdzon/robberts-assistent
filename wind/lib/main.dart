@@ -42,8 +42,12 @@ class _WindHomePageState extends State<WindHomePage> {
     'nl.vdzon.wind/assistant_status',
   );
 
-  bool _listening = false;
-  String _status = 'De assistent luistert nog niet.';
+  // De assistent start automatisch mee bij het openen van de app (zie
+  // MainActivity.onCreate); we gaan er dus van uit dat 'ie al luistert,
+  // ook al kan de allereerste statusregel van vóór het opzetten van dit
+  // event-kanaal gemist worden.
+  bool _listening = true;
+  String _status = 'De assistent luistert automatisch mee.';
 
   @override
   void initState() {

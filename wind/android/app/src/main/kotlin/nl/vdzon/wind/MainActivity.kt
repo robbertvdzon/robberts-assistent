@@ -35,7 +35,14 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestNotificationPermissionIfNeeded()
+        // Meteen beginnen met luisteren zodra de app opent — geen knop nodig.
+        // Eerst de notificatie-permissie afhandelen (indien nodig): Android
+        // staat geen twee gelijktijdige permissie-dialogen toe, dus pas ná
+        // dat resultaat (of meteen als 'ie niet nodig was) de microfoon-
+        // permissie/assistent starten.
+        if (!requestNotificationPermissionIfNeeded()) {
+            startAssistant()
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -106,18 +113,26 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == RECORD_AUDIO_REQUEST_CODE) {
-            val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
-            if (granted && pendingAssistantStart) {
+        when (requestCode) {
+            NOTIFICATION_PERMISSION_REQUEST_CODE -> {
+                // Ongeacht toegestaan/geweigerd: nu pas de assistent starten
+                // (zie onCreate) om niet twee permissie-dialogen te overlappen.
                 startAssistant()
-            } else if (!granted) {
-                statusEventSink?.success("Geen toestemming voor de microfoon.")
             }
-            pendingAssistantStart = false
+            RECORD_AUDIO_REQUEST_CODE -> {
+                val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                if (granted && pendingAssistantStart) {
+                    startAssistant()
+                } else if (!granted) {
+                    statusEventSink?.success("Geen toestemming voor de microfoon.")
+                }
+                pendingAssistantStart = false
+            }
         }
     }
 
-    private fun requestNotificationPermissionIfNeeded() {
+    /** @return true als er een permissie-dialoog is getoond (resultaat komt async binnen). */
+    private fun requestNotificationPermissionIfNeeded(): Boolean {
         // Android 13+ (Tiramisu) vereist een runtime-toestemming om
         // notificaties te posten. Zonder dit verzoek blijft de permissie
         // geweigerd en slaat NotificationHelper het posten stil over — TTS
@@ -131,7 +146,9 @@ class MainActivity : FlutterActivity() {
                 arrayOf(Manifest.permission.POST_NOTIFICATIONS),
                 NOTIFICATION_PERMISSION_REQUEST_CODE,
             )
+            return true
         }
+        return false
     }
 
     override fun onDestroy() {
