@@ -23,3 +23,4 @@ android/.cxx/
 
 # Bewust WEL gecommit (CI regenereert deze niet): android/gradlew,
 # android/gradlew.bat en android/gradle/wrapper/gradle-wrapper.jar.
+wind/android/app/src/main/java/

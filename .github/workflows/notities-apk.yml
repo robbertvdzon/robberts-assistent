@@ -1,4 +1,4 @@
-name: Build Wind APK
+name: Build Notities APK
 
 # Bij elke push naar main bouwen we een release-APK en publiceren die als
 # downloadbare GitHub Release, zodat de app zonder Play Store of lokale
@@ -7,19 +7,24 @@ on:
   push:
     branches: [main]
     paths:
-      - 'wind/**'
-      - '.github/workflows/build-apk.yml'
+      - 'notities/**'
+      - '.github/workflows/notities-apk.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  # Backend-URL waar de app tegen praat. Moet overeenkomen met waar
+  # robberts-assistent-backend uiteindelijk draait.
+  API_BASE_URL: https://robberts-assistent.vdzonsoftware.nl
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: wind
+        working-directory: notities
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,17 +51,22 @@ jobs:
         run: flutter test
 
       - name: Build release APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="${{ env.API_BASE_URL }}" \
+            --dart-define=GOOGLE_CLIENT_ID="${{ vars.GOOGLE_CLIENT_ID }}"
 
       - name: Publish APK as GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: wind-build-${{ github.run_number }}
-          name: Wind APK build ${{ github.run_number }}
+          tag_name: notities-build-${{ github.run_number }}
+          name: Notities APK build ${{ github.run_number }}
           body: |
-            Automatisch gebouwde release-APK van de Wind PoC-app.
+            Automatisch gebouwde release-APK van de Notities-app.
             Download `app-release.apk` hieronder en installeer op een Android-toestel
             (sta "installeren uit onbekende bron" toe).
-          files: wind/build/app/outputs/flutter-apk/app-release.apk
+
+            Backend: `${{ env.API_BASE_URL }}`
+          files: notities/build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -43,8 +43,10 @@ android {
 
     defaultConfig {
         applicationId = "nl.vdzon.wind"
-        // App Actions vereist een recente minSdk; 23 is een veilige PoC-keuze.
-        minSdk = 23
+        // Flutter's build-tooling overschrijft een handmatige minSdk bij elke build
+        // ("Upgrading build.gradle") terug naar flutter.minSdkVersion — dus bewust
+        // niet meer hardcoded overschreven.
+        minSdkVersion = flutter.minSdkVersion
         targetSdk = 34
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName

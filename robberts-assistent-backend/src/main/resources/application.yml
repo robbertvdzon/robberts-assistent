@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: robberts-assistent-backend
+  main:
+    banner-mode: "off"
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: always
