@@ -37,3 +37,33 @@ Done / rationale:
     ontbrekende lokale repo-cache): alle modules groen, inclusief
     `AssistantServiceTest` (1 test, 0 failures/errors). Volledige run: 0
     failures, 0 errors over alle testsuites.
+
+## Review-notities (SF-933)
+
+- Diff tegen `main` bekeken (5 files: notes_editor_screen.dart,
+  notes_editor_screen_test.dart (nieuw), AssistantService.kt,
+  AssistantServiceTest.kt, deze worklog). Alles binnen de gevraagde scope,
+  geen wijzigingen aan `ApiClient` of andere modules.
+- `notes_editor_screen.dart`: implementatie komt exact overeen met de AC —
+  `_save({bool force = false})` forceert opslag ook bij `_dirty == false`,
+  annuleert via de bestaande `_save()`-body de lopende debounce (`_debounce
+  ?.cancel()`), en gebruikt dezelfde statusteksten ("Opgeslagen" /
+  "Opslaan mislukt: ..."). Save-knop staat in de AppBar-actions tussen
+  statustekst en uitlogknop, precies zoals gevraagd. Automatische triggers
+  (debounce, `didChangeAppLifecycleState`, `dispose`) ongewijzigd.
+- Backend: `reply()` retourneert nu `"Doe ik"`; `AssistantServiceTest`
+  bijgewerkt. Grep bevestigt geen overige voorkomens van `"Ga ik doen"`.
+- Zelf `mvn test` (volledige suite, niet alleen de gewijzigde test) gedraaid
+  in `robberts-assistent-backend/`: exit 0, geen failures/errors — bevestigt
+  het testbewijs uit de developer-samenvatting onafhankelijk.
+- De nieuwe Flutter widgettest (`notities/test/notes_editor_screen_test.dart`)
+  kon ik, net als de developer, niet lokaal draaien — flutter/dart-SDK
+  ontbreekt in deze omgeving (bekende beperking). Code handmatig nagelopen:
+  gebruikt bestaande `ApiClient`-methoden correct (`getNotes`/`saveNotes` zijn
+  overridebaar), constructor-parameters (`api`, `onLoggedOut`) kloppen met
+  `NotesEditorScreen`. [info] Dit is geen blocker: `notities-apk.yml` triggert
+  toch alleen op push naar `main` (geen `pull_request`-trigger), dus deze
+  widgettest wordt sowieso pas na merge in CI uitgevoerd — een pre-existing
+  gat in de CI-config, niet geïntroduceerd door deze wijziging en buiten scope
+  van deze story.
+- Geen bugs, regressies of scope-overschrijding gevonden. Conclusie: akkoord.
