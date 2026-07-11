@@ -1,0 +1,15 @@
+namespace: robberts-assistent
+resources:
+  - sealed-secret-robberts-assistent.yaml
+  - robberts-assistent-backend-deployment.yaml
+  - robberts-assistent-backend-service.yaml
+  - robberts-assistent-frontend-deployment.yaml
+  - robberts-assistent-frontend-service.yaml
+  - robberts-assistent-frontend-route.yaml
+images:
+  - name: ghcr.io/robbertvdzon/robberts-assistent-backend
+    newName: ghcr.io/robbertvdzon/robberts-assistent-backend
+    newTag: main
+  - name: ghcr.io/robbertvdzon/robberts-assistent-frontend
+    newName: ghcr.io/robbertvdzon/robberts-assistent-frontend
+    newTag: main

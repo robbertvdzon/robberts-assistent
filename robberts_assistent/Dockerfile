@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1.7
+
+FROM ghcr.io/cirruslabs/flutter:3.35.0 AS build
+WORKDIR /src
+COPY pubspec.yaml pubspec.lock ./
+RUN flutter pub get
+COPY . .
+ARG API_BASE_URL=
+ARG BUILD_SHA=dev
+ARG BUILD_TIMESTAMP=dev
+ARG GOOGLE_CLIENT_ID=
+RUN flutter build web --release \
+      --dart-define=API_BASE_URL=${API_BASE_URL} \
+      --dart-define=BUILD_SHA=${BUILD_SHA} \
+      --dart-define=BUILD_TIMESTAMP=${BUILD_TIMESTAMP} \
+      --dart-define=GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID} \
+ && rm -f build/web/flutter_service_worker.js
+
+FROM nginxinc/nginx-unprivileged:1.27-alpine
+USER 0
+RUN chgrp -R 0 /etc/nginx /usr/share/nginx/html /var/cache/nginx \
+ && chmod -R g+rwX /etc/nginx /usr/share/nginx/html /var/cache/nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /src/build/web /usr/share/nginx/html
+USER 101
+EXPOSE 8080

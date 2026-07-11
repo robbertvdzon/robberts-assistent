@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: robberts-assistent-frontend
+  labels:
+    app: robberts-assistent-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: robberts-assistent-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

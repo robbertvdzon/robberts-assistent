@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: robberts-assistent-frontend
+  labels:
+    app: robberts-assistent-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: robberts-assistent-frontend
+  template:
+    metadata:
+      labels:
+        app: robberts-assistent-frontend
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/robbertvdzon/robberts-assistent-frontend:main
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

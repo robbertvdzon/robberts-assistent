@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: robberts-assistent-frontend
+  labels:
+    app: robberts-assistent-frontend
+spec:
+  host: robberts-assistent.vdzonsoftware.nl
+  to:
+    kind: Service
+    name: robberts-assistent-frontend
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

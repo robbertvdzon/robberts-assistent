@@ -1,0 +1,86 @@
+name: Build robberts-assistent-backend image
+
+# Triggers:
+#   * Push naar main   → bouw, push, en bump deploy/base/kustomization.yaml
+#                         (ArgoCD synct prod naar de nieuwe SHA).
+#   * Pull request      → bouw + push met de PR's HEAD-SHA als tag, GEEN
+#                         paths-filter: de preview-ApplicationSet in
+#                         robberts-infrastructure pint altijd deze SHA, dus
+#                         zonder image faalt de preview (ImagePullBackOff) —
+#                         zelfde les als personal-feed's "preview-image-gap".
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'robberts-assistent-backend/**'
+      - '.github/workflows/backend-image.yml'
+      - '.github/scripts/bump-images.sh'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: backend-image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/robbertvdzon/robberts-assistent-backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.sha.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Voor PR's: checkout de PR's HEAD (niet de merge-commit) zodat
+          # `git rev-parse HEAD` overeenkomt met de SHA die de preview-
+          # ApplicationSet gebruikt.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Short SHA
+        id: sha
+        run: echo "tag=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: robberts-assistent-backend/Dockerfile
+          push: true
+          # De :main-tag alleen op een echte push naar main zetten — anders
+          # zou een PR-build de productie-floating-tag overschrijven.
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.sha.outputs.tag }}
+            ${{ github.event_name == 'push' && format('{0}:main', env.IMAGE) || '' }}
+          cache-from: type=gha,scope=robberts-assistent-backend
+          cache-to: type=gha,mode=max,scope=robberts-assistent-backend
+
+  bump-manifests:
+    if: github.event_name == 'push'
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump image tag in deploy/base
+        run: |
+          .github/scripts/bump-images.sh \
+            deploy/base \
+            "ci: bump robberts-assistent-backend to ${{ needs.build.outputs.tag }}" \
+            "ghcr.io/robbertvdzon/robberts-assistent-backend=ghcr.io/robbertvdzon/robberts-assistent-backend:${{ needs.build.outputs.tag }}"

@@ -1,0 +1,56 @@
+# Preview-overlay: deploy't een feature-branch in een eigen namespace
+# `robberts-assistent-pr-<nummer>`. De ArgoCD ApplicationSet in
+# robberts-infrastructure vult de placeholders in (namespace, image-tags) per
+# open PR.
+#
+# Verschillen met de productie-overlay:
+#   * Geen SealedSecret — Reflector mirrort 'm automatisch vanuit de
+#     robberts-assistent-namespace naar robberts-assistent-pr-* (zie de
+#     reflector-annotaties in deploy/base/sealed-secret-robberts-assistent.yaml).
+#   * Backend krijgt RA_PREVIEW_SKIP_GOOGLE_AUTH=true: geen Google-login nodig
+#     voor de tester-agent. Alleen hier, nooit in productie.
+#   * Route zonder vaste host: OpenShift genereert automatisch een hostname
+#     onder de cluster-wildcard (*.apps...), geen handmatige DNS nodig.
+#
+# Namespace wordt door de ApplicationSet gezet — niet hier hardcoden, want
+# elke PR krijgt een eigen namespace.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: SealedSecret
+      name: robberts-assistent-secrets
+    patch: |-
+      $patch: delete
+      apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret
+      metadata:
+        name: robberts-assistent-secrets
+
+  - target:
+      kind: Deployment
+      name: robberts-assistent-backend
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: RA_PREVIEW_SKIP_GOOGLE_AUTH
+            value: "true"
+      # Minder strikt rollout-gedrag — preview spawn moet snel zijn (geen
+      # PVC/Recreate-vereiste hier, maar consistent met het personal-feed-patroon).
+      - op: replace
+        path: /spec/strategy
+        value:
+          type: RollingUpdate
+
+  - target:
+      kind: Route
+      name: robberts-assistent-frontend
+    patch: |-
+      - op: remove
+        path: /spec/host
