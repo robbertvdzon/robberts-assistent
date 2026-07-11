@@ -60,8 +60,8 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     _debounce = Timer(_debounceDuration, _save);
   }
 
-  Future<void> _save() async {
-    if (!_dirty) return;
+  Future<void> _save({bool force = false}) async {
+    if (!_dirty && !force) return;
     _debounce?.cancel();
     _dirty = false;
     final text = _controller.text;
@@ -106,6 +106,11 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Center(child: Text(_status, style: const TextStyle(fontSize: 12))),
             ),
+          IconButton(
+            tooltip: 'Opslaan',
+            icon: const Icon(Icons.save),
+            onPressed: () => _save(force: true),
+          ),
           IconButton(
             tooltip: 'Uitloggen',
             icon: const Icon(Icons.logout),

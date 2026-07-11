@@ -8,7 +8,7 @@ class AssistantServiceTest {
     fun `always replies with the dummy acknowledgement`() {
         val service = AssistantService()
 
-        assertEquals("Ga ik doen", service.reply("wat is de wind"))
-        assertEquals("Ga ik doen", service.reply("iets heel anders"))
+        assertEquals("Doe ik", service.reply("wat is de wind"))
+        assertEquals("Doe ik", service.reply("iets heel anders"))
     }
 }
