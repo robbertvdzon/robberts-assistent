@@ -49,12 +49,17 @@ jobs:
         run: flutter build apk --release
 
       - name: Publish APK as GitHub Release
+        # Vaste tag (i.p.v. een oplopend buildnummer): elke build overschrijft dezelfde
+        # release, zodat er één stabiele downloadlink blijft bestaan i.p.v. een steeds
+        # groeiende, door-elkaar-gesorteerde lijst op de releases-pagina.
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: wind-build-${{ github.run_number }}
-          name: Wind APK build ${{ github.run_number }}
+          tag_name: wind-latest
+          name: "Wind APK (laatste build)"
           body: |
-            Automatisch gebouwde release-APK van de Wind PoC-app.
+            Automatisch gebouwde release-APK van de Wind PoC-app — wordt bij elke build
+            overschreven, dit is dus altijd de nieuwste versie (build ${{ github.run_number }},
+            commit ${{ github.sha }}).
             Download `app-release.apk` hieronder en installeer op een Android-toestel
             (sta "installeren uit onbekende bron" toe).
           files: wind/build/app/outputs/flutter-apk/app-release.apk

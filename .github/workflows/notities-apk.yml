@@ -73,12 +73,17 @@ jobs:
             --dart-define=GOOGLE_CLIENT_ID="${{ vars.GOOGLE_CLIENT_ID }}"
 
       - name: Publish APK as GitHub Release
+        # Vaste tag (i.p.v. een oplopend buildnummer): elke build overschrijft dezelfde
+        # release, zodat er één stabiele downloadlink blijft bestaan i.p.v. een steeds
+        # groeiende, door-elkaar-gesorteerde lijst op de releases-pagina.
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: notities-build-${{ github.run_number }}
-          name: Notities APK build ${{ github.run_number }}
+          tag_name: notities-latest
+          name: "Notities APK (laatste build)"
           body: |
-            Automatisch gebouwde release-APK van de Notities-app.
+            Automatisch gebouwde release-APK van de Notities-app — wordt bij elke build
+            overschreven, dit is dus altijd de nieuwste versie (build ${{ github.run_number }},
+            commit ${{ github.sha }}).
             Download `app-release.apk` hieronder en installeer op een Android-toestel
             (sta "installeren uit onbekende bron" toe).
 
