@@ -2,6 +2,8 @@
 
     <!-- Android 13+: runtime-permissie om notificaties te posten. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Runtime-permissie voor de doorlopende spraakassistent (VoiceAssistant). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="Wind"

@@ -24,23 +24,61 @@ class WindApp extends StatelessWidget {
 }
 
 /// Handmatig te openen scherm. Toont dezelfde waarden als de
-/// spraak-/notificatie-flow, én heeft knoppen die exact diezelfde flow
-/// (TTS + Android-notificatie, geen zichtbaar scherm) triggeren — zo test je
-/// met de hand precies het pad dat straks ook "Hey Google" gebruikt.
-class WindHomePage extends StatelessWidget {
+/// spraak-/notificatie-flow, heeft knoppen die exact diezelfde flow
+/// (TTS + Android-notificatie, geen zichtbaar scherm) triggeren, én een
+/// doorlopende spraakassistent die luistert tot je "stop met luisteren"
+/// zegt.
+class WindHomePage extends StatefulWidget {
   const WindHomePage({super.key});
 
-  static const _channel = MethodChannel('nl.vdzon.wind/answers');
+  @override
+  State<WindHomePage> createState() => _WindHomePageState();
+}
 
-  Future<void> _trigger(BuildContext context, String method) async {
+class _WindHomePageState extends State<WindHomePage> {
+  static const _answersChannel = MethodChannel('nl.vdzon.wind/answers');
+  static const _assistantChannel = MethodChannel('nl.vdzon.wind/assistant');
+  static const _assistantStatusChannel = EventChannel(
+    'nl.vdzon.wind/assistant_status',
+  );
+
+  bool _listening = false;
+  String _status = 'De assistent luistert nog niet.';
+
+  @override
+  void initState() {
+    super.initState();
+    _assistantStatusChannel.receiveBroadcastStream().listen((event) {
+      final text = event as String;
+      setState(() {
+        _status = text;
+        if (text == 'Gestopt met luisteren.') {
+          _listening = false;
+        } else if (text == 'Ik luister…') {
+          _listening = true;
+        }
+      });
+    });
+  }
+
+  Future<void> _trigger(String method) async {
     try {
-      await _channel.invokeMethod(method);
+      await _answersChannel.invokeMethod(method);
     } on PlatformException catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Kon niet starten: ${e.message}')),
         );
       }
+    }
+  }
+
+  Future<void> _toggleAssistant() async {
+    if (_listening) {
+      await _assistantChannel.invokeMethod('stop');
+    } else {
+      setState(() => _listening = true);
+      await _assistantChannel.invokeMethod('start');
     }
   }
 
@@ -58,7 +96,7 @@ class WindHomePage extends StatelessWidget {
               title: 'Huidige windsnelheid',
               body: WindData.windSpeedAnswer,
               buttonLabel: 'Hoe hard waait het',
-              onPressed: () => _trigger(context, 'openWindSpeed'),
+              onPressed: () => _trigger('openWindSpeed'),
             ),
             const SizedBox(height: 12),
             _AnswerCard(
@@ -66,7 +104,45 @@ class WindHomePage extends StatelessWidget {
               title: 'Voorspelling',
               body: WindData.forecastAnswer,
               buttonLabel: 'Wat is de voorspelling',
-              onPressed: () => _trigger(context, 'openForecast'),
+              onPressed: () => _trigger('openForecast'),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(_listening ? Icons.mic : Icons.mic_off, size: 32),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            'Spraakassistent',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_status),
+                    const SizedBox(height: 12),
+                    FilledButton.tonal(
+                      onPressed: _toggleAssistant,
+                      child: Text(
+                        _listening ? 'Stop met luisteren' : 'Start luisteren',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Zeg: "wat is de wind", "wat is de voorspelling" of '
+                      '"stop met luisteren".',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

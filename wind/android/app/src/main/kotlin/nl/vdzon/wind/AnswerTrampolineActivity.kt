@@ -1,17 +1,8 @@
 package nl.vdzon.wind
 
-import android.Manifest
 import android.app.Activity
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import java.util.Locale
 
 /**
@@ -19,8 +10,8 @@ import java.util.Locale
  * zichtbaar scherm (zie `@style/TrampolineTheme` in het manifest — bewust
  * geen `Theme.NoDisplay`, want dat eist een synchrone `finish()` in
  * `onCreate`, terwijl wij asynchroon op TTS wachten): ze spreekt het antwoord
- * uit via [TextToSpeech], post een notificatie met exact dezelfde tekst en
- * sluit zichzelf daarna direct af.
+ * uit via [TextToSpeech], post een notificatie met exact dezelfde tekst (via
+ * [NotificationHelper]) en sluit zichzelf daarna direct af.
  *
  * Subklassen leveren alleen de [answer] (de tekst) en de [notificationTitle].
  */
@@ -38,7 +29,7 @@ abstract class AnswerTrampolineActivity : Activity(), TextToSpeech.OnInitListene
         super.onCreate(savedInstanceState)
 
         // Notificatie meteen posten; die is niet afhankelijk van TTS-init.
-        postNotification()
+        NotificationHelper.post(this, notificationTitle, answer)
 
         // TTS initialiseren; we sluiten pas af nadat het uitspreken klaar is.
         tts = TextToSpeech(this, this)
@@ -86,49 +77,7 @@ abstract class AnswerTrampolineActivity : Activity(), TextToSpeech.OnInitListene
         super.onDestroy()
     }
 
-    private fun postNotification() {
-        ensureChannel()
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(notificationTitle)
-            .setContentText(answer)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(answer))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
-            .build()
-
-        // Op Android 13+ is POST_NOTIFICATIONS een runtime-permissie. Zonder
-        // toestemming slaan we het posten over (crasht anders niet de PoC).
-        val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
-
-        if (granted) {
-            NotificationManagerCompat.from(this)
-                .notify(answer.hashCode(), notification)
-        }
-    }
-
-    private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Wind-antwoorden",
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                description = "Notificaties met wind-antwoorden."
-            }
-            manager.createNotificationChannel(channel)
-        }
-    }
-
     private companion object {
-        const val CHANNEL_ID = "wind_answers"
         const val UTTERANCE_ID = "wind_answer"
     }
 }
