@@ -1,8 +1,13 @@
 package nl.vdzon.wind
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import java.util.Locale
 
 /**
@@ -28,11 +33,37 @@ abstract class AnswerTrampolineActivity : Activity(), TextToSpeech.OnInitListene
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Notificatie meteen posten; die is niet afhankelijk van TTS-init.
-        NotificationHelper.post(this, notificationTitle, answer)
+        // Notificatie posten — of, als de runtime-permissie er op Android 13+
+        // nog niet is, eerst die aanvragen (systeemdialoog, eenmalig; ná
+        // toestemming verloopt elke volgende keer weer stil/zonder scherm).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                NOTIFICATION_PERMISSION_REQUEST_CODE,
+            )
+        } else {
+            NotificationHelper.post(this, notificationTitle, answer)
+        }
 
         // TTS initialiseren; we sluiten pas af nadat het uitspreken klaar is.
         tts = TextToSpeech(this, this)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
+            // NotificationHelper checkt de permissie zelf nogmaals en slaat
+            // stil over bij weigering — hier dus geen aparte afhandeling nodig.
+            NotificationHelper.post(this, notificationTitle, answer)
+        }
     }
 
     override fun onInit(status: Int) {
@@ -79,5 +110,6 @@ abstract class AnswerTrampolineActivity : Activity(), TextToSpeech.OnInitListene
 
     private companion object {
         const val UTTERANCE_ID = "wind_answer"
+        const val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
     }
 }
