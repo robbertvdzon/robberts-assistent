@@ -48,5 +48,15 @@
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@style/TrampolineTheme" />
+
+        <!--
+          Flutter's build-tooling vereist deze v2-embedding-marker ergens in
+          het manifest, ook al gebruikt geen enkele activity hier Flutter
+          actief (MainActivity is nu een pure trampoline-activity). Zonder
+          dit faalt `flutter build apk` met "deleted Android v1 embedding".
+        -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
     </application>
 </manifest>
