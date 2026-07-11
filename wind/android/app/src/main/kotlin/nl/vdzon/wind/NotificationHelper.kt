@@ -11,10 +11,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 
 /**
- * Gedeelde notificatielogica voor wind-antwoorden. Gebruikt door zowel de
- * trampoline-activities ([AnswerTrampolineActivity]) als de doorlopende
- * spraakassistent ([VoiceAssistant]), zodat beide dezelfde notificatie-stijl
- * en dezelfde runtime-permissiecheck delen.
+ * Gedeelde notificatielogica voor wind-antwoorden, gebruikt door de
+ * trampoline-activities ([AnswerTrampolineActivity]).
  */
 object NotificationHelper {
 

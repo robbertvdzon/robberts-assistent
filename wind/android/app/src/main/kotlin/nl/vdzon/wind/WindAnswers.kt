@@ -2,16 +2,15 @@ package nl.vdzon.wind
 
 /**
  * Gedeelde bron van waarheid voor de antwoorden aan de native (Android) kant.
- *
- * Deze waarden zijn een 1-op-1 spiegel van `lib/wind_data.dart`, zodat de
- * gesproken tekst (TextToSpeech) en de notificatietekst identiek zijn aan wat
- * het Flutter-scherm toont. Wijzig je hier iets, pas dan ook `wind_data.dart`
- * aan (en omgekeerd).
+ * Gebruikt door zowel de trampoline-activities als (voorheen) het
+ * Flutter-scherm in `lib/wind_data.dart` — dat scherm wordt momenteel niet
+ * meer getoond (`MainActivity` is nu zelf een trampoline-activity), maar de
+ * tekst-bron blijft gedeeld voor als de UI later terugkomt.
  */
 object WindAnswers {
 
     /** Antwoord op "huidige windsnelheid" (hardcoded). */
-    const val WIND_SPEED = "De huidige windsnelheid is 18 knopen."
+    const val WIND_SPEED = "De huidige wind is 18 knopen."
 
     /** Antwoord op "voorspelling" (hardcoded voorspellingstekst). */
     const val FORECAST =

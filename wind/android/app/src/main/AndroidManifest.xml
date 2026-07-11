@@ -2,26 +2,25 @@
 
     <!-- Android 13+: runtime-permissie om notificaties te posten. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Runtime-permissie voor de doorlopende spraakassistent (VoiceAssistant). -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="Wind"
         android:name="${applicationName}"
         android:icon="@android:drawable/sym_def_app_icon">
 
-        <!-- Handmatig te openen Flutter-scherm. -->
+        <!--
+          Launcher-activity, nu zelf een trampoline-activity (zie
+          AnswerTrampolineActivity): geen UI, spreekt/notificeert de huidige
+          windsnelheid en sluit direct af. Testopzet om te zien of "Hey
+          Google, open Wind" dit gedrag triggert.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-            <meta-data
-                android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme" />
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/TrampolineTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -49,10 +48,5 @@
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@style/TrampolineTheme" />
-
-        <!-- Vereist door de v2 Flutter-embedding. -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
     </application>
 </manifest>
