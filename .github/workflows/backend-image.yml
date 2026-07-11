@@ -58,8 +58,7 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          context: .
-          file: robberts-assistent-backend/Dockerfile
+          context: robberts-assistent-backend
           push: true
           # De :main-tag alleen op een echte push naar main zetten — anders
           # zou een PR-build de productie-floating-tag overschrijven.
