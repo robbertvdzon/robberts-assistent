@@ -1,0 +1,4 @@
+# Lokale geheimen — nooit committen. Zie secrets.example.env voor het sjabloon.
+secrets.env
+
+.DS_Store
