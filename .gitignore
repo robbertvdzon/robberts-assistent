@@ -2,3 +2,8 @@
 secrets.env
 
 .DS_Store
+
+# Lokale back-up van de Android release-keystore (originele bron van de
+# ANDROID_KEYSTORE_BASE64-GitHub-secret) — nooit committen, GitHub secrets
+# zijn write-only en dit is de enige plek om 'm terug te vinden.
+.keys/
