@@ -1,0 +1,8 @@
+version: 1
+commands:
+  - id: wind-flutter-test
+    argv:
+      - flutter
+      - test
+    workingDirectory: wind
+    timeoutSeconds: 900
