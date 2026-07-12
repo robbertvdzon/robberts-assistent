@@ -110,3 +110,20 @@ Done / rationale:
   wind/notities/backend).
 - Oordeel: voldoet aan alle acceptatiecriteria van SF-955/SF-956. Geen bugs
   gevonden.
+
+## Developer-hercontrole (SF-956, nieuwe run)
+
+- Deze developer-run kreeg opnieuw de opdracht om SF-956 te implementeren
+  (mogelijk een re-run na de `[FACTORY EVIDENCE REJECTED]`-melding op de
+  backend-mvn-test-timing van de vorige testronde). De working tree was echter
+  al schoon en alle scope-wijzigingen bleken al aanwezig en gecommit
+  (commit `9a867b7`, "SF-955: developer changes").
+- Herverificatie uitgevoerd: alle vijf titel-bestanden plus
+  `test/widget_test.dart` bevatten de correcte tekst "Robbert's assistent";
+  `grep -rn "Robbert's Assistent"` binnen `robberts_assistent/` levert niets
+  meer op. `pubspec.yaml` bevat het `flutter_launcher_icons`-`web:`-blok;
+  `web/icons/Icon-*.png` en `web/favicon.png` zijn de custom-icon-varianten
+  (niet meer het Flutter-standaardlogo). `AndroidManifest.xml` is valide XML,
+  `web/manifest.json` valide JSON.
+- Geen code-wijzigingen nodig in deze run; niets om te committen (de factory
+  handelt commit/push/PR af zoals gebruikelijk).
