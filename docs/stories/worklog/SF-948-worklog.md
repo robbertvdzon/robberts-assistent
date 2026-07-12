@@ -60,3 +60,37 @@ Done / rationale:
   van de wijziging (string-literal rename, handmatig geverifieerd) is dit
   geen blocker.
 - Conclusie: akkoord, geen bugs/regressies/scope-issues gevonden.
+
+## Test (SF-950)
+
+- `git diff main...HEAD` bekeken: alleen de 4 verwachte bestanden
+  (`main.dart`, `home_screen.dart`, `AndroidManifest.xml`,
+  `widget_test.dart`) + deze worklog gewijzigd. Geen scope-overschrijding.
+- `grep -rn "Robberts Assistent" robberts_assistent/lib robberts_assistent/test
+  robberts_assistent/android/.../AndroidManifest.xml` → geen treffers meer;
+  alle 4 doelplekken tonen nu `"Robbert's Assistent"` /
+  `android:label="Robbert&apos;s Assistent"`.
+- Niet-UI teksten (`pom.xml`, `.github/workflows/*`, `secrets.example.env`)
+  ongewijzigd bevestigd via `git diff main...HEAD --stat`.
+- `flutter test` kon ook in de tester-sandbox niet gedraaid worden: aarch64
+  linux-sandbox zonder officiële linux-arm64 Flutter-SDK en zonder
+  qemu/binfmt/docker/root om de x64-SDK te draaien (zie agent-tip
+  `environment/flutter-sdk-unavailable-arm64-sandbox`). Ook hier geen
+  bruikbare branch-CI (`robberts-assistent-apk.yml` triggert alleen op
+  push naar `main`/`workflow_dispatch`).
+- Als aanvullende, sterkere verificatie dan alleen code review: de
+  live preview-omgeving (`SF_PREVIEW_URL`, namespace
+  `robberts-assistent-pr-5`) gecheckt. `main.dart.js` van de gedeployde
+  preview-build bevat 3x de string `Robbert's Assistent` en 0x de oude
+  `Robberts Assistent` — de daadwerkelijk gecompileerde/gedeployde Flutter-
+  web-app reflecteert de wijziging correct, niet alleen de brontekst.
+  (Preview draait met `RA_MOCK_AI=true` / `SKIP_GOOGLE_AUTH=true`, geen
+  secrets nodig geweest, geen testdata aangemaakt.)
+- `widget_test.dart` inhoudelijk nagelopen: verwacht `find.text("Robbert's
+  Assistent")` matcht exact de tekst die `main.dart:140` nu rendert op het
+  loginscherm — logisch consistent, al kon dit niet door `flutter test`
+  zelf bevestigd worden.
+- Conclusie: wijziging voldoet aan de acceptatiecriteria. Geen bugs
+  gevonden. Enige beperking: `flutter test` kon niet lokaal draaien
+  (omgevingsbeperking, geen codeprobleem) — gecompenseerd door de
+  preview-JS-check hierboven.
