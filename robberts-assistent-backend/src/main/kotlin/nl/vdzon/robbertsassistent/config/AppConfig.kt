@@ -17,7 +17,17 @@ data class AppSecrets(
     // Google-login volledig over zodat de tester-agent zonder account kan inloggen. Moet in
     // productie altijd false zijn.
     val previewSkipGoogleAuth: Boolean = false,
-)
+    // OpenAI-API-key voor de chat-assistent (zie AiConfig). Null/leeg => mockAi wordt effectief
+    // altijd true, ongeacht de RA_MOCK_AI-waarde: zonder key kan er toch geen echte call gedaan
+    // worden, dus liever een voorspelbare mock dan een crash bij de eerste chat-vraag.
+    val openAiApiKey: String? = null,
+    // Expliciete override om de echte OpenAI-call over te slaan: altijd true in preview/tests
+    // (geen kosten, geen netwerk-afhankelijkheid, deterministisch), altijd false in productie.
+    val mockAi: Boolean = false,
+) {
+    /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
+    val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
+}
 
 @Configuration
 class AppConfig {
@@ -39,11 +49,14 @@ class AppSecretsLoader(
         fun optional(key: String): String? = resolve(key, fileValues)
 
         val previewSkipGoogleAuth = optional("RA_PREVIEW_SKIP_GOOGLE_AUTH")?.lowercase() == "true"
+        val mockAi = optional("RA_MOCK_AI")?.lowercase() == "true"
         return AppSecrets(
             rememberSecret = required("RA_REMEMBER_SECRET"),
             googleClientId = required("RA_GOOGLE_CLIENT_ID"),
             allowedEmails = parseAllowedEmails(optional("RA_ALLOWED_EMAILS") ?: DEFAULT_ALLOWED_EMAIL),
             previewSkipGoogleAuth = previewSkipGoogleAuth,
+            openAiApiKey = optional("RA_OPENAI_API_KEY"),
+            mockAi = mockAi,
         )
     }
 

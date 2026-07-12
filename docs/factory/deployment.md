@@ -56,6 +56,10 @@ naar `ghcr.io` en bumpt `deploy/base/kustomization.yaml` — ArgoCD synct vanzel
   over. `API_BASE_URL` wordt nooit meegegeven (leeg = relatieve `/api/`-paden);
   de frontend-nginx proxy't die same-origin naar `robberts-assistent-backend:80`
   in dezelfde namespace, dus elke preview raakt vanzelf zijn eigen backend.
+  Backend krijgt ook `RA_MOCK_AI=true`: de chat-assistent gebruikt daar een
+  deterministische mock i.p.v. een echte OpenAI-call, ook al bevat de (via
+  Reflector gemirrorde) secret dezelfde `RA_OPENAI_API_KEY` als productie —
+  geen kosten/netwerkafhankelijkheid tijdens tester-runs.
 - **Notities-app en Wind** hebben geen eigen web-deploy, alleen de APK's hierboven.
 
 ## Handmatige verificatie

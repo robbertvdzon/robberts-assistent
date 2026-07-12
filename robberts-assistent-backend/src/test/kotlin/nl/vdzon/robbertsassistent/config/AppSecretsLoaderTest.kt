@@ -58,6 +58,40 @@ class AppSecretsLoaderTest {
     }
 
     @Test
+    fun `zonder openai-key is mock-ai effectief altijd aan, ook als RA_MOCK_AI niet gezet is`() {
+        val secrets = AppSecretsLoader(
+            environment = baseEnv(),
+            secretFiles = emptyList(),
+        ).load()
+
+        assertEquals(null, secrets.openAiApiKey)
+        assertFalse(secrets.mockAi)
+        assertTrue(secrets.effectiveMockAi)
+    }
+
+    @Test
+    fun `met openai-key en zonder RA_MOCK_AI is mock-ai effectief uit`() {
+        val secrets = AppSecretsLoader(
+            environment = baseEnv("RA_OPENAI_API_KEY" to "sk-test"),
+            secretFiles = emptyList(),
+        ).load()
+
+        assertEquals("sk-test", secrets.openAiApiKey)
+        assertFalse(secrets.effectiveMockAi)
+    }
+
+    @Test
+    fun `RA_MOCK_AI=true dwingt de mock af, ook met een geldige openai-key`() {
+        val secrets = AppSecretsLoader(
+            environment = baseEnv("RA_OPENAI_API_KEY" to "sk-test", "RA_MOCK_AI" to "true"),
+            secretFiles = emptyList(),
+        ).load()
+
+        assertTrue(secrets.mockAi)
+        assertTrue(secrets.effectiveMockAi)
+    }
+
+    @Test
     fun `startup fails when google client id is omitted`() {
         val exception = assertFailsWith<IllegalStateException> {
             AppSecretsLoader(

@@ -1,0 +1,46 @@
+package nl.vdzon.robbertsassistent.assistant.ai
+
+import nl.vdzon.robbertsassistent.config.AppSecrets
+import org.springframework.ai.chat.client.ChatClient
+import org.springframework.ai.chat.model.ChatModel
+import org.springframework.ai.openai.OpenAiChatModel
+import org.springframework.ai.openai.OpenAiChatOptions
+import org.springframework.ai.openai.api.OpenAiApi
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+
+private val SYSTEM_PROMPT = """
+    Je bent Robberts persoonlijke assistent. Antwoord kort en to-the-point, in het Nederlands.
+    Je hebt tools om Robberts notitie te lezen/bij te werken en om actuele windmetingen bij
+    IJmuiden op te halen. Gebruik een tool zodra de vraag daarom vraagt; verzin geen gegevens die
+    je met een tool kunt ophalen.
+    Als een windbron geen bruikbare waarde teruggeeft (bv. alleen een laadscherm), probeer dan de
+    andere windbron voordat je aangeeft dat het niet lukt.
+""".trimIndent()
+
+/**
+ * Bewust GEEN spring-ai-starter-model-openai (auto-configuratie op basis van properties) — met
+ * handmatige bean-wiring kiezen we hier zelf tussen het echte OpenAI-model en [MockChatModel],
+ * gestuurd door [AppSecrets.effectiveMockAi] (altijd mock in preview/tests, nooit in productie).
+ */
+@Configuration
+class AiConfig {
+
+    @Bean
+    fun chatModel(secrets: AppSecrets): ChatModel =
+        if (secrets.effectiveMockAi) {
+            MockChatModel()
+        } else {
+            OpenAiChatModel.builder()
+                .openAiApi(OpenAiApi.builder().apiKey(secrets.openAiApiKey).build())
+                .defaultOptions(OpenAiChatOptions.builder().model("gpt-4o-mini").maxTokens(600).build())
+                .build()
+        }
+
+    @Bean
+    fun assistantChatClient(chatModel: ChatModel, notesTools: NotesTools, windTools: WindTools): ChatClient =
+        ChatClient.builder(chatModel)
+            .defaultSystem(SYSTEM_PROMPT)
+            .defaultTools(notesTools, windTools)
+            .build()
+}

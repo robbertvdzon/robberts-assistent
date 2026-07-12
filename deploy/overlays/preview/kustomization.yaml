@@ -9,6 +9,10 @@
 #     reflector-annotaties in deploy/base/sealed-secret-robberts-assistent.yaml).
 #   * Backend krijgt RA_PREVIEW_SKIP_GOOGLE_AUTH=true: geen Google-login nodig
 #     voor de tester-agent. Alleen hier, nooit in productie.
+#   * Backend krijgt RA_MOCK_AI=true: de chat-assistent gebruikt een deterministische
+#     mock i.p.v. een echte OpenAI-call, ook al bevat de (via Reflector gemirrorde)
+#     secret dezelfde RA_OPENAI_API_KEY als productie — geen kosten/netwerkafhankelijkheid
+#     in preview/tester-runs. Alleen hier, nooit in productie.
 #   * Route zonder vaste host: OpenShift genereert automatisch een hostname
 #     onder de cluster-wildcard (*.apps...), geen handmatige DNS nodig.
 #
@@ -40,6 +44,8 @@ patches:
         path: /spec/template/spec/containers/0/env
         value:
           - name: RA_PREVIEW_SKIP_GOOGLE_AUTH
+            value: "true"
+          - name: RA_MOCK_AI
             value: "true"
       # Minder strikt rollout-gedrag — preview spawn moet snel zijn (geen
       # PVC/Recreate-vereiste hier, maar consistent met het personal-feed-patroon).

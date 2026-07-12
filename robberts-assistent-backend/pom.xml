@@ -21,6 +21,7 @@
         <java.version>21</java.version>
         <kotlin.version>2.1.21</kotlin.version>
         <spring-modulith.version>1.4.11</spring-modulith.version>
+        <spring-ai.version>1.1.5</spring-ai.version>
     </properties>
 
     <dependencyManagement>
@@ -29,6 +30,13 @@
                 <groupId>org.springframework.modulith</groupId>
                 <artifactId>spring-modulith-bom</artifactId>
                 <version>${spring-modulith.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -43,6 +51,19 @@
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-kotlin</artifactId>
+        </dependency>
+        <!-- Chat-assistent: alleen de kale OpenAI-client (OpenAiApi/OpenAiChatModel), bewust GEEN
+             spring-ai-starter-model-openai — die auto-configureert een ChatModel-bean op basis van
+             properties, wat botst met onze eigen keuze tussen echte/mock-ChatModel in AiConfig.kt. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+        </dependency>
+        <!-- ChatClient + tool-calling (@Tool, ChatClient.builder().defaultTools(...)) — apart van
+             spring-ai-openai, dat alleen het model-protocol zelf bevat. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
         </dependency>
         <!-- Verificatie van Google OIDC ID-tokens (RS256-signature via JWKS, claims). -->
         <dependency>
