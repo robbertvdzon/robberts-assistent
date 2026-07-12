@@ -426,3 +426,28 @@ Done / rationale:
   lokale `flutter test`-run.
 - Conclusie: alle acceptatiecriteria van SF-950/SF-948 zijn voldaan. Geen
   bugs gevonden.
+
+## Development (SF-949, vijfde ronde, na tester-run)
+
+- `git status` clean bij start; geen merge-conflictmarkers
+  (`grep -rn "^<<<<<<<\|^=======$\|^>>>>>>>"` → geen treffers).
+- Alle 4 doelbestanden opnieuw geverifieerd, nog steeds correct en
+  ongewijzigd t.o.v. de eerder goedgekeurde code-inhoud:
+  - `robberts_assistent/lib/main.dart`: `MaterialApp.title` (regel 28) en de
+    `Text` op het loginscherm (regel 140) → `"Robbert's Assistent"`.
+  - `robberts_assistent/lib/home_screen.dart`: AppBar-titel (regel 29) →
+    `Text("Robbert's Assistent")`.
+  - `robberts_assistent/android/app/src/main/AndroidManifest.xml`:
+    `android:label="Robbert&apos;s Assistent"` (regel 6), opnieuw als
+    well-formed XML geverifieerd (`xml.dom.minidom`).
+  - `robberts_assistent/test/widget_test.dart`: `find.text("Robbert's
+    Assistent")`.
+- `grep -rn "Robberts Assistent" robberts_assistent/` → geen treffers meer
+  binnen de Flutter-app. Niet-UI teksten (`pom.xml`,
+  `robberts-assistent-apk.yml`, `secrets.example.env`) terecht ongewijzigd.
+- `which flutter dart` → leeg in deze developer-sandbox; zelfde structurele
+  omgevingsbeperking als voorgaande rondes
+  (agent-tip `environment/flutter-android-sdk-absent`).
+- Geen codewijzigingen doorgevoerd: de story was al volledig en correct
+  geïmplementeerd (bevestigd in eerdere test-ronde met `phase: tested`).
+  Working tree blijft clean op deze worklog-update na.
