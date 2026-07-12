@@ -3,7 +3,7 @@
     <!-- Spraakherkenning voor "praat met de assistent" (speech_to_text). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
-        android:label="Robberts Assistent"
+        android:label="Robbert&apos;s Assistent"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -13,7 +13,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Robberts Assistent'), findsOneWidget);
+    expect(find.text("Robbert's Assistent"), findsOneWidget);
     expect(find.text('Log in met Google om verder te gaan.'), findsOneWidget);
   });
 }
