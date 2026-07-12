@@ -451,3 +451,24 @@ Done / rationale:
 - Geen codewijzigingen doorgevoerd: de story was al volledig en correct
   geïmplementeerd (bevestigd in eerdere test-ronde met `phase: tested`).
   Working tree blijft clean op deze worklog-update na.
+
+## Review (SF-949)
+
+- `git diff main...HEAD` gecontroleerd (volledige story-diff, niet alleen
+  laatste commit): exact de 4 verwachte 1-regelige wijzigingen in
+  `main.dart` (2x), `home_screen.dart`, `AndroidManifest.xml`,
+  `widget_test.dart`, plus de worklog zelf. Geen scope-overschrijding.
+- `grep -rn "Robberts Assistent" robberts_assistent/` → geen treffers meer;
+  niet-UI bestanden (`pom.xml`, CI-workflownaam, `secrets.example.env`)
+  terecht ongewijzigd.
+- `AndroidManifest.xml` opnieuw als well-formed XML geverifieerd
+  (`xml.dom.minidom`) — `android:label="Robbert&apos;s Assistent"` is
+  correcte XML-escaping van de apostrof.
+- Interne identifiers (`RobbertsAssistentApp`, klassenaam) blijven
+  ongewijzigd — terecht, want niet zichtbaar voor de eindgebruiker en
+  buiten scope volgens `.task.md`.
+- Ontbrekend lokaal `flutter test`-bewijs is conform de reviewer-instructies
+  in `.task.md` geen blocker voor een zuivere Dart/Flutter-tekstwijziging;
+  tester heeft dit bovendien al aanvullend bevestigd via een live
+  preview-build. Ik accepteer dit expliciet als voldoende testbewijs.
+- Conclusie: geen bugs, geen regressies, scope correct. Goedgekeurd.
