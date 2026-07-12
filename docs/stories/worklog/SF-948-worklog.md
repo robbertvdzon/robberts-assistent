@@ -472,3 +472,31 @@ Done / rationale:
   tester heeft dit bovendien al aanvullend bevestigd via een live
   preview-build. Ik accepteer dit expliciet als voldoende testbewijs.
 - Conclusie: geen bugs, geen regressies, scope correct. Goedgekeurd.
+
+## Test (SF-950, story-brede test na reviewer-approval)
+
+- `git diff main...HEAD --stat`: alleen de 4 verwachte bestanden in
+  `robberts_assistent/` (`main.dart`, `home_screen.dart`,
+  `AndroidManifest.xml`, `widget_test.dart`) + deze worklog gewijzigd.
+  Geen scope-overschrijding, inhoud regel-voor-regel gecontroleerd en
+  identiek aan de eerder goedgekeurde versie:
+  `MaterialApp.title`/loginscherm-`Text` in `main.dart` (2x),
+  AppBar-titel in `home_screen.dart`, `android:label="Robbert&apos;s
+  Assistent"` in `AndroidManifest.xml`, `find.text("Robbert's Assistent")`
+  in `widget_test.dart`.
+- `grep -rln "Robberts Assistent" .` (zonder apostrof) → alleen terecht
+  buiten-scope treffers (`robberts-assistent-backend/pom.xml`,
+  `.github/workflows/robberts-assistent-apk.yml`, `secrets.example.env`,
+  `.task.md`, worklog-historie). Geen enkele treffer meer binnen
+  `robberts_assistent/`.
+- Live preview (`robberts-assistent-pr-5`) opgehaald: `main.dart.js` bevat
+  de nieuwe tekst "Robbert's Assistent" en 0x de oude "Robberts Assistent"
+  — de daadwerkelijk gedeployde build reflecteert de wijziging.
+- `flutter test` kon ook nu niet lokaal draaien (aarch64-sandbox, geen
+  linux-arm64 Flutter-SDK, agent-tip
+  `environment/flutter-sdk-unavailable-arm64-sandbox`). Conform de
+  bijgewerkte tester-instructies is dit voor een zuivere Dart/Flutter-
+  tekstwijziging geen blocker; geaccepteerd op basis van grondige
+  handmatige code-/diff-review plus de preview-JS-verificatie hierboven.
+- Conclusie: alle acceptatiecriteria van SF-950/SF-948 zijn voldaan, geen
+  bugs of scope-issues gevonden.
