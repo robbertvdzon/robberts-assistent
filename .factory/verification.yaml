@@ -1,8 +1,19 @@
+# Onafhankelijke, factory-side verificatiepoort (zie softwarefactory's
+# TesterVerificationEvidenceValidator — draait ELK geconfigureerd commando hier voor ELKE
+# story die de test-fase bereikt, ongeacht welke component de story raakt, en eist een
+# echte exitCode 0). Bewust GEEN `flutter test`-commando: de tester-/reviewer-sandbox is
+# linux/arm64 en Flutter publiceert geen officiële linux-arm64 SDK, dus zo'n commando kan
+# hier nooit slagen — het zou permanent elke story blokkeren (zie SF-948/SF-949, ontdekt
+# 2026-07-12). Voor Flutter/Dart-only wijzigingen is grondige handmatige code-review het
+# geaccepteerde alternatief (zie docs/factory/agents/reviewer.md en tester.md).
+#
+# mvn test IS structureel runnable in die sandbox (mvn staat in het agent-image) en dekt
+# in elk geval de backend echt en deterministisch.
 version: 1
 commands:
-  - id: wind-flutter-test
+  - id: backend-mvn-test
     argv:
-      - flutter
+      - mvn
       - test
-    workingDirectory: wind
+    workingDirectory: robberts-assistent-backend
     timeoutSeconds: 900
