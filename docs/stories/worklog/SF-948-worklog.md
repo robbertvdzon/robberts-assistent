@@ -214,3 +214,43 @@ Done / rationale:
   een developer-ronde kan oplossen.
 - Geen codewijzigingen doorgevoerd: de story was al volledig en correct
   geïmplementeerd. Working tree blijft clean (op deze worklog-update na).
+
+## Review (SF-949, vierde ronde)
+
+- `git diff main...HEAD --stat`: exact de 4 verwachte bestanden in
+  `robberts_assistent/` (`main.dart`, `home_screen.dart`,
+  `AndroidManifest.xml`, `widget_test.dart`), plus alleen worklog-history.
+  Geen scope-overschrijding, geen andere bestanden geraakt.
+- Inhoud opnieuw geverifieerd, letterlijk identiek aan vorige review-ronde
+  (nog steeds afkomstig uit commit `a648c14`, latere commits zijn
+  uitsluitend worklog/merge zonder codewijziging):
+  - `main.dart`: `MaterialApp.title` en de `Text` op het loginscherm →
+    `"Robbert's Assistent"` (2x).
+  - `home_screen.dart`: AppBar-titel → `"Robbert's Assistent"`.
+  - `AndroidManifest.xml`: `android:label="Robbert&apos;s Assistent"`
+    (XML-entity correct, well-formed).
+  - `widget_test.dart`: `find.text("Robbert's Assistent")`.
+  - `grep -rn "Robberts Assistent" .` → alleen terecht buiten-scope
+    treffers (`pom.xml`, CI-workflownaam, `secrets.example.env`,
+    `.task.md`, worklog-historie). Klassenaam `RobbertsAssistentApp` in
+    `main.dart`/`widget_test.dart` is een Dart-identifier, niet
+    gebruikersgericht, terecht ongewijzigd.
+  - Geen merge-conflictmarkers.
+- **[blocker] Testbewijs nog steeds ontbrekend**: `which flutter dart` →
+  leeg in deze reviewer-sandbox (aarch64, geen linux-arm64 Flutter-SDK).
+  `robberts-assistent-apk.yml` triggert nog steeds alleen op `push` naar
+  `main` en `workflow_dispatch` — geen PR/branch-trigger, dus nog steeds
+  geen enkele CI-run met `flutter test`/`./gradlew test`-resultaten voor
+  deze branch. Identieke structurele blocker als de drie voorgaande
+  review-/test-rondes (zie agent-tip
+  `reviewer/robberts-assistent-apk-no-branch-trigger`); een vierde
+  development-ronde zonder codewijziging lost dit niet op, want het is geen
+  codeprobleem.
+- Conclusie: code-inhoud is correct, compleet, binnen scope en identiek aan
+  eerdere goedgekeurde review-inhoud. Conform de absolute
+  test-evidence-gate kan dit echter niet als groen worden geaccepteerd
+  zolang er geen `flutter test`-bewijs is. Reject blijft uitsluitend om de
+  ontbrekende testdekking, niet om een inhoudelijk codeprobleem.
+  Aanbeveling (ongewijzigd): trigger `workflow_dispatch` op deze branch, of
+  voeg tijdelijk een `pull_request`-trigger toe aan
+  `robberts-assistent-apk.yml`, om deze story uit de reject-loop te halen.
