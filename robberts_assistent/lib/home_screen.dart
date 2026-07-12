@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Robbert's Assistent"),
+        title: const Text("Robbert's assistent"),
         actions: [
           IconButton(
             tooltip: 'Uitloggen',

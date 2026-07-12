@@ -1,6 +1,6 @@
 {
-    "name": "robberts_assistent",
-    "short_name": "robberts_assistent",
+    "name": "Robbert's assistent",
+    "short_name": "Robbert's assistent",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
