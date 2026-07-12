@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'assistant_screen.dart';
 import 'summary_screen.dart';
+import 'updates_screen.dart';
 
 /// App-shell na het inloggen: navigatie tussen de dagelijkse samenvatting en de assistent.
 class HomeScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final screens = [
       SummaryScreen(api: widget.api),
       AssistantScreen(api: widget.api),
+      const UpdatesScreen(),
     ];
     return Scaffold(
       appBar: AppBar(
@@ -42,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Samenvatting'),
           NavigationDestination(icon: Icon(Icons.assistant_outlined), selectedIcon: Icon(Icons.assistant), label: 'Assistent'),
+          NavigationDestination(icon: Icon(Icons.system_update_outlined), selectedIcon: Icon(Icons.system_update), label: 'Updates'),
         ],
       ),
     );
