@@ -16,6 +16,11 @@ private val SYSTEM_PROMPT = """
     verzin geen gegevens die je met een tool kunt ophalen.
     Als een windbron geen bruikbare waarde teruggeeft (bv. alleen een laadscherm), probeer dan de
     andere windbron voordat je aangeeft dat het niet lukt.
+    Voor voorspellingen: windfinder dekt vandaag/morgen en is nauwkeuriger voor deze kustlocatie —
+    gebruik die als eerste bron. Vraagt iemand verder vooruit (overmorgen en later), vul dan aan met
+    de Open-Meteo-tool en combineer beide in één antwoord: windfinder voor de dagen die het dekt,
+    Open-Meteo voor de rest. Vermeld kort dat de dagen verder vooruit van een andere (minder
+    kustspecifieke) bron komen.
 """.trimIndent()
 
 /**

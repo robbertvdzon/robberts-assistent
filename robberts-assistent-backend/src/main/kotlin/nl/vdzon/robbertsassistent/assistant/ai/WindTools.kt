@@ -1,5 +1,7 @@
 package nl.vdzon.robbertsassistent.assistant.ai
 
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.ai.tool.annotation.Tool
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -28,6 +30,8 @@ import java.time.Duration
 @Component
 class WindTools(private val httpClient: HttpClient = HttpClient.newHttpClient()) {
 
+    private val objectMapper = jacksonObjectMapper()
+
     @Tool(
         description = "Haal de actuele windpagina van Rijkswaterstaat (waterinfo.rws.nl) op voor " +
             "IJmuiden buitenhaven. Deze pagina laadt data via JavaScript; als de tekst geen " +
@@ -52,6 +56,33 @@ class WindTools(private val httpClient: HttpClient = HttpClient.newHttpClient())
     )
     fun getWindForecastWindfinderIJmuiden(): String = fetchText(WINDFINDER_FORECAST_URL)
 
+    @Tool(
+        description = "Haal een 7-daagse uurvoorspelling (elke 3 uur) van Open-Meteo op voor IJmuiden " +
+            "(windsnelheid, windstoten, windrichting). Gebruik dit ALLEEN voor dagen die " +
+            "getWindForecastWindfinderIJmuiden niet dekt, dus vanaf overmorgen — voor vandaag/morgen " +
+            "is windfinder nauwkeuriger voor deze kustlocatie. Vergelijking met windfinder's " +
+            "Superforecast (2026-07-12) liet zien dat Open-Meteo's 'windsnelheid' structureel lager " +
+            "uitkomt dan windfinder's sustained-waarde, terwijl Open-Meteo's 'windstoten' juist " +
+            "aardig overeenkomt met windfinder's 'max'-kolom (waarschijnlijk een ander " +
+            "middelingsinterval, niet per se een minder accuraat model). Vermeld bij gebruik van " +
+            "deze bron dat het een ander/minder kustspecifiek model is dan windfinder.",
+    )
+    fun getWindForecastOpenMeteoIJmuiden(): String = fetchOpenMeteoForecast()
+
+    private fun fetchOpenMeteoForecast(): String =
+        runCatching {
+            val request = HttpRequest.newBuilder(URI.create(OPEN_METEO_URL))
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build()
+            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+            if (response.statusCode() !in 200..299) {
+                "Kon Open-Meteo niet ophalen (HTTP ${response.statusCode()})."
+            } else {
+                openMeteoResponseToText(objectMapper.readTree(response.body()))
+            }
+        }.getOrElse { "Kon Open-Meteo niet ophalen: ${it.message}" }
+
     private fun fetchText(url: String): String =
         runCatching {
             val request = HttpRequest.newBuilder(URI.create(url))
@@ -71,9 +102,46 @@ class WindTools(private val httpClient: HttpClient = HttpClient.newHttpClient())
         private const val WATERINFO_URL = "https://waterinfo.rws.nl/publiek/wind/ijmuiden.buitenhaven/details"
         private const val WINDFINDER_URL = "https://www.windfinder.com/report/ijmuiden"
         private const val WINDFINDER_FORECAST_URL = "https://www.windfinder.com/forecast/ijmuiden"
+        // IJmuiden Zuidpier-coördinaten. Gratis, geen API-key nodig (Open-Meteo).
+        private const val OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast" +
+            "?latitude=52.4614&longitude=4.5552" +
+            "&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m" +
+            "&forecast_days=7&wind_speed_unit=kn&timezone=Europe%2FAmsterdam"
+        private val OPEN_METEO_CHECKPOINT_HOURS = setOf(8, 11, 14, 17, 20, 23)
+        private val COMPASS_POINTS = listOf(
+            "N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO",
+            "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NNW",
+        )
         // Iets ruimer dan voor het actuele-rapport nodig zou zijn — de voorspellingspagina
         // bevat meerdere dagen/tijdstippen, dus die heeft meer tekst nodig om bruikbaar te zijn.
         private const val MAX_LENGTH = 6000
+
+        /** Converteert graden (0-360) naar een 16-punts kompasrichting (Nederlands, zoals windfinder). */
+        internal fun compassPoint(degrees: Double): String =
+            COMPASS_POINTS[(((degrees % 360) / 22.5) + 0.5).toInt() % 16]
+
+        /**
+         * Compacte tekstsamenvatting van de Open-Meteo-JSON-response: per dag een paar vaste
+         * checkpoints (elke 3 uur) i.p.v. alle 168 uren — genoeg voor "in de avond"-vragen zonder
+         * de tool-response nodeloos op te blazen.
+         */
+        internal fun openMeteoResponseToText(root: JsonNode): String {
+            val hourly = root.path("hourly")
+            val times = hourly.path("time").map { it.asText() }
+            val speeds = hourly.path("wind_speed_10m").map { it.asDouble() }
+            val gusts = hourly.path("wind_gusts_10m").map { it.asDouble() }
+            val dirs = hourly.path("wind_direction_10m").map { it.asDouble() }
+            if (times.isEmpty()) return "Open-Meteo gaf geen voorspellingsdata terug."
+
+            val lines = times.indices.filter { i ->
+                val hour = times[i].takeLast(5).substringBefore(":").toIntOrNull()
+                hour in OPEN_METEO_CHECKPOINT_HOURS
+            }.map { i ->
+                val (date, time) = times[i].split("T")
+                "$date $time: ${speeds[i]} kts (windstoten ${gusts[i]} kts), ${compassPoint(dirs[i])}"
+            }
+            return lines.joinToString("\n")
+        }
 
         /** Strip script/style/tags, decodeer een handjevol entities, comprimeer whitespace. */
         internal fun htmlToPlainText(html: String): String {
