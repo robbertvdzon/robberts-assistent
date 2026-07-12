@@ -94,3 +94,42 @@ Done / rationale:
   gevonden. Enige beperking: `flutter test` kon niet lokaal draaien
   (omgevingsbeperking, geen codeprobleem) — gecompenseerd door de
   preview-JS-check hierboven.
+
+## Review (SF-949, herhaling na test-rejected)
+
+- Volledige story-diff opnieuw bekeken (`git diff main...HEAD`): alleen de
+  4 verwachte bestanden (`main.dart`, `home_screen.dart`,
+  `AndroidManifest.xml`, `widget_test.dart`) + worklog gewijzigd t.o.v.
+  `main`. Geen nieuwe wijzigingen sinds de vorige review-ronde (commit
+  `a648c14` bevat alle code-wijzigingen; latere commits zijn alleen
+  worklog-updates van reviewer/tester).
+- Inhoudelijk: de string-literal wijzigingen zijn correct en compleet
+  (`'Robberts Assistent'` → `"Robbert's Assistent"` in `main.dart` (2x) en
+  `home_screen.dart`; `android:label="Robberts Assistent"` →
+  `android:label="Robbert&apos;s Assistent"` in `AndroidManifest.xml`;
+  `widget_test.dart`-matcher consistent bijgewerkt). `grep -rn
+  "Robberts Assistent" robberts_assistent/` bevestigt geen restanten meer.
+  Niet-UI teksten terecht ongewijzigd. Geen scope-overschrijding, geen
+  regressie-risico (zuivere literal-edits, geen logica geraakt).
+- **[blocker] Ontbrekend testbewijs**: er is nog steeds geen enkele
+  daadwerkelijke `flutter test`-run beschikbaar voor deze wijziging. Ik heb
+  zelf geverifieerd (`which flutter dart` → niets gevonden, sandbox is
+  aarch64) dat ook deze reviewer-omgeving geen Flutter-SDK heeft. Daarnaast
+  bevestigd via `.github/workflows/robberts-assistent-apk.yml`
+  (`on: push branches:[main], workflow_dispatch`) dat er geen
+  pull-request/branch-trigger is die dit ooit voor deze branch zou draaien —
+  dus geen CI-bewijs beschikbaar, net als bij de vorige review- en
+  test-ronde. De tester heeft dit al als blocker gemarkeerd
+  (`{"phase":"test-rejected"}`) ondanks sterke aanvullende verificatie
+  (preview main.dart.js-check). Volgens de expliciete, absolute
+  reviewer-gate ("Ontbrekend of rood volledig testbewijs is een blocker.
+  Accepteer nooit 'pre-existing' failures/errors ... als groen bewijs.")
+  mag ik dit niet als groen licht accepteren, ook al is de code-inhoud zelf
+  correct en triviaal. Er is niets in deze diff veranderd dat dit zou
+  oplossen; dit is een omgevings-/CI-configuratieprobleem
+  (ontbrekende PR/branch-trigger voor `flutter test`), geen codeprobleem.
+- Conclusie: code-inhoud akkoord, maar de story kan pas als getest gelden
+  zodra er een echte `flutter test`-run beschikbaar komt (bijv. door
+  `workflow_dispatch` op deze branch te triggeren, of door de workflow ook
+  op `pull_request`/feature-branches te laten draaien). Reject conform de
+  test-evidence-gate, niet vanwege een inhoudelijke code-bug.
