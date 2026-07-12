@@ -195,3 +195,27 @@ Done / rationale:
   `robberts_assistent/`, geen iOS/pom.xml/CI-workflow/secrets-wijzigingen).
 - Oordeel: alle acceptatiecriteria van SF-955/SF-956 blijven geverifieerd,
   geen bugs gevonden.
+
+## Developer-hercontrole (SF-956, nogmaals nieuwe run)
+
+- Opnieuw opdracht voor SF-956 ontvangen op een schone working tree (`git
+  status`: clean, `HEAD` nog steeds `9a867b7`). Alle scope-wijzigingen bleken
+  wederom al aanwezig; geen code-wijzigingen nodig.
+- Herverificatie: `grep -rn "Robbert's Assistent"` en de default-tekst
+  "robberts_assistent" in `web/index.html`/`web/manifest.json` binnen
+  `robberts_assistent/` leveren niets op. Titel "Robbert's assistent"
+  bevestigd in `lib/main.dart` (title + login-Text), `lib/home_screen.dart`
+  (AppBar), `AndroidManifest.xml` (`android:label`), `web/index.html`
+  (`<title>` + apple-meta-tag), `web/manifest.json` (`name`/`short_name`) en
+  `test/widget_test.dart`.
+- `pubspec.yaml` bevat het `flutter_launcher_icons`-`web:`-blok
+  (`generate: true`, `image_path: assets/icon/icon.png`, kleuren consistent
+  met manifest). Web-iconbestanden opnieuw op afmeting gecontroleerd via
+  PNG-header (`struct`): favicon 16x16, Icon-192/maskable-192 192x192,
+  Icon-512/maskable-512 512x512 — allemaal kloppend.
+- `AndroidManifest.xml` en `web/manifest.json` opnieuw geparsed (valide XML
+  resp. JSON). `flutter`/`dart` blijven afwezig in deze sandbox (bekende
+  beperking, zie agent-tips); `flutter test`/`flutter build` dus wederom niet
+  lokaal uitvoerbaar.
+- Working tree blijft schoon na deze run; niets om te committen — de factory
+  handelt commit/push/PR-acties af.
