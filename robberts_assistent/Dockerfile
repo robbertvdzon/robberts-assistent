@@ -9,11 +9,13 @@ ARG API_BASE_URL=
 ARG BUILD_SHA=dev
 ARG BUILD_TIMESTAMP=dev
 ARG GOOGLE_CLIENT_ID=
+ARG SKIP_GOOGLE_AUTH=false
 RUN flutter build web --release \
       --dart-define=API_BASE_URL=${API_BASE_URL} \
       --dart-define=BUILD_SHA=${BUILD_SHA} \
       --dart-define=BUILD_TIMESTAMP=${BUILD_TIMESTAMP} \
       --dart-define=GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID} \
+      --dart-define=SKIP_GOOGLE_AUTH=${SKIP_GOOGLE_AUTH} \
  && rm -f build/web/flutter_service_worker.js
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine

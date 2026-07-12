@@ -13,6 +13,12 @@ void main() {
 /// De OAuth-web-client-ID komt via een build-time waarde (`--dart-define=GOOGLE_CLIENT_ID=...`).
 const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: '');
 
+/// Alleen `true` op PR-preview-builds. De preview-backend accepteert daar toch elke
+/// (of geen) Authorization-header (`RA_PREVIEW_SKIP_GOOGLE_AUTH`), maar dit scherm wist
+/// daar niets van en zou anders altijd een échte Google-popup blijven eisen — waardoor
+/// een tester-agent zonder Google-account nooit voorbij het loginscherm komt.
+const skipGoogleAuthPreview = bool.fromEnvironment('SKIP_GOOGLE_AUTH', defaultValue: false);
+
 class RobbertsAssistentApp extends StatelessWidget {
   const RobbertsAssistentApp({super.key});
 
@@ -76,6 +82,9 @@ class _RootScreenState extends State<RootScreen> {
 
   Future<void> _restoreSession() async {
     await api.restoreSession();
+    if (skipGoogleAuthPreview && api.token == null) {
+      api.token = 'preview';
+    }
     if (!mounted) return;
     setState(() => initialized = true);
   }

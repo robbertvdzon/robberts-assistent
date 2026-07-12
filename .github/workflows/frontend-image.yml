@@ -8,6 +8,14 @@ name: Build robberts-assistent-frontend image
 #                         robberts-infrastructure pint altijd deze SHA, dus
 #                         zonder image faalt de preview (ImagePullBackOff) —
 #                         zelfde les als personal-feed's "preview-image-gap".
+#
+# API_BASE_URL wordt bewust NIET meer meegegeven: de frontend-nginx (zie
+# robberts_assistent/nginx.conf) proxy't /api/ altijd same-origin naar
+# robberts-assistent-backend:80 in dezelfde namespace, dus een lege
+# (relatieve) baseUrl raakt vanzelf de juiste backend — in productie én in
+# elke PR-preview. Voorheen was dit hardcoded naar de productie-URL, dus
+# praatte een preview-frontend altijd met de productie-backend i.p.v. zijn
+# eigen preview-backend (en dus ook nooit met RA_PREVIEW_SKIP_GOOGLE_AUTH).
 on:
   push:
     branches: [main]
@@ -30,7 +38,6 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/robbertvdzon/robberts-assistent-frontend
-  API_BASE_URL: https://robberts-assistent.vdzonsoftware.nl
 
 jobs:
   build:
@@ -68,10 +75,10 @@ jobs:
             ${{ env.IMAGE }}:${{ steps.sha.outputs.tag }}
             ${{ github.event_name == 'push' && format('{0}:main', env.IMAGE) || '' }}
           build-args: |
-            API_BASE_URL=${{ env.API_BASE_URL }}
             BUILD_SHA=${{ steps.sha.outputs.tag }}
             BUILD_TIMESTAMP=${{ steps.ts.outputs.ts }}
             GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}
+            SKIP_GOOGLE_AUTH=${{ github.event_name == 'pull_request' }}
           cache-from: type=gha,scope=robberts-assistent-frontend
           cache-to: type=gha,mode=max,scope=robberts-assistent-frontend
 
