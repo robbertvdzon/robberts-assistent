@@ -63,3 +63,55 @@ Done / rationale:
   Kotlin/gradlew-test-gap, want dit zijn pure Dart-tests). Geaccepteerd als
   voldoende testbewijs voor deze wijziging.
 - Oordeel: geen blockers, geen bugs. Akkoord.
+
+## Test SF-943 (tester)
+
+- `git diff main...HEAD --stat` bevestigd: alleen de 5 verwachte bestanden
+  gewijzigd (notes_editor_screen.dart, nieuw widget-testbestand,
+  AssistantService.kt, AssistantServiceTest.kt, worklog). Geen scope-
+  overschrijding.
+- Backend-vangnet gedraaid: `cd robberts-assistent-backend && mvn test`
+  (online, Maven Central bereikbaar) → BUILD SUCCESS, 25 tests, 0 failures,
+  0 errors (o.a. `AssistantServiceTest` 1/1 met de nieuwe tekst `"Doe ik"`,
+  `AuthServiceTest` 15/15, `NotesServiceTest`, `SummaryServiceTest`,
+  `ModulithArchitectureTest`, `AppSecretsLoaderTest`).
+- `AssistantService.reply()` handmatig gecontroleerd: retourneert nu voor
+  elke input `"Doe ik"`; grep bevestigt geen andere plek met de oude tekst
+  `"Ga ik doen"`.
+- Flutter-kant (`notities/test/notes_editor_screen_test.dart`) kon **niet**
+  uitgevoerd worden in deze testomgeving: geprobeerd de Flutter-SDK te
+  installeren, maar Google publiceert geen officiële linux-arm64
+  Flutter-build (deze sandbox is aarch64) en er is geen x64-emulatie
+  (geen qemu/binfmt/docker/root beschikbaar) om de x64-SDK te draaien.
+  `.github/workflows/notities-apk.yml` (die `flutter test` draait) triggert
+  alleen op push naar `main`, dus er is ook nog geen CI-run voor deze
+  branch (bevestigd via GitHub API: wel 3x groene "Backend verification"
+  runs op de laatste commits, geen notities-workflow-run op deze branch).
+  Dit is dezelfde bekende omgevingsbeperking die developer en reviewer al
+  documenteerden voor deze story.
+- Als vervanging is de Dart-code en de nieuwe test handmatig gereviewed:
+  - `_saveNow()` zet `_dirty = true` en roept de bestaande `_save()` aan →
+    forceert altijd een opslag, ook zonder wijzigingen (voldoet aan de
+    "Aannames"-sectie).
+  - `_save()` annuleert de debounce-timer en slaat direct op via
+    `ApiClient.saveNotes`, zet bij succes `_status = 'Opgeslagen'`, bij
+    fout `_status = 'Opslaan mislukt: $e'` en zet `_dirty` terug op `true`
+    zodat een volgende trigger het opnieuw probeert — consistent met
+    bestaand gedrag.
+  - Save-knop staat in `AppBar.actions` tussen de status-tekst en de
+    uitlog-knop, met tooltip `'Opslaan'`.
+  - Auto-save-triggers (`_onChanged`-debounce, `didChangeAppLifecycleState`,
+    `dispose`) zijn ongewijzigd.
+  - De nieuwe widget-tests in `notes_editor_screen_test.dart` gebruiken een
+    `_FakeApiClient` die `getNotes`/`saveNotes` overschrijft (beide niet
+    `final`/`private` in `ApiClient`, dus overridebaar) en dekken precies
+    de AC's: knop zichtbaar, directe save zonder debounce, foutmelding-tekst,
+    en forceren zonder voorafgaande wijziging.
+  - Geen logische fouten of AC-afwijkingen gevonden bij deze read-through.
+- Preview-omgeving (`SF_PREVIEW_URL`) is de web-frontend van
+  `robberts_assistent`, niet van `notities` — volgens
+  `docs/factory/deployment.md` heeft de notities-app geen eigen web-deploy
+  (alleen APK), dus deze wijziging kon ook niet via de preview-URL in de
+  browser geverifieerd worden.
+- Opgeruimd: alle tijdelijke downloads (Flutter-SDK-tarball, Dart-SDK-zip)
+  uit `/tmp` verwijderd na de installatiepoging.
