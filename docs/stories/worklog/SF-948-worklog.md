@@ -521,3 +521,27 @@ Done / rationale:
   geen blocker voor een zuivere Dart/Flutter-tekstwijziging; ik accepteer dit
   expliciet als voldoende dekking naast de grondige handmatige code-review.
 - Geen bugs, geen regressies, scope correct. Goedgekeurd.
+
+## Test (SF-950, herhaalronde 2026-07-12 na reviewer-approval)
+
+- `git diff main...HEAD --name-only`: opnieuw exact de 4 verwachte
+  bestanden in `robberts_assistent/` (`main.dart`, `home_screen.dart`,
+  `AndroidManifest.xml`, `widget_test.dart`) + deze worklog. Geen
+  scope-overschrijding.
+- Inhoud regel-voor-regel herbevestigd: `MaterialApp.title` + login-`Text`
+  in `main.dart` (2x), AppBar-titel in `home_screen.dart`,
+  `android:label="Robbert&apos;s Assistent"` in `AndroidManifest.xml`,
+  `find.text("Robbert's Assistent")` in `widget_test.dart`.
+- `grep -rn "Robberts Assistent" robberts_assistent/` (zonder apostrof) →
+  geen treffers meer; `pom.xml`, CI-workflownaam en `secrets.example.env`
+  terecht ongewijzigd (buiten scope).
+- Live preview (`robberts-assistent-pr-5`) opnieuw opgehaald: `main.dart.js`
+  bevat 3x de nieuwe tekst "Robbert's Assistent" en 0x de oude "Robberts
+  Assistent" — de gedeployde build reflecteert de wijziging.
+- `flutter test` kon ook nu niet lokaal draaien (aarch64-sandbox, agent-tip
+  `environment/flutter-sdk-unavailable-arm64-sandbox`). Conform de
+  bijgewerkte tester-instructies is dit voor een zuivere Dart/Flutter-
+  tekstwijziging expliciet geen blocker; geaccepteerd op basis van grondige
+  handmatige code-/diff-review plus de preview-JS-verificatie hierboven.
+- Conclusie: alle acceptatiecriteria van SF-950/SF-948 zijn opnieuw
+  bevestigd. Geen bugs of scope-issues gevonden.
