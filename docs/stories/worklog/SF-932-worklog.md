@@ -39,3 +39,27 @@ Done / rationale:
   alle test-suites groen (o.a. `AssistantServiceTest`: 1/1, `AuthServiceTest`:
   15/15, `NotesServiceTest`, `SummaryServiceTest`, `ModulithArchitectureTest`,
   `AppSecretsLoaderTest`), 0 failures, 0 errors.
+
+## Review SF-942 (reviewer)
+
+- Diff t.o.v. main (`git diff main...HEAD`) bekeken: alleen de 5 verwachte
+  bestanden gewijzigd (notes_editor_screen.dart, nieuw widget-testbestand,
+  AssistantService.kt, AssistantServiceTest.kt, worklog). Geen scope-overschrijding.
+- `notes_editor_screen.dart`: save-knop correct toegevoegd aan `AppBar.actions`
+  tussen status-tekst en uitlog-knop; `_saveNow()` forceert opslag via
+  `_dirty = true` + bestaande `_save()`. Auto-save-triggers (debounce,
+  lifecycle, dispose) ongewijzigd. Voldoet aan alle AC's.
+- `AssistantService.kt`/`AssistantServiceTest.kt`: tekst "Ga ik doen" →
+  "Doe ik" consistent doorgevoerd; grep bevestigt geen andere plek in de
+  repo met deze string.
+- Backend: `mvn test` lokaal gedraaid (volledige suite) — 25 tests, 0
+  failures/errors (AssistantServiceTest, AuthServiceTest 15/15,
+  NotesServiceTest, SummaryServiceTest, ModulithArchitectureTest,
+  AppSecretsLoaderTest).
+- Flutter: geen Flutter/Dart-SDK in deze review-omgeving beschikbaar, dus
+  `notes_editor_screen_test.dart` kon hier niet uitgevoerd worden. CI
+  (`.github/workflows/notities-apk.yml`) draait `flutter test`, wat deze
+  Dart widget-tests wél dekt (niet de eerdere gedocumenteerde
+  Kotlin/gradlew-test-gap, want dit zijn pure Dart-tests). Geaccepteerd als
+  voldoende testbewijs voor deze wijziging.
+- Oordeel: geen blockers, geen bugs. Akkoord.
