@@ -133,3 +133,26 @@ Done / rationale:
   `workflow_dispatch` op deze branch te triggeren, of door de workflow ook
   op `pull_request`/feature-branches te laten draaien). Reject conform de
   test-evidence-gate, niet vanwege een inhoudelijke code-bug.
+
+## Development (SF-949, herhaling na test-rejected/review-rejected)
+
+- Branch opnieuw opgepakt na merge van `main` (windvoorspelling-feature).
+  `git status` was clean; alle 4 doelbestanden (`main.dart`,
+  `home_screen.dart`, `AndroidManifest.xml`, `widget_test.dart`) bevatten
+  al de gevraagde wijziging naar `"Robbert's Assistent"` uit de vorige
+  development-ronde — bevestigd met `git diff main -- robberts_assistent/`
+  (alleen de 4 verwachte 1-regelige literal-diffs) en met
+  `grep -rn "Robberts Assistent" robberts_assistent/` (geen treffers meer).
+- `AndroidManifest.xml` opnieuw als well-formed XML geverifieerd
+  (`python3 -c "import xml.dom.minidom as m; m.parse(...)"` → OK).
+- Geen merge-conflictmarkers (`<<<<<<<`/`=======`/`>>>>>>>`) aangetroffen na
+  de main-merge.
+- Er waren dus geen nieuwe code-wijzigingen nodig; de eerdere reject was
+  uitsluitend het gevolg van ontbrekend `flutter test`-bewijs (ARM64-sandbox
+  zonder Flutter-SDK, zie agent-tip
+  `environment/flutter-sdk-unavailable-arm64-sandbox`), niet van een
+  inhoudelijk codeprobleem. Dat omgevingsprobleem kan een developer-run niet
+  oplossen; `flutter test`/`./gradlew test` moet in CI draaien (idealiter via
+  `workflow_dispatch` op deze branch of door `robberts-assistent-apk.yml` ook
+  op `pull_request` te laten triggeren, zie agent-tip
+  `reviewer/robberts-assistent-apk-no-branch-trigger`).
