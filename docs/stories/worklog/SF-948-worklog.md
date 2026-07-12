@@ -393,3 +393,36 @@ Done / rationale:
   `.github/workflows/robberts-assistent-apk.yml` toevoegen, om deze story
   uit de reject-loop te halen zonder de absolute test-gate te verzwakken.
   worklog-update na).
+
+## Test (SF-950, nieuwe ronde na policy-update)
+
+- `.task.md` gelezen: scope is uitsluitend de titelwijziging "Robberts
+  Assistent" → "Robbert's Assistent" in `robberts_assistent/` (4 bestanden).
+- `git diff main...HEAD` gecontroleerd: exact de 4 verwachte bestanden
+  gewijzigd (`main.dart` 2x, `home_screen.dart`, `AndroidManifest.xml`,
+  `widget_test.dart`), plus de bekende niet-code documentatie/worklog/
+  CI-toevoegingen (`build-apk.yml`, `docs/factory/*`) die niet tot de
+  Wind/kotlin-featurewerk behoren — géén onverwachte wijzigingen in scope
+  van SF-948/SF-949. `grep -rn "Robberts Assistent" robberts_assistent/`
+  → geen treffers meer; enige repo-brede restant is
+  `robberts-assistent-backend/pom.xml`, terecht buiten scope.
+  Niet-UI bestanden (workflows, `secrets.example.env`) ongewijzigd.
+- Live preview (`robberts-assistent-pr-5`,
+  `https://robberts-assistent-frontend-robberts-assistent-pr-5.apps.sno.lab.vdzon.com`)
+  gecontroleerd: `flutter_bootstrap.js` + `main.dart.js` opgehaald; de
+  gecompileerde bundel bevat 1x "Robbert's Assistent" en 0x de oude
+  "Robberts Assistent" (zonder apostrof) — de daadwerkelijk gedeployde app
+  reflecteert de wijziging correct.
+- `which flutter` → leeg; sandbox is aarch64, structureel geen
+  linux-arm64 Flutter-SDK beschikbaar (agent-tip
+  `environment/flutter-sdk-unavailable-arm64-sandbox`), zelfde beperking
+  als voorgaande rondes. Conform de bijgewerkte `docs/factory/agents/
+  tester.md` (na SF-948 policy-fix "reviewer/tester mogen ontbrekend
+  flutter-test-bewijs niet meer als blocker gebruiken") is dit voor een
+  wijziging die uitsluitend Dart/Flutter-UI-tekst raakt GEEN blocker meer:
+  ik geef `tested` op basis van de grondige handmatige code-/diff-review
+  tegen de acceptatiecriteria plus de aanvullende preview-verificatie
+  hierboven, en vermeld dit expliciet als geaccepteerde vervanging voor een
+  lokale `flutter test`-run.
+- Conclusie: alle acceptatiecriteria van SF-950/SF-948 zijn voldaan. Geen
+  bugs gevonden.
