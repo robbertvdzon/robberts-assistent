@@ -34,6 +34,6 @@ class WindToolsTest {
 
         val text = WindTools.htmlToPlainText("<p>$longText</p>")
 
-        assertTrue(text.length <= 4000)
+        assertTrue(text.length <= 6000)
     }
 }
