@@ -146,3 +146,24 @@ Done / rationale:
   van deze omgeving; backend volledig getest (groen), preview-gedrag
   bevestigd na de auth-fix; Flutter-kant alleen via code-review (bekende,
   reeds gedocumenteerde beperking).
+
+## Re-pickup SF-942 (developer)
+
+- Story kwam opnieuw in de `developing`-fase binnen, maar de working tree was
+  al clean: alle wijzigingen (save-knop in `notes_editor_screen.dart`, nieuwe
+  widget-tests, `AssistantService.kt`/`AssistantServiceTest.kt` → `"Doe ik"`)
+  staan al in eerdere commits op deze branch. Geen git-merge-conflictmarkers
+  aangetroffen.
+- Code-inspectie tegen alle AC's herhaald: save-knop (`Icons.save`, tooltip
+  `'Opslaan'`) staat in `AppBar.actions` tussen status-tekst en uitlog-knop;
+  `_saveNow()` forceert `_dirty = true` + bestaande `_save()`; auto-save-
+  triggers (debounce, lifecycle, dispose) ongewijzigd; `reply()` retourneert
+  `"Doe ik"`. Alles conform scope.
+- Backend-vangnet opnieuw gedraaid: `cd robberts-assistent-backend && mvn
+  test` → BUILD SUCCESS, 25/25 tests, 0 failures, 0 errors (incl.
+  `AssistantServiceTest`).
+- Flutter/notities-kant: zelfde, eerder gedocumenteerde omgevingsbeperking
+  (geen Flutter-SDK in deze sandbox) — geen nieuwe code nodig, dus geen
+  nieuwe testverificatie vereist buiten de bestaande code-review.
+- Geen inhoudelijke wijzigingen doorgevoerd; alleen deze worklog-entry
+  toegevoegd ter bevestiging van de herverificatie.
