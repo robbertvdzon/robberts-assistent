@@ -219,3 +219,35 @@ Done / rationale:
   lokaal uitvoerbaar.
 - Working tree blijft schoon na deze run; niets om te committen — de factory
   handelt commit/push/PR-acties af.
+
+## Review (SF-956, nieuwe onafhankelijke run)
+
+- Volledige diff `main...HEAD` opnieuw bekeken (13 bestanden, uitsluitend
+  `robberts_assistent/` + worklog): alle titelwijzigingen kloppen exact met
+  de scope in `lib/main.dart` (`MaterialApp.title` + login-`Text`),
+  `lib/home_screen.dart` (AppBar), `AndroidManifest.xml` (`android:label`),
+  `web/index.html` (`<title>` + `apple-mobile-web-app-title`) en
+  `web/manifest.json` (`name`/`short_name`); `test/widget_test.dart` verwacht
+  de nieuwe tekst. Grep op "Robbert's Assistent" en de default
+  "robberts_assistent" levert niets meer op.
+- `pubspec.yaml` bevat het `flutter_launcher_icons`-`web:`-blok
+  (`generate: true`, `image_path: assets/icon/icon.png`, kleuren consistent
+  met manifest); Android-blok ongewijzigd, `android/app/src/main/res/mipmap*`
+  niet aangeraakt in de diff.
+- Web-iconbestanden visueel geïnspecteerd (favicon, Icon-512,
+  Icon-maskable-192): tonen het custom paarse chatbubbel-met-ster-icon uit
+  `assets/icon/icon.png`, niet het standaard Flutter-logo. Afmetingen
+  geverifieerd met Python `struct` op de PNG-header: favicon 16x16,
+  Icon-192/Icon-maskable-192 192x192, Icon-512/Icon-maskable-512 512x512 —
+  allemaal correct.
+- Geen scope-overschrijding (geen iOS-, pom.xml-, CI-workflow- of
+  secrets-wijzigingen); `git status` schoon.
+- `flutter test` structureel niet uitvoerbaar in deze sandbox (bekende
+  arm64-beperking, geen branch-CI conform agent-tips
+  `robberts-assistent-apk-no-branch-trigger`/`notities-ci-never-ran-on-branch`)
+  — geaccepteerd als geen blocker voor deze zuivere Flutter-UI/config-wijziging,
+  gecompenseerd door grondige code-review + eerdere tester-run met
+  live-preview-verificatie en Playwright-screenshot. Backend niet geraakt door
+  deze diff, dus `mvn test` niet van toepassing op deze story-scope (wel al
+  eerder groen gedraaid als regressiecheck).
+- Oordeel: akkoord, geen bugs of blockers gevonden.
