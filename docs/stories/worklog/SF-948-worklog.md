@@ -286,3 +286,33 @@ Done / rationale:
   planner om dit eventueel als aparte taak op te pakken.
 - Geen codewijzigingen doorgevoerd: de story was al volledig en correct
   geïmplementeerd. Working tree blijft clean (op deze worklog-update na).
+
+## Review (SF-949, vijfde ronde)
+
+- `git diff main...HEAD -- robberts_assistent/` opnieuw volledig bekeken:
+  exact dezelfde 4 bestanden en 1-regelige diffs als in de vorige
+  goedgekeurde review-inhoud (`main.dart` 2x, `home_screen.dart`,
+  `AndroidManifest.xml`, `widget_test.dart`), geen scope-overschrijding.
+  `git diff --stat` bevestigt geen andere geraakte bestanden buiten
+  `robberts_assistent/` en de worklog zelf.
+- Inhoud geverifieerd: `MaterialApp.title` en loginscherm-`Text` in
+  `main.dart` → `"Robbert's Assistent"`; AppBar-titel in `home_screen.dart`
+  idem; `android:label="Robbert&apos;s Assistent"` in `AndroidManifest.xml`
+  (well-formed XML entity); `find.text("Robbert's Assistent")` in
+  `widget_test.dart`. `grep -rn "Robberts Assistent"` levert alleen de
+  terecht buiten-scope treffers op (`pom.xml`, CI-workflownaam,
+  `secrets.example.env`). Geen merge-conflictmarkers.
+- **[blocker] Testbewijs nog steeds ontbrekend**: `which flutter dart` →
+  leeg in deze reviewer-sandbox (aarch64, geen linux-arm64 Flutter-SDK
+  beschikbaar). `robberts-assistent-apk.yml` triggert nog steeds alleen op
+  `push` naar `main`/`workflow_dispatch`, dus er is nog steeds geen enkele
+  CI-run met `flutter test`/`./gradlew test`-resultaten voor deze branch.
+  Identieke structurele blocker als de vier voorgaande review-/test-rondes
+  (agent-tip `reviewer/robberts-assistent-apk-no-branch-trigger`).
+- Conclusie: code-inhoud is opnieuw correct, compleet, binnen scope en
+  ongewijzigd t.o.v. de vorige review. Reject is uitsluitend vanwege de
+  ontbrekende testdekking (absolute gate), niet vanwege een codeprobleem.
+  Verdere development-rondes zonder een CI-trigger-wijziging (buiten scope
+  van deze subtaak) zullen dit niet oplossen — een menselijke/factory-
+  beslissing over `workflow_dispatch` op deze branch of een tijdelijke
+  `pull_request`-trigger is nodig om deze story uit de loop te halen.
