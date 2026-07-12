@@ -251,3 +251,48 @@ Done / rationale:
   deze diff, dus `mvn test` niet van toepassing op deze story-scope (wel al
   eerder groen gedraaid als regressiecheck).
 - Oordeel: akkoord, geen bugs of blockers gevonden.
+
+## Test (SF-957, nieuwe onafhankelijke run)
+
+- Diff `main...HEAD` (13 bestanden, uitsluitend `robberts_assistent/` +
+  worklog) opnieuw gecontroleerd tegen de acceptatiecriteria: titel
+  "Robbert's Assistent" → "Robbert's assistent" correct in `lib/main.dart`
+  (`MaterialApp.title` + login-`Text`), `lib/home_screen.dart` (AppBar),
+  `AndroidManifest.xml` (`android:label`), `web/index.html` (`<title>` +
+  `apple-mobile-web-app-title`) en `web/manifest.json` (`name`/`short_name`).
+  `test/widget_test.dart` verwacht de nieuwe tekst. Grep op de oude
+  hoofdletter-variant en op de default-tekst "robberts_assistent" binnen
+  `robberts_assistent/` levert niets meer op.
+- `pubspec.yaml` bevat het `flutter_launcher_icons`-`web:`-blok (`generate:
+  true`, `image_path: assets/icon/icon.png`, kleuren consistent met
+  manifest); Android-blok ongewijzigd. Web-iconbestanden lokaal met
+  Python/`struct` op PNG-afmeting gecontroleerd: `favicon.png` 16x16,
+  `Icon-192`/`Icon-maskable-192` 192x192, `Icon-512`/`Icon-maskable-512`
+  512x512 — allemaal kloppend.
+- Backend: `mvn test` in `robberts-assistent-backend/` daadwerkelijk
+  uitgevoerd, met expliciete wall-clock start-/eindtijd naast Maven's eigen
+  "Total time"-regel: gestart `2026-07-12T10:50:27Z`, klaar
+  `2026-07-12T10:50:59Z` (Maven: `Total time: 31.832 s`, consistent met de
+  gemeten duur). Resultaat: `Tests run: 34, Failures: 0, Errors: 0, Skipped:
+  0`, `BUILD SUCCESS`. Geen backend-wijzigingen in deze story-diff; puur een
+  regressiecheck.
+- Live preview
+  (`https://robberts-assistent-frontend-robberts-assistent-pr-6.apps.sno.lab.vdzon.com`)
+  geverifieerd zonder Google-login: `index.html` (`<title>` +
+  apple-meta-tag) en `manifest.json` (`name`/`short_name`) tonen
+  "Robbert's assistent"; het gecompileerde `main.dart.js` bevat 0 keer de
+  oude schrijfwijze en 3 keer de nieuwe. `favicon.png` (16x16) en
+  `Icon-512.png` (512x512) opgehaald van de preview; `Icon-512.png` visueel
+  geïnspecteerd — toont het custom paarse chatbubbel-met-ster-icon, geen
+  Flutter-standaardlogo. Nieuw Playwright-screenshot gemaakt
+  (`ignoreHTTPSErrors` voor het zelfondertekende lab-certificaat):
+  `SF-957-preview-startscherm.png` — AppBar toont "Robbert's assistent".
+- `flutter test` blijft structureel niet uitvoerbaar in deze sandbox (geen
+  linux-arm64 Flutter-SDK, geen PR-branch-CI, zie `.factory/verification.yaml`
+  en agent-tips) — gecompenseerd door bron-diff-review + live-build-
+  verificatie van de daadwerkelijk gedeployde app, zoals eerder toegepast.
+- `git status` schoon vóór deze worklog-update; geen scope-overschrijding
+  (geen wijzigingen buiten `robberts_assistent/`, geen iOS/pom.xml/
+  CI-workflow/secrets-wijzigingen).
+- Oordeel: alle acceptatiecriteria van SF-955/SF-956 blijven geverifieerd,
+  geen bugs gevonden.
