@@ -72,7 +72,10 @@ jobs:
       - name: Build release APK
         env:
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
-        run: flutter build apk --release
+        # --build-number: pubspec.yaml's vaste "+1" zou versionCode voor elke build op 1 houden,
+        # waardoor Android een update altijd weigert (moet dan eerst verwijderd worden). run_number
+        # loopt altijd op en reset nooit, dus dat is een geldige versionCode-bron per CI-build.
+        run: flutter build apk --release --build-number=${{ github.run_number }}
 
       - name: Publish APK as GitHub Release
         # Vaste tag (i.p.v. een oplopend buildnummer): elke build overschrijft dezelfde
