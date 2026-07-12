@@ -9,7 +9,7 @@ resources:
 images:
 - name: ghcr.io/robbertvdzon/robberts-assistent-backend
   newName: ghcr.io/robbertvdzon/robberts-assistent-backend
-  newTag: sha-96adf3d
+  newTag: sha-dfa7c06
 - name: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newName: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newTag: sha-9894c3a
