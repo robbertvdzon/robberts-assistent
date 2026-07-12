@@ -2,6 +2,8 @@
 
     <!-- Android 13+: runtime-permissie om notificaties te posten. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Backend/AI-call voor de echte wind-/voorspellingstekst (AssistantClient). -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="Wind"
@@ -30,6 +32,15 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
+
+        <!--
+          Eenmalige, zichtbare inlogstap (zie LoginActivity/AssistantClient). Alleen intern
+          gestart vanuit MainActivity, geen intent-filter/export nodig.
+        -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:theme="@style/NormalTheme" />
 
         <!-- Trampoline-activity: "huidige windsnelheid". Geen zichtbaar scherm. -->
         <activity

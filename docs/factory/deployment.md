@@ -27,10 +27,12 @@ Per app een eigen workflow (`.github/workflows/build-apk.yml`,
 - **Vaste tag per app** (`wind-latest`, `robberts-assistent-latest`,
   `notities-latest`) — elke build overschrijft dezelfde release, dus de downloadlink
   verandert nooit.
-- Asset: `app-release.apk`. `robberts_assistent`/`notities` zijn getekend met een
-  vaste release-keystore (`ANDROID_KEYSTORE_BASE64`/`_PASSWORD`/`ANDROID_KEY_ALIAS`
-  als repo-secrets) — nodig omdat Google Sign-In aan een vaste SHA-1 gekoppeld is;
-  `wind` gebruikt nog de debug-key (geen Google-login nodig).
+- Asset: `app-release.apk`. Alle drie de apps zijn getekend met dezelfde vaste
+  release-keystore (`ANDROID_KEYSTORE_BASE64`/`_PASSWORD`/`ANDROID_KEY_ALIAS` als
+  repo-secrets) — nodig omdat Google Sign-In aan een vaste SHA-1 gekoppeld is.
+  `wind` heeft z'n eigen Android-OAuth-client (package `nl.vdzon.wind`, zelfde
+  gedeelde SHA-1) nodig in Google Cloud Console — handmatige, niet-geautomatiseerde
+  stap, net als bij `robberts_assistent`/`notities`.
 - Installeren: download `app-release.apk` van de release en sta op het
   Android-toestel "installeren uit onbekende bron" toe.
 
@@ -61,6 +63,13 @@ naar `ghcr.io` en bumpt `deploy/base/kustomization.yaml` — ArgoCD synct vanzel
   Reflector gemirrorde) secret dezelfde `RA_OPENAI_API_KEY` als productie —
   geen kosten/netwerkafhankelijkheid tijdens tester-runs.
 - **Notities-app en Wind** hebben geen eigen web-deploy, alleen de APK's hierboven.
+  Wind praat wél rechtstreeks (native Kotlin, `AssistantClient.kt`, geen Flutter-
+  runtime) met de **productie**-backend voor echte wind-/voorspellingsantwoorden
+  via de chat-assistent — geen preview-variant, dus altijd een echte OpenAI-call
+  bij gebruik. Eenmalige Google-login via `LoginActivity` (het app-icoon opent
+  die zolang er nog geen gecachete sessie is); daarna gebruikt elke trampoline-
+  activity silent sign-in. Bij falen (geen sessie, netwerk, timeout) valt de app
+  terug op de statische `WindAnswers`-tekst — nooit een crash of stilte.
 
 ## Handmatige verificatie
 
