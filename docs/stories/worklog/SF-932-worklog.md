@@ -167,3 +167,46 @@ Done / rationale:
   nieuwe testverificatie vereist buiten de bestaande code-review.
 - Geen inhoudelijke wijzigingen doorgevoerd; alleen deze worklog-entry
   toegevoegd ter bevestiging van de herverificatie.
+
+## Review SF-942 (reviewer, herbeoordeling na re-pickup)
+
+- `git diff main...HEAD --stat`: dezelfde 5 bestanden als bij de eerdere
+  review (`notes_editor_screen.dart`, nieuw widget-testbestand,
+  `AssistantService.kt`, `AssistantServiceTest.kt`, worklog); geen
+  scope-overschrijding, geen nieuwe wijzigingen sinds de vorige "Review
+  SF-942"-entry (de re-pickup door de developer heeft geen code aangepast).
+- `notes_editor_screen.dart` regel-voor-regel gecontroleerd tegen alle AC's:
+  save-`IconButton` (`Icons.save`, tooltip `'Opslaan'`) staat in
+  `AppBar.actions` tussen status-tekst en uitlog-knop; `_saveNow()` zet
+  `_dirty = true` en roept de bestaande `_save()` aan (forceert opslag,
+  ook zonder pending wijzigingen); `_save()` zelf (debounce-cancel, status
+  'Opgeslagen'/'Opslaan mislukt: ...') is ongewijzigd; auto-save-triggers
+  (10s debounce, lifecycle-pause/inactive, dispose) blijven intact. Voldoet
+  aan alle AC's.
+- `AssistantService.kt`: `reply()` retourneert nu onvoorwaardelijk
+  `"Doe ik"`. `AssistantServiceTest.kt`: beide assertions bijgewerkt.
+  `grep -rn "Ga ik doen"` over de hele repo levert niets meer op — geen
+  achtergebleven referenties aan de oude tekst.
+- Backend-vangnet zelf opnieuw gedraaid: `cd robberts-assistent-backend &&
+  mvn test` → BUILD SUCCESS, 25/25 tests, 0 failures, 0 errors, incl.
+  `AssistantServiceTest` (1/1, nieuwe tekst).
+- Flutter/`notities/test/notes_editor_screen_test.dart`: ook in deze
+  review-omgeving geen Flutter/Dart-SDK beschikbaar (bevestigd: geen
+  `flutter`/`dart` binary, geen relevante snap/apt-installatie) — zelfde,
+  al meermaals gedocumenteerde structurele beperking. Aanvullend
+  gecontroleerd: `.github/workflows/notities-apk.yml` triggert alleen op
+  `push` naar `main` (plus handmatige `workflow_dispatch`); voor deze
+  feature-branch is er dus nog nooit een automatische `flutter test`-run
+  geweest. De 4 nieuwe widget-tests zijn wel inhoudelijk nagelopen
+  (fake `ApiClient`, geen echte HTTP-calls) en dekken de AC's correct.
+  [info] Automatisch testbewijs voor de Flutter-kant ontbreekt dus nog
+  steeds volledig (nooit lokaal, nooit in CI uitgevoerd voor deze branch);
+  dit is een sandbox-limitatie (geen linux-arm64 Flutter-build, geen
+  x64-emulatie) en geen fout in de wijziging zelf. Zelfde conclusie als de
+  vorige reviewer- en tester-rondes op deze story. Aanbeveling: overweeg
+  `notities-apk.yml` handmatig via `workflow_dispatch` op deze branch te
+  triggeren vóór/na de merge naar main om alsnog een echte groene
+  `flutter test`-run te krijgen.
+- Oordeel: geen blockers, geen bugs, geen regressies gevonden. Akkoord,
+  met de kanttekening hierboven als openstaand aandachtspunt (geen
+  showstopper).
