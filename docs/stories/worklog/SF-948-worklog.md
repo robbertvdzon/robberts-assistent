@@ -156,3 +156,40 @@ Done / rationale:
   `workflow_dispatch` op deze branch of door `robberts-assistent-apk.yml` ook
   op `pull_request` te laten triggeren, zie agent-tip
   `reviewer/robberts-assistent-apk-no-branch-trigger`).
+
+## Review (SF-949, herhaling na development-herhaling zonder wijzigingen)
+
+- `git diff origin/main...HEAD -- robberts_assistent/` opnieuw volledig
+  bekeken: alleen de 4 verwachte bestanden (`main.dart`, `home_screen.dart`,
+  `AndroidManifest.xml`, `widget_test.dart`), identiek aan de vorige
+  review-ronde (nog steeds afkomstig uit commit `a648c14`; latere commits
+  zijn uitsluitend worklog/merge). `git diff --stat` bevestigt geen
+  scope-overschrijding: geen andere bestanden geraakt.
+- Inhoud opnieuw geverifieerd: string-literals correct (`'Robberts
+  Assistent'` → `"Robbert's Assistent"` in `main.dart` 2x en
+  `home_screen.dart`; `android:label="Robbert&apos;s Assistent"` in
+  `AndroidManifest.xml`; `find.text("Robbert's Assistent")` in
+  `widget_test.dart`). `grep -rn "Robberts Assistent" robberts_assistent/`
+  → geen treffers. Overige repo-treffers (`pom.xml`, CI-workflownaam,
+  `secrets.example.env`) terecht buiten scope. `AndroidManifest.xml`
+  opnieuw met `xml.dom.minidom` als well-formed bevestigd.
+- **[blocker] Testbewijs nog steeds ontbrekend**: `which flutter dart` geeft
+  niets terug in deze reviewer-sandbox (aarch64); geen linux-arm64
+  Flutter-SDK beschikbaar. `robberts-assistent-apk.yml` triggert nog steeds
+  alleen op `push` naar `main` en `workflow_dispatch`, dus er is nooit een
+  CI-run met echte `flutter test`/`./gradlew test`-resultaten voor deze
+  branch geweest. Dit is exact dezelfde structurele omgevings-/CI-beperking
+  als in de vorige review- en test-ronde (zie agent-tip
+  `reviewer/robberts-assistent-apk-no-branch-trigger`); een nieuwe
+  development-ronde heeft dit niet opgelost en kan dit ook niet oplossen,
+  aangezien het geen codeprobleem is.
+- Conclusie: de code-inhoud is opnieuw inhoudelijk correct, compleet en
+  binnen scope — geen bugs, geen regressies. Conform de absolute
+  test-evidence-gate ("Ontbrekend of rood volledig testbewijs is een
+  blocker") kan dit echter niet als groen worden geaccepteerd zolang er
+  geen enkele `flutter test`-run beschikbaar is. Herhaalde development-
+  cycli lossen dit niet op omdat het probleem in de CI-configuratie zit
+  (geen `pull_request`/branch-trigger), niet in de code. Aanbeveling aan de
+  factory/mens: trigger `workflow_dispatch` op deze branch, of voeg
+  tijdelijk een `pull_request`-trigger toe aan
+  `robberts-assistent-apk.yml`, om deze story uit de loop te halen.
