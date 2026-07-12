@@ -50,7 +50,12 @@ naar `ghcr.io` en bumpt `deploy/base/kustomization.yaml` — ArgoCD synct vanzel
   `robberts-assistent-pr-<nummer>`, met `deploy/overlays/preview` (geen vaste
   Route-host — OpenShift genereert er zelf een onder de cluster-wildcard, vandaar
   het `preview_url_template` hierboven). De backend krijgt daar
-  `RA_PREVIEW_SKIP_GOOGLE_AUTH=true`: **geen Google-login nodig** in preview.
+  `RA_PREVIEW_SKIP_GOOGLE_AUTH=true` en de frontend wordt gebouwd met
+  `SKIP_GOOGLE_AUTH=true` (alleen op PR-builds): **geen Google-login nodig** in
+  preview, ook niet in de browser — de frontend slaat het loginscherm dan zelf
+  over. `API_BASE_URL` wordt nooit meegegeven (leeg = relatieve `/api/`-paden);
+  de frontend-nginx proxy't die same-origin naar `robberts-assistent-backend:80`
+  in dezelfde namespace, dus elke preview raakt vanzelf zijn eigen backend.
 - **Notities-app en Wind** hebben geen eigen web-deploy, alleen de APK's hierboven.
 
 ## Handmatige verificatie
