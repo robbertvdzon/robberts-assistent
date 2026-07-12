@@ -25,7 +25,7 @@ class RobbertsAssistentApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "Robbert's Assistent",
+      title: "Robbert's assistent",
       theme: ThemeData(colorSchemeSeed: Colors.deepPurple, useMaterial3: true),
       home: const RootScreen(),
     );
@@ -137,7 +137,7 @@ class _RootScreenState extends State<RootScreen> {
               children: [
                 const Icon(Icons.assistant, size: 56, color: Colors.deepPurple),
                 const SizedBox(height: 16),
-                const Text("Robbert's Assistent", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                const Text("Robbert's assistent", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 const Text('Log in met Google om verder te gaan.', style: TextStyle(color: Colors.black54)),
                 const SizedBox(height: 24),
