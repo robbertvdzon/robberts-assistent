@@ -254,3 +254,35 @@ Done / rationale:
   Aanbeveling (ongewijzigd): trigger `workflow_dispatch` op deze branch, of
   voeg tijdelijk een `pull_request`-trigger toe aan
   `robberts-assistent-apk.yml`, om deze story uit de reject-loop te halen.
+
+## Development (SF-949, vierde ronde, na hernieuwde review-rejected)
+
+- `git status` clean bij start, geen merge-conflictmarkers
+  (`grep -rn "^<<<<<<<\|^=======$\|^>>>>>>>"` → geen treffers).
+- `git diff origin/main...HEAD --stat -- robberts_assistent/` toont opnieuw
+  exact dezelfde 4 verwachte 1-regelige diffs (`main.dart`,
+  `home_screen.dart`, `AndroidManifest.xml`, `widget_test.dart`); inhoud
+  handmatig geverifieerd en identiek aan de eerder goedgekeurde versie:
+  `MaterialApp.title` + loginscherm-`Text` in `main.dart`, AppBar-titel in
+  `home_screen.dart`, `android:label="Robbert&apos;s Assistent"` in
+  `AndroidManifest.xml`, `find.text("Robbert's Assistent")` in
+  `widget_test.dart`.
+  `AndroidManifest.xml` opnieuw als well-formed XML geverifieerd
+  (`python3 -c "import xml.dom.minidom as m; m.parse(...)"`).
+- `grep -rn "Robberts Assistent"` buiten `robberts_assistent/` treft alleen
+  de bewust buiten scope gelaten bestanden (`pom.xml`,
+  `robberts-assistent-apk.yml`, `secrets.example.env`); geen enkele
+  treffer meer binnen `robberts_assistent/`.
+- `which flutter dart` levert nog steeds niets op in deze developer-sandbox
+  (aarch64, geen linux-arm64 Flutter-SDK) — zelfde structurele
+  omgevingsbeperking als de vorige rondes, geen codeprobleem
+  (`environment/flutter-android-sdk-absent`).
+- Overwogen om als developer zelf een `pull_request`-trigger aan
+  `robberts-assistent-apk.yml` toe te voegen om de reject-loop te
+  doorbreken, maar dat bestand valt expliciet buiten de scope van SF-949
+  (zie `.task.md` §Scope: "`.github/workflows/robberts-assistent-apk.yml`
+  ... vallen buiten scope"); niet doorgevoerd om geen ongevraagde
+  scope-uitbreiding te doen. Aanbeveling blijft staan voor de refiner/
+  planner om dit eventueel als aparte taak op te pakken.
+- Geen codewijzigingen doorgevoerd: de story was al volledig en correct
+  geïmplementeerd. Working tree blijft clean (op deze worklog-update na).
