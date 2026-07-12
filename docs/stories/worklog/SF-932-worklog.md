@@ -210,3 +210,35 @@ Done / rationale:
 - Oordeel: geen blockers, geen bugs, geen regressies gevonden. Akkoord,
   met de kanttekening hierboven als openstaand aandachtspunt (geen
   showstopper).
+
+## Retest SF-943 (tester, na reviewer-herbeoordeling)
+
+- `git diff main...HEAD --stat`: zelfde 5 bestanden als bij de vorige
+  testronde (`notes_editor_screen.dart`, nieuw widget-testbestand,
+  `AssistantService.kt`, `AssistantServiceTest.kt`, worklog); de
+  reviewer-commit (`70ca75d`) bevat alleen worklog-tekst, geen codewijziging
+  — geen nieuwe verificatie van de code zelf nodig, wel opnieuw uitgevoerd
+  voor de zekerheid.
+- Backend-vangnet: `cd robberts-assistent-backend && mvn test` → BUILD
+  SUCCESS, 25/25 tests, 0 failures, 0 errors (incl. `AssistantServiceTest`
+  met de nieuwe tekst `"Doe ik"`).
+- Preview-omgeving: `POST /api/v1/assistant/message` op
+  `https://robberts-assistent-frontend-robberts-assistent-pr-4.apps.sno.lab.vdzon.com`
+  geeft voor meerdere inputs `{"text":"Doe ik"}` terug; productie
+  (`https://robberts-assistent.vdzonsoftware.nl`) geeft nog steeds 401
+  zonder Google-token — bevestigt dat preview zijn eigen backend gebruikt
+  en niet productie.
+- Notities save-knop: code opnieuw regel-voor-regel tegen alle AC's
+  gecontroleerd (`IconButton` met `Icons.save`/tooltip `'Opslaan'` in
+  `AppBar.actions` tussen status-tekst en uitlog-knop; `_saveNow()` forceert
+  `_dirty = true` + bestaande `_save()`; auto-save-triggers ongewijzigd) —
+  komt overeen met eerdere test- en reviewrondes, geen regressies. Geen
+  Flutter/Dart-SDK beschikbaar in deze sandbox (aarch64, geen x64-emulatie,
+  al meermaals gedocumenteerd) — kon de nieuwe widget-tests dus niet zelf
+  draaien; wel inhoudelijk nagelopen en dekken de AC's correct. Notities
+  heeft geen webpreview (bevestigd in `deployment.md`) en de APK-workflow
+  triggert alleen op push naar `main`, dus geen alternatieve manier om dit
+  automatisch te verifiëren op deze branch.
+- Conclusie: alle testbare AC's van SF-932 (backend-tekst + preview-gedrag)
+  slagen groen; notities-kant geverifieerd via grondige code-review binnen
+  de grenzen van deze sandbox. Geen bugs of regressies gevonden.
