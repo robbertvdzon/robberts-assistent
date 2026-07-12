@@ -20,3 +20,20 @@
   `tested` op basis van een grondige handmatige code-review tegen de
   acceptatiecriteria (plus, waar van toepassing, groene backend-tests), en
   vermeld expliciet dat je dit als vervanging accepteert.
+
+## Screenshots (alleen robberts_assistent — heeft een web-preview)
+
+`wind` en `notities` zijn APK-only (geen preview-URL), dus daar zijn
+screenshots niet mogelijk. Raakt de story `robberts_assistent`'s frontend
+(zichtbare UI-wijziging), dan is een browser-screenshot van de preview
+**verplicht bewijs** — zelfde beleid als bij personal-news-feed. Geen
+Google-login nodig in preview (`SKIP_GOOGLE_AUTH`, zie `deployment.md`): open
+de preview-URL rechtstreeks.
+
+- Maak het screenshot met Playwright/Chromium (staat in de sandbox) en
+  schrijf het naar de `screenshots/`-map in je workspace — de factory
+  uploadt alles daaruit automatisch als attachment op de story, je hoeft zelf
+  niets te benoemen/uploaden.
+- Lukt het niet (Playwright/Chromium faalt, preview niet live/bereikbaar)?
+  Eindig dan met een zichtbare `[blocker]` — nooit stilzwijgend `tested`
+  geven op basis van alleen code-inspectie wanneer de wijziging zichtbaar is.
