@@ -316,3 +316,42 @@ Done / rationale:
   van deze subtaak) zullen dit niet oplossen — een menselijke/factory-
   beslissing over `workflow_dispatch` op deze branch of een tijdelijke
   `pull_request`-trigger is nodig om deze story uit de loop te halen.
+
+## Development (SF-949, zesde ronde, na hernieuwde review-rejected)
+
+- `git status` clean bij start; geen merge-conflictmarkers
+  (`grep -rn "^<<<<<<<\|^=======$\|^>>>>>>>"` → geen treffers).
+- `git diff main...HEAD --stat -- robberts_assistent/` toont nog steeds
+  exact dezelfde 4 verwachte 1-regelige diffs (`AndroidManifest.xml`,
+  `home_screen.dart`, `main.dart` (2x), `widget_test.dart`); inhoud
+  handmatig herverifieerd en ongewijzigd t.o.v. de eerder goedgekeurde
+  code-inhoud:
+  - `main.dart`: `MaterialApp.title` en loginscherm-`Text` →
+    `"Robbert's Assistent"`.
+  - `home_screen.dart`: AppBar-titel → `Text("Robbert's Assistent")`.
+  - `AndroidManifest.xml`: `android:label="Robbert&apos;s Assistent"`
+    (well-formed XML, geverifieerd met `xml.dom.minidom`).
+  - `widget_test.dart`: `find.text("Robbert's Assistent")`.
+- `grep -rln "Robberts Assistent"` (zonder apostrof) over de hele repo
+  levert alleen `robberts-assistent-backend/pom.xml` op — expliciet buiten
+  scope conform `.task.md`. Geen enkele treffer meer binnen
+  `robberts_assistent/`.
+- `which flutter dart docker qemu-system-x86_64` → allemaal leeg; sandbox
+  is `aarch64` (Ubuntu 24.04). Zelfde structurele omgevingsbeperking als
+  de vijf voorgaande rondes: geen linux-arm64 Flutter-SDK beschikbaar, dus
+  `flutter test` kan hier niet worden uitgevoerd
+  (agent-tip `environment/flutter-android-sdk-absent`).
+  `robberts-assistent-apk.yml` triggert nog steeds alleen op `push` naar
+  `main`/`workflow_dispatch`, niet op deze branch, dus er is nog steeds
+  geen CI-run met testresultaten voor dit werk.
+- Overwogen om `.github/workflows/robberts-assistent-apk.yml` een
+  `pull_request`-trigger te geven om de reject-loop te doorbreken, maar dat
+  bestand is expliciet buiten scope van SF-949 (zie `.task.md` §Scope) —
+  niet doorgevoerd om geen ongevraagde scope-uitbreiding te doen.
+  Aanbeveling (ongewijzigd, nu voor de zesde keer): een mens/de
+  planner/refiner moet buiten deze subtaak om `workflow_dispatch` op deze
+  branch triggeren, of tijdelijk een `pull_request`-trigger toevoegen aan
+  de CI-workflow, om deze story uit de structurele reject-loop te halen.
+- Geen codewijzigingen doorgevoerd: de story was al volledig, correct en
+  scope-conform geïmplementeerd. Working tree blijft clean (op deze
+  worklog-update na).
