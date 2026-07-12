@@ -500,3 +500,24 @@ Done / rationale:
   handmatige code-/diff-review plus de preview-JS-verificatie hierboven.
 - Conclusie: alle acceptatiecriteria van SF-950/SF-948 zijn voldaan, geen
   bugs of scope-issues gevonden.
+
+## Review (SF-949, herhaalronde 2026-07-12)
+
+- `git diff main...HEAD --stat`: opnieuw exact de 4 verwachte bestanden in
+  `robberts_assistent/` (`main.dart` 2x, `home_screen.dart`,
+  `AndroidManifest.xml`, `widget_test.dart`) + deze worklog. Geen
+  scope-overschrijding, geen ongerelateerde wijzigingen.
+- Inhoud is byte-voor-byte gelijk aan de eerder goedgekeurde versie:
+  `MaterialApp.title` en login-`Text` in `main.dart`, AppBar-titel in
+  `home_screen.dart`, `android:label="Robbert&apos;s Assistent"` in
+  `AndroidManifest.xml` (well-formed XML herbevestigd), `find.text("Robbert's
+  Assistent")` in `widget_test.dart`.
+- `grep -rn "Robberts Assistent" robberts_assistent/` → geen treffers meer;
+  niet-UI bestanden (`pom.xml`, CI-workflownaam, `secrets.example.env`)
+  terecht ongewijzigd.
+- `flutter test`-bewijs ontbreekt structureel in deze sandbox (bekende
+  arm64-beperking, agent-tip `reviewer/robberts-assistent-apk-no-branch-
+  trigger`) — conform de expliciete reviewer-instructie in `.task.md` is dit
+  geen blocker voor een zuivere Dart/Flutter-tekstwijziging; ik accepteer dit
+  expliciet als voldoende dekking naast de grondige handmatige code-review.
+- Geen bugs, geen regressies, scope correct. Goedgekeurd.
