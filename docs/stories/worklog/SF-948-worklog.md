@@ -193,3 +193,24 @@ Done / rationale:
   factory/mens: trigger `workflow_dispatch` op deze branch, of voeg
   tijdelijk een `pull_request`-trigger toe aan
   `robberts-assistent-apk.yml`, om deze story uit de loop te halen.
+
+## Development (SF-949, derde ronde, na hernieuwde review-rejected)
+
+- `git status` clean, geen merge-conflictmarkers na main-merge
+  (`780d5eb`). `git diff origin/main...HEAD --stat -- robberts_assistent/`
+  toont opnieuw exact dezelfde 4 verwachte 1-regelige diffs
+  (`main.dart`, `home_screen.dart`, `AndroidManifest.xml`,
+  `widget_test.dart`) — geen inhoudelijke wijzigingen nodig.
+  `grep -rn "Robberts Assistent" .` (zonder apostrof) treft alleen de
+  bewust buiten scope gelaten bestanden (`pom.xml`,
+  `robberts-assistent-apk.yml`); geen enkele treffer meer in
+  `robberts_assistent/`.
+  `AndroidManifest.xml` opnieuw als well-formed XML geverifieerd.
+- `which flutter dart` levert nog steeds niets op in deze developer-
+  sandbox; `flutter test` kan hier dus nog steeds niet lokaal gedraaid
+  worden. Dit blijft dezelfde omgevingsbeperking als de vorige rondes
+  (geen linux-arm64 Flutter-SDK, zie agent-tip
+  `environment/flutter-android-sdk-absent`) en is geen code-issue dat
+  een developer-ronde kan oplossen.
+- Geen codewijzigingen doorgevoerd: de story was al volledig en correct
+  geïmplementeerd. Working tree blijft clean (op deze worklog-update na).
