@@ -355,3 +355,41 @@ Done / rationale:
 - Geen codewijzigingen doorgevoerd: de story was al volledig, correct en
   scope-conform geïmplementeerd. Working tree blijft clean (op deze
   worklog-update na).
+
+## Review (SF-949, zevende ronde)
+
+- `git diff main...HEAD -- robberts_assistent/` opnieuw volledig bekeken:
+  nog steeds exact dezelfde 4 bestanden en dezelfde 1-regelige diffs als in
+  alle voorgaande review-rondes (`main.dart` 2x, `home_screen.dart`,
+  `AndroidManifest.xml`, `widget_test.dart`). `git diff main...HEAD --stat`
+  bevestigt dat er buiten `robberts_assistent/` alleen de worklog zelf is
+  gewijzigd — geen scope-overschrijding.
+- Inhoud opnieuw geverifieerd: `MaterialApp.title` + loginscherm-`Text` in
+  `main.dart` → `"Robbert's Assistent"`; AppBar-titel in `home_screen.dart`
+  idem; `android:label="Robbert&apos;s Assistent"` in `AndroidManifest.xml`
+  (well-formed XML entity); `find.text("Robbert's Assistent")` in
+  `widget_test.dart`. `grep -rn "Robberts Assistent" robberts_assistent/`
+  levert geen treffers meer op; de enige resterende repo-brede treffer
+  (`robberts-assistent-backend/pom.xml`) is terecht buiten scope.
+- `which flutter dart` → leeg in deze reviewer-sandbox (`aarch64`), zelfde
+  structurele omgevingsbeperking als de zes voorgaande rondes
+  (agent-tip `environment/flutter-android-sdk-absent`). Er is nog steeds
+  geen CI-run op deze branch (`robberts-assistent-apk.yml` triggert alleen
+  op `push` naar `main`/`workflow_dispatch`).
+- **[blocker] Testbewijs blijft ontbreken**: er is geen enkele lokale of
+  CI-uitvoering van `flutter test`/`./gradlew test` voor deze wijziging
+  beschikbaar. Conform de absolute gate ("ontbrekend testbewijs is een
+  blocker, accepteer geen pre-existing-excuus") kan dit niet als groen
+  bewijs worden geaccepteerd, ook al is de code-inhoud aantoonbaar correct
+  en ongewijzigd t.o.v. eerder als code-correct beoordeelde rondes.
+- **[info] Structurele loop**: dit is de zevende opeenvolgende
+  development/review-ronde op exact dezelfde, reeds correcte code-inhoud.
+  De blocker is niet oplosbaar binnen de scope van SF-949 (geen
+  Flutter-SDK in de sandbox, geen branch-trigger in de CI-workflow, en het
+  wijzigen van die workflow valt expliciet buiten scope). Aanbeveling
+  (ongewijzigd, herhaald): een mens of de planner/refiner moet buiten deze
+  subtaak om ofwel `workflow_dispatch` op deze branch triggeren, ofwel
+  tijdelijk een `pull_request`-trigger aan
+  `.github/workflows/robberts-assistent-apk.yml` toevoegen, om deze story
+  uit de reject-loop te halen zonder de absolute test-gate te verzwakken.
+  worklog-update na).
