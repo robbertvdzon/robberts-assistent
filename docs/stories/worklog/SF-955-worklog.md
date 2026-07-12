@@ -127,3 +127,22 @@ Done / rationale:
   `web/manifest.json` valide JSON.
 - Geen code-wijzigingen nodig in deze run; niets om te committen (de factory
   handelt commit/push/PR af zoals gebruikelijk).
+
+## Reviewer-controle (SF-956, nieuwe run)
+
+- Volledige story-diff (`main...HEAD`) herbeoordeeld: titelwijzigingen in
+  `main.dart`, `home_screen.dart`, `AndroidManifest.xml`, `web/index.html`,
+  `web/manifest.json` en `test/widget_test.dart` zijn correct en consistent
+  ("Robbert's assistent"). `grep` op de oude schrijfwijze levert niets meer op.
+- `pubspec.yaml` bevat het `flutter_launcher_icons`-`web:`-blok; de
+  gegenereerde web-iconbestanden (favicon, Icon-192/512, Icon-maskable-192/512)
+  zijn visueel geïnspecteerd en tonen het custom paarse
+  chatbubbel-met-ster-icon uit `assets/icon/icon.png`, niet het
+  Flutter-standaardlogo. Afmetingen kloppen (16x16, 192x192, 512x512).
+  Android-icon/manifest ongewijzigd.
+- Geen scope-overschrijding (geen iOS-, pom.xml-, CI-workflow- of
+  secrets-wijzigingen).
+- `flutter test` niet uitvoerbaar in sandbox (bekende arm64-beperking, geen
+  branch-CI) — geaccepteerd conform agent-tips-beleid, gecompenseerd door
+  eerdere tester-run met live-preview-verificatie + screenshot en deze
+  code-review. Oordeel: akkoord, geen bugs of blockers gevonden.
