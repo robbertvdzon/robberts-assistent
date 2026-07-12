@@ -16,11 +16,17 @@ android/app/profile/
 android/app/release/
 android/.cxx/
 
+# Release-keystore (CI zet dit lokaal neer vanuit ANDROID_KEYSTORE_BASE64, nooit committen).
+android/keystore.properties
+android/app/*.keystore
+
 # IDE
 .idea/
 *.iml
 .vscode/
 
-# Bewust WEL gecommit (CI regenereert deze niet): android/gradlew,
-# android/gradlew.bat en android/gradle/wrapper/gradle-wrapper.jar.
-wind/android/app/src/main/java/
+# flutter_launcher_icons genereert hier soms een stray GeneratedPluginRegistrant.java in
+# (MainActivity is native Kotlin, geen FlutterActivity, dus dit bestand hoort hier niet te
+# staan). Bewust WEL gecommit: android/gradlew, android/gradlew.bat, android/gradle/wrapper/
+# gradle-wrapper.jar (die staan buiten dit pad).
+android/app/src/main/java/

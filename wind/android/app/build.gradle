@@ -22,6 +22,18 @@ if (flutterVersionName == null) {
     flutterVersionName = "1.0"
 }
 
+// Vaste release-keystore i.p.v. de debug-key: Google Sign-In (OAuth Android-client) is gekoppeld
+// aan de SHA-1 van het ondertekeningscertificaat — met de debug-key genereert elke CI-runner een
+// andere, willekeurige SHA-1, wat sign-in structureel zou breken (zelfde probleem/oplossing als
+// robberts_assistent/notities, zie ANDROID_KEYSTORE_BASE64 in .github/workflows/build-apk.yml).
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withReader("UTF-8") { reader ->
+        keystoreProperties.load(reader)
+    }
+}
+
 android {
     namespace = "nl.vdzon.wind"
     compileSdk = 34
@@ -34,6 +46,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "1.8"
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     sourceSets {
@@ -50,12 +66,29 @@ android {
         targetSdk = 34
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
+
+        // Native Kotlin (geen Dart-runtime, dus geen --dart-define): CI zet deze als
+        // gewone env-vars vóór `flutter build apk`, Gradle-scripts erven die gewoon.
+        buildConfigField "String", "GOOGLE_CLIENT_ID", "\"${System.getenv('GOOGLE_CLIENT_ID') ?: ''}\""
+        buildConfigField "String", "API_BASE_URL", "\"${System.getenv('API_BASE_URL') ?: 'https://robberts-assistent.vdzonsoftware.nl'}\""
+    }
+
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
     }
 
     buildTypes {
         release {
-            // Debug-signing volstaat voor een installeerbare PoC-APK.
-            signingConfig = signingConfigs.debug
+            // Lokaal (zonder keystore.properties) blijft de debug-key werken; CI zet
+            // keystore.properties neer en signt met de vaste release-key.
+            signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
         }
     }
 }
@@ -66,5 +99,15 @@ flutter {
 
 dependencies {
     implementation "androidx.core:core-ktx:1.12.0"
+    // Native Google Sign-In (geen Flutter-plugin nodig, MainActivity is een pure trampoline)
+    // + coroutines voor de async sign-in/HTTP-flow + OkHttp voor de backend-call.
+    implementation "com.google.android.gms:play-services-auth:21.2.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"
+    // Task.await() voor de Play Services silentSignIn()-Task binnen een coroutine.
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1"
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    // LoginActivity heeft androidx.activity.ComponentActivity + de Activity Result API nodig
+    // (registerForActivityResult) voor de interactieve Google Sign-In-popup.
+    implementation "androidx.activity:activity-ktx:1.9.0"
     testImplementation "junit:junit:4.13.2"
 }

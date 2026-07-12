@@ -8,34 +8,50 @@ import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
  * Basis voor de "trampoline"-activities. Een trampoline-activity toont geen
  * zichtbaar scherm (zie `@style/TrampolineTheme` in het manifest — bewust
  * geen `Theme.NoDisplay`, want dat eist een synchrone `finish()` in
- * `onCreate`, terwijl wij asynchroon op TTS wachten): ze spreekt het antwoord
- * uit via [TextToSpeech], post een notificatie met exact dezelfde tekst (via
- * [NotificationHelper]) en sluit zichzelf daarna direct af.
+ * `onCreate`, terwijl wij asynchroon op TTS wachten): ze probeert eerst een
+ * actueel antwoord op te halen bij de backend/AI ([AssistantClient] — alleen
+ * stil, geen inlog-UI), valt bij falen terug op de statische [WindAnswers]-
+ * tekst, spreekt het resultaat uit via [TextToSpeech], post een notificatie
+ * met exact dezelfde tekst (via [NotificationHelper]) en sluit zichzelf
+ * daarna direct af.
  *
- * Subklassen leveren alleen de [answer] (de tekst) en de [notificationTitle].
+ * Subklassen leveren de [question] (voor de AI), de [fallbackAnswer]
+ * (offline/niet-ingelogd) en de [notificationTitle].
  */
 abstract class AnswerTrampolineActivity : Activity(), TextToSpeech.OnInitListener {
 
-    /** De uit te spreken / te notificeren tekst. */
-    abstract val answer: String
+    /** De vraag die naar de chat-assistent gestuurd wordt. */
+    abstract val question: String
+
+    /** Terugvaltekst als de assistent niet bereikbaar is (geen sessie, netwerkfout, timeout). */
+    abstract val fallbackAnswer: String
 
     /** Korte titel voor de notificatie. */
     abstract val notificationTitle: String
 
     private var tts: TextToSpeech? = null
 
+    /** `null` = nog niet geïnitialiseerd, anders het resultaat van [TextToSpeech.OnInitListener]. */
+    private var ttsInitSucceeded: Boolean? = null
+    private var resolvedAnswer: String? = null
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Notificatie posten — of, als de runtime-permissie er op Android 13+
-        // nog niet is, eerst die aanvragen (systeemdialoog, eenmalig; ná
-        // toestemming verloopt elke volgende keer weer stil/zonder scherm).
+        // Notificatie-permissie (Android 13+) alvast aanvragen; de notificatie zelf posten we pas
+        // zodra het antwoord bekend is (proceedIfReady), dus hier hoeft na afhandeling niets meer.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -45,31 +61,35 @@ abstract class AnswerTrampolineActivity : Activity(), TextToSpeech.OnInitListene
                 arrayOf(Manifest.permission.POST_NOTIFICATIONS),
                 NOTIFICATION_PERMISSION_REQUEST_CODE,
             )
-        } else {
-            NotificationHelper.post(this, notificationTitle, answer)
         }
 
-        // TTS initialiseren; we sluiten pas af nadat het uitspreken klaar is.
         tts = TextToSpeech(this, this)
-    }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
-            // NotificationHelper checkt de permissie zelf nogmaals en slaat
-            // stil over bij weigering — hier dus geen aparte afhandeling nodig.
-            NotificationHelper.post(this, notificationTitle, answer)
+        scope.launch {
+            resolvedAnswer = AssistantClient.tryFetchAnswer(this@AnswerTrampolineActivity, question)
+                ?: fallbackAnswer
+            proceedIfReady()
         }
     }
 
     override fun onInit(status: Int) {
+        val succeeded = status == TextToSpeech.SUCCESS
+        ttsInitSucceeded = succeeded
+        if (succeeded) {
+            tts?.language = Locale("nl", "NL")
+        }
+        proceedIfReady()
+    }
+
+    /** Wacht tot zowel het antwoord als TTS-init klaar zijn (in willekeurige volgorde). */
+    private fun proceedIfReady() {
+        val answer = resolvedAnswer ?: return
+        val ttsOk = ttsInitSucceeded ?: return
+
+        NotificationHelper.post(this, notificationTitle, answer)
+
         val engine = tts
-        if (status == TextToSpeech.SUCCESS && engine != null) {
-            engine.language = Locale("nl", "NL")
+        if (ttsOk && engine != null) {
             engine.setOnUtteranceProgressListener(
                 object : android.speech.tts.UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {}
@@ -102,6 +122,7 @@ abstract class AnswerTrampolineActivity : Activity(), TextToSpeech.OnInitListene
     }
 
     override fun onDestroy() {
+        scope.cancel()
         tts?.stop()
         tts?.shutdown()
         tts = null

@@ -14,6 +14,11 @@ on:
 permissions:
   contents: write
 
+env:
+  # Backend/AI-endpoint waar de trampoline-activities (native Kotlin, geen dart-define) tegen
+  # praten — zie AssistantClient.kt (leest dit via BuildConfig, Gradle erft gewone env-vars).
+  API_BASE_URL: https://robberts-assistent.vdzonsoftware.nl
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -45,7 +50,28 @@ jobs:
       - name: Run tests
         run: flutter test
 
+      - name: Release-keystore klaarzetten
+        # Zelfde gedeelde release-keystore als robberts_assistent/notities (Google Sign-In is
+        # gekoppeld aan de SHA-1 van het ondertekeningscertificaat; met de debug-key genereert
+        # elke CI-runner een andere, willekeurige SHA-1, wat sign-in structureel zou breken).
+        working-directory: wind/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/wind-release.keystore
+          cat > keystore.properties <<EOF
+          storeFile=wind-release.keystore
+          storePassword=${ANDROID_KEYSTORE_PASSWORD}
+          keyAlias=${ANDROID_KEY_ALIAS}
+          keyPassword=${ANDROID_KEYSTORE_PASSWORD}
+          EOF
+
       - name: Build release APK
+        env:
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
         run: flutter build apk --release
 
       - name: Publish APK as GitHub Release
