@@ -146,3 +146,52 @@ Done / rationale:
   branch-CI) — geaccepteerd conform agent-tips-beleid, gecompenseerd door
   eerdere tester-run met live-preview-verificatie + screenshot en deze
   code-review. Oordeel: akkoord, geen bugs of blockers gevonden.
+
+## Test (SF-957, nieuwe run)
+
+- Reden nieuwe run: vorige testronde kreeg `[FACTORY EVIDENCE REJECTED]` op de
+  timing van `backend-mvn-test` (start/eind kwamen niet overeen met de
+  gerapporteerde duur). Deze run heeft `mvn test` daadwerkelijk uitgevoerd en
+  de start-/eindtijd expliciet gelogd i.p.v. alleen het resultaat te
+  citeren: gestart `2026-07-12T10:45:17Z`, klaar `2026-07-12T10:45:49Z`
+  (Maven zelf rapporteerde ook `Total time: 31.684 s`, consistent met de
+  gemeten wall-clock duur). Resultaat: `Tests run: 34, Failures: 0, Errors: 0,
+  Skipped: 0`, `BUILD SUCCESS`. Er zijn geen backend-wijzigingen in deze
+  story-diff; dit was dus een regressiecheck, geen gerichte test van nieuwe
+  functionaliteit.
+- Diff `main...HEAD` (13 bestanden, uitsluitend `robberts_assistent/`)
+  opnieuw doorgenomen tegen de acceptatiecriteria: titel "Robbert's Assistent"
+  → "Robbert's assistent" correct in `lib/main.dart` (`MaterialApp.title` +
+  login-`Text`), `lib/home_screen.dart` (AppBar), `AndroidManifest.xml`
+  (`android:label`), `web/index.html` (`<title>` +
+  `apple-mobile-web-app-title`) en `web/manifest.json` (`name`/`short_name`).
+  `test/widget_test.dart` verwacht de nieuwe tekst. Grep op
+  "Robbert's Assistent" en op de default-tekst "robberts_assistent" in
+  `web/index.html`/`web/manifest.json` levert niets meer op.
+- `pubspec.yaml` bevat het `flutter_launcher_icons`-`web:`-blok
+  (`generate: true`, `image_path: assets/icon/icon.png`, kleuren consistent
+  met manifest). Web-iconbestanden lokaal met Python/`struct` op PNG-afmeting
+  gecontroleerd: `favicon.png` 16x16, `Icon-192`/`Icon-maskable-192` 192x192,
+  `Icon-512`/`Icon-maskable-512` 512x512 — allemaal kloppend.
+- Live preview
+  (`https://robberts-assistent-frontend-robberts-assistent-pr-6.apps.sno.lab.vdzon.com`)
+  opnieuw geverifieerd zonder Google-login: `index.html` (`<title>` +
+  apple-meta-tag), `manifest.json` (`name`/`short_name`) tonen
+  "Robbert's assistent"; het gecompileerde `main.dart.js` bevat 0 keer de oude
+  schrijfwijze en 3 keer de nieuwe. `favicon.png` (16x16) en `Icon-512.png`
+  (512x512) van de preview opgehaald; `Icon-512.png` visueel geïnspecteerd —
+  toont het custom paarse chatbubbel-met-ster-icon, geen Flutter-standaardlogo.
+  Nieuw Playwright-screenshot gemaakt (Chromium via lokale npm-globale install,
+  `ignoreHTTPSErrors` nodig voor het zelfondertekende lab-certificaat):
+  `SF-957-preview-startscherm.png`, AppBar-titel bevestigd als
+  "Robbert's assistent".
+- `flutter test` blijft structureel niet uitvoerbaar in deze sandbox (geen
+  linux-arm64 Flutter-SDK, geen PR-branch-CI) — zoals eerder gedocumenteerd
+  gecompenseerd door bron-diff-review + live-build-verificatie. Dit keer is
+  het wél mogelijk gebleken `mvn test` daadwerkelijk (opnieuw) te draaien voor
+  de backend, met correcte/consistente start-/eindtijden, om de vorige
+  evidence-rejection recht te zetten.
+- `git status` schoon, geen scope-overschrijding (geen wijzigingen buiten
+  `robberts_assistent/`, geen iOS/pom.xml/CI-workflow/secrets-wijzigingen).
+- Oordeel: alle acceptatiecriteria van SF-955/SF-956 blijven geverifieerd,
+  geen bugs gevonden.
