@@ -76,6 +76,11 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     }
   }
 
+  Future<void> _saveNow() async {
+    _dirty = true;
+    await _save();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
@@ -106,6 +111,11 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Center(child: Text(_status, style: const TextStyle(fontSize: 12))),
             ),
+          IconButton(
+            tooltip: 'Opslaan',
+            icon: const Icon(Icons.save),
+            onPressed: _saveNow,
+          ),
           IconButton(
             tooltip: 'Uitloggen',
             icon: const Icon(Icons.logout),

@@ -8,5 +8,5 @@ import org.springframework.stereotype.Service
  */
 @Service
 class AssistantService {
-    fun reply(message: String): String = "Ga ik doen"
+    fun reply(message: String): String = "Doe ik"
 }
