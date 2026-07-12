@@ -75,3 +75,38 @@ Done / rationale:
   geen branch-CI, zie agent-tips) — geaccepteerd op basis van grondige
   handmatige code-review tegen de acceptatiecriteria.
 - Oordeel: voldoet aan scope en acceptatiecriteria. Akkoord.
+
+## Test (SF-957)
+
+- Diff `main...HEAD` (13 bestanden) gecontroleerd tegen acceptatiecriteria: titel
+  "Robbert's Assistent" → "Robbert's assistent" correct doorgevoerd in
+  `lib/main.dart` (`MaterialApp.title` + login-`Text`), `lib/home_screen.dart`
+  (AppBar), `AndroidManifest.xml` (`android:label`), `web/index.html`
+  (`<title>` + `apple-mobile-web-app-title`) en `web/manifest.json`
+  (`name`/`short_name`). `test/widget_test.dart` bijgewerkt naar de nieuwe
+  tekst. Grep op "Robbert's Assistent" / "robberts_assistent" (default-tekst)
+  binnen `robberts_assistent/` levert niets meer op.
+- `pubspec.yaml`: `flutter_launcher_icons`-config bevat nu een correct
+  `web:`-blok (`generate: true`, `image_path: assets/icon/icon.png`,
+  kleuren consistent met manifest). Android-blok ongewijzigd. Gegenereerde
+  web-iconbestanden lokaal geopend en op afmeting geverifieerd (PNG-header):
+  favicon 16x16, Icon-192/maskable-192 192x192, Icon-512/maskable-512 512x512.
+- Preview-omgeving (`https://robberts-assistent-frontend-robberts-assistent-pr-6.apps.sno.lab.vdzon.com`)
+  live getest zonder Google-login (SKIP_GOOGLE_AUTH): `<title>` in geserveerde
+  `index.html`, `manifest.json` (`name`/`short_name`) en het gecompileerde
+  `main.dart.js` tonen allemaal "Robbert's assistent" (0 treffers voor de oude
+  hoofdletter-variant in `main.dart.js`). `favicon.png`/`icons/Icon-192.png`
+  van de preview opgehaald en gecontroleerd op grootte + visueel: tonen het
+  custom paarse chatbubbel-met-ster-icon (`assets/icon/icon.png`), niet meer
+  het standaard Flutter-logo. Browser-screenshot gemaakt
+  (`SF-957-preview-startscherm.png`) — AppBar toont "Robbert's assistent".
+- `flutter test` kon zoals gedocumenteerd niet lokaal draaien (geen linux-arm64
+  Flutter-SDK in de sandbox, geen PR-branch-CI). Gecompenseerd door
+  bron-diff-review + live verificatie van de daadwerkelijk gedeployde build
+  (index.html, manifest.json, main.dart.js, icon-assets) op de preview, zoals
+  vermeld in agent-tips. Geen andere (backend-/Kotlin-)tests geraakt door deze
+  diff.
+- Geen wijzigingen buiten scope aangetroffen (geen wijzigingen in
+  wind/notities/backend).
+- Oordeel: voldoet aan alle acceptatiecriteria van SF-955/SF-956. Geen bugs
+  gevonden.
