@@ -46,3 +46,32 @@ Done / rationale:
   gegenereerde PNG's zijn geopend/geverifieerd op de juiste afmetingen met
   Pillow. Geen andere restanten van de oude titeltekst gevonden
   (`grep -rn "Robbert's Assistent"` op de gewijzigde bestanden is leeg).
+
+## Review (SF-956)
+
+- Volledige diff `main...HEAD` gecontroleerd (13 gewijzigde bestanden).
+- Titelwijziging "Robbert's Assistent" → "Robbert's assistent" geverifieerd in
+  alle scope-bestanden: `lib/main.dart` (title + Text-widget),
+  `lib/home_screen.dart` (AppBar), `AndroidManifest.xml` (`android:label`),
+  `web/index.html` (`<title>` + `apple-mobile-web-app-title`, was nog default
+  "robberts_assistent"), `web/manifest.json` (`name`/`short_name`, idem).
+  `test/widget_test.dart` bijgewerkt naar de nieuwe tekst. Grep op
+  "Robbert's Assistent" binnen `robberts_assistent/` levert niets meer op.
+- `pubspec.yaml`: `flutter_launcher_icons`-config correct uitgebreid met
+  `web:` blok (`generate: true`, zelfde `image_path`, kleuren consistent met
+  manifest). Android-blok ongewijzigd.
+- Web-iconbestanden geopend en gecontroleerd op afmetingen (favicon 16x16,
+  Icon-192/512 192x192/512x512, maskable idem) en visueel geverifieerd
+  (`Icon-512.png`, `favicon.png`): tonen het custom paarse chatbubbel-met-ster
+  icon, niet meer het standaard Flutter-logo. `manifest.json`-iconlijst was al
+  correct en hoefde niet aangepast.
+- [info] Maskable-iconvarianten zijn simpele resizes zonder ingebouwde
+  safe-zone-padding; dat is conform hoe `flutter_launcher_icons` dit ook zelf
+  genereert (developer heeft de package-broncode nagetrokken) en zat niet in
+  scope van deze story, dus geen blocker.
+- Geen backend-/Kotlin-wijzigingen in deze diff, dus `./gradlew test` niet van
+  toepassing. Ontbrekend `flutter test`-bewijs is voor deze zuivere
+  Flutter-UI/config-wijziging geen blocker (structurele ARM64-sandboxbeperking +
+  geen branch-CI, zie agent-tips) — geaccepteerd op basis van grondige
+  handmatige code-review tegen de acceptatiecriteria.
+- Oordeel: voldoet aan scope en acceptatiecriteria. Akkoord.
