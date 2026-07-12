@@ -115,3 +115,34 @@ Done / rationale:
   browser geverifieerd worden.
 - Opgeruimd: alle tijdelijke downloads (Flutter-SDK-tarball, Dart-SDK-zip)
   uit `/tmp` verwijderd na de installatiepoging.
+
+## Retest SF-943 (tester, na preview-auth-fix `151eb2d`)
+
+- Branch bevat inmiddels ook `147eafe`/`151eb2d`/`15dbf2c` (fix: preview-
+  frontend praatte met productie-backend i.p.v. eigen preview-backend).
+  Diff t.o.v. main opnieuw gecontroleerd: alleen de eerder genoemde 5
+  story-bestanden + de CI/deploy-bestanden van de preview-auth-fix zijn
+  gewijzigd. Geen scope-overschrijding voor deze story.
+- Backend-vangnet opnieuw gedraaid: `cd robberts-assistent-backend && mvn
+  test` → BUILD SUCCESS, 25 tests, 0 failures, 0 errors (incl.
+  `AssistantServiceTest` 1/1 met `"Doe ik"`).
+- Preview-URL (`SF_PREVIEW_URL`) opnieuw getest, nu specifiek gericht op de
+  eigen-backend-fix:
+  - `POST {SF_PREVIEW_URL}/api/v1/assistant/message` met
+    `{"text":"wat is de wind"}` en `{"text":"iets heel anders"}` →
+    beide `{"text":"Doe ik"}`, HTTP 200, zonder Authorization-header nodig
+    (preview slaat Google-login over zoals gedocumenteerd).
+  - Ter controle production (`https://robberts-assistent.vdzonsoftware.nl`)
+    hetzelfde endpoint aangeroepen → HTTP 401 "Missing bearer token":
+    bevestigt dat de preview niet (meer) tegen productie praat maar tegen
+    zijn eigen preview-backend, en dat de nieuwe tekst specifiek uit de
+    preview-deploy van deze branch komt.
+- Flutter/notities-kant: zelfde omgevingsbeperking als hierboven
+  (ARM64-sandbox zonder Flutter-SDK, geen CI-run op deze branch, notities
+  heeft geen web-preview) — nogmaals bevestigd, niet opnieuw geprobeerd te
+  installeren. Code-review van `notes_editor_screen.dart` blijft geldig
+  (geen wijzigingen in dat bestand sinds vorige testronde).
+- Conclusie: alle AC's van SF-932/SF-942 geverifieerd binnen de mogelijkheden
+  van deze omgeving; backend volledig getest (groen), preview-gedrag
+  bevestigd na de auth-fix; Flutter-kant alleen via code-review (bekende,
+  reeds gedocumenteerde beperking).
