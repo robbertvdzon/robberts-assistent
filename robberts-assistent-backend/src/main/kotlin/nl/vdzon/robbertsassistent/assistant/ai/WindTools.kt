@@ -9,7 +9,7 @@ import java.net.http.HttpResponse
 import java.time.Duration
 
 /**
- * Geeft de chat-assistent toegang tot actuele windmetingen bij IJmuiden. Haalt de ruwe pagina op
+ * Geeft de chat-assistent toegang tot actuele windmetingen + -voorspellingen bij IJmuiden. Haalt de ruwe pagina op
  * en geeft platte tekst terug — geen HTML-scraping met CSS-selectors, want die breekt bij de
  * eerstvolgende layout-wijziging. Het model leest de waarde zelf uit de tekst, net zoals een mens
  * de pagina zou lezen.
@@ -37,6 +37,12 @@ class WindTools(private val httpClient: HttpClient = HttpClient.newHttpClient())
     )
     fun getWindWindfinderIJmuiden(): String = fetchText(WINDFINDER_URL)
 
+    @Tool(
+        description = "Haal de meerdaagse windvoorspelling van windfinder.com op voor IJmuiden " +
+            "(windsnelheid, windstoten, windrichting en temperatuur per tijdstip, komende dagen).",
+    )
+    fun getWindForecastWindfinderIJmuiden(): String = fetchText(WINDFINDER_FORECAST_URL)
+
     private fun fetchText(url: String): String =
         runCatching {
             val request = HttpRequest.newBuilder(URI.create(url))
@@ -55,7 +61,10 @@ class WindTools(private val httpClient: HttpClient = HttpClient.newHttpClient())
     internal companion object {
         private const val WATERINFO_URL = "https://waterinfo.rws.nl/publiek/wind/ijmuiden.buitenhaven/details"
         private const val WINDFINDER_URL = "https://www.windfinder.com/report/ijmuiden"
-        private const val MAX_LENGTH = 4000
+        private const val WINDFINDER_FORECAST_URL = "https://www.windfinder.com/forecast/ijmuiden"
+        // Iets ruimer dan voor het actuele-rapport nodig zou zijn — de voorspellingspagina
+        // bevat meerdere dagen/tijdstippen, dus die heeft meer tekst nodig om bruikbaar te zijn.
+        private const val MAX_LENGTH = 6000
 
         /** Strip script/style/tags, decodeer een handjevol entities, comprimeer whitespace. */
         internal fun htmlToPlainText(html: String): String {
