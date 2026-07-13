@@ -1,16 +1,26 @@
 # notities
 
-A new Flutter project.
+Flutter-app (APK-only) met één auto-opslaande notitie, gekoppeld aan
+`robberts-assistent-backend`. Google-login vereist.
 
-## Getting Started
+## Gedrag
 
-This project is a starting point for a Flutter application.
+- Slaat automatisch op: 10 seconden na de laatste toetsaanslag (debounce), en
+  meteen bij het naar de achtergrond gaan of afsluiten van de app.
+- Checkt bij opstarten (async, niet-blokkerend) of er een nieuwere versie op
+  GitHub staat en vraagt een dialoogje om bij te werken zo ja
+  (`lib/self_update_prompt.dart`/`lib/update_checker.dart`).
 
-A few resources to get you started if this is your first Flutter project:
+## Build & test
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+flutter pub get
+flutter test
+flutter build apk --release \
+  --build-number=<N> \
+  --dart-define=API_BASE_URL=https://robberts-assistent.vdzonsoftware.nl \
+  --dart-define=GOOGLE_CLIENT_ID=<web-oauth-client-id>
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+CI (`.github/workflows/notities-apk.yml`) bouwt en publiceert de release-APK
+naar de vaste GitHub-Release-tag `notities-latest` bij elke push naar `main`.

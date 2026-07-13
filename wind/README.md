@@ -1,33 +1,36 @@
-# Wind (PoC)
+# Wind
 
-Proof-of-concept Android-app die aantoont dat de keten
-**"Hey Google" → Android App Actions → eigen app** werkt met een hands-free
-gevoel: het antwoord wordt uitgesproken (TextToSpeech) én als notificatie
-gepost, zónder zichtbaar scherm. Er is (nog) géén backend of echte weerdata.
+Native Android-app (geen Flutter-runtime, MainActivity is pure Kotlin) die de
+keten **"Hey Google" → Android App Actions → eigen app** met een hands-free
+gevoel afhandelt: het antwoord wordt uitgesproken (TextToSpeech) én als
+notificatie gepost, zónder zichtbaar scherm.
 
 ## Wat het doet
 
-Twee App Actions-capabilities (`android/app/src/main/res/xml/shortcuts.xml`):
+Drie trampoline-activities (`Theme` volledig transparant, geen zichtbaar
+scherm — zie `TrampolineTheme`), elk gekoppeld aan een App Actions-capability
+(`android/app/src/main/res/xml/shortcuts.xml`) of het app-icoon zelf:
 
-| Capability | Trampoline-activity | Antwoord |
-|------------|---------------------|----------|
-| `custom.actions.intent.GET_WIND_SPEED` | `WindSpeedActivity` | huidige windsnelheid (hardcoded) |
-| `custom.actions.intent.GET_WIND_FORECAST` | `ForecastActivity` | voorspelling (hardcoded) |
+| Trigger | Activity | Vraagt |
+|---------|----------|--------|
+| App-icoon / "Hey Google, open Wind" | `MainActivity` | huidige windsnelheid |
+| `custom.actions.intent.GET_WIND_SPEED` | `WindSpeedActivity` | huidige windsnelheid |
+| `custom.actions.intent.GET_WIND_FORECAST` | `ForecastActivity` | voorspelling |
 
-Elke trampoline-activity (`Theme.Translucent.NoDisplay`, geen zichtbaar scherm):
+Elke trampoline-activity haalt eerst (async, stil — geen inlog-UI) een actueel
+antwoord op bij `robberts-assistent-backend`'s chat-assistent
+(`AssistantClient.kt`), valt bij falen terug op een statische tekst
+(`WindAnswers.kt`), post een notificatie met dat antwoord, spreekt het uit via
+`TextToSpeech`, en sluit zichzelf pas af nadat het uitspreken klaar is.
 
-1. post een notificatie met het antwoord (notification channel; op Android 13+
-   alleen als `POST_NOTIFICATIONS` is verleend);
-2. spreekt datzelfde antwoord uit via `TextToSpeech` en sluit zichzelf pas af
-   nadat het uitspreken klaar is (`UtteranceProgressListener`).
+Zolang er nog geen gecachete Google-sessie is, stuurt het app-icoon eenmalig
+naar `LoginActivity` (wél een zichtbaar scherm) — daarna gaat "Hey Google, open
+Wind" weer direct headless via silent sign-in.
 
-De uitgesproken tekst, de notificatietekst en de tekst op het handmatig te
-openen Flutter-scherm zijn identiek. De teksten staan op één plek per kant:
-
-- Flutter: `lib/wind_data.dart` (`WindData`)
-- Native: `android/app/src/main/kotlin/nl/vdzon/wind/WindAnswers.kt`
-
-Wijzig je de ene, pas dan ook de andere aan.
+Bij opstarten checkt de app (max 1x/12u, achtergrondthread) of er een nieuwere
+versie op GitHub staat; zo ja, post `WindUpdateChecker.kt` een notificatie
+(tikken opent de release-pagina in de browser) — géén dialoogje, dat zou de
+instant-antwoord-belofte breken.
 
 ## Build & test
 
@@ -36,16 +39,20 @@ Vereist de Flutter SDK (stable channel) en een Android SDK.
 ```bash
 cd wind
 flutter pub get
-flutter test                 # Dart unit-/smoke-tests op de waarden-logica
-flutter build apk --release  # release-APK in build/app/outputs/flutter-apk/
+flutter test                 # Dart unit-/smoke-tests (statische terugvalteksten)
+flutter build apk --release \
+  --build-number=<N> \
+  --dart-define=GOOGLE_CLIENT_ID=<web-oauth-client-id>
+# resultaat: build/app/outputs/flutter-apk/app-release.apk
 
 # Native Kotlin smoke-tests:
 cd android && ./gradlew test
 ```
 
-CI (`.github/workflows/build-apk.yml`) draait `flutter test` + `flutter build
-apk --release` bij elke push naar `main` en publiceert de APK als GitHub
-Release.
+CI (`.github/workflows/build-apk.yml`) draait de Dart-tests + bouwt de
+release-APK (met de gedeelde release-keystore en een oplopend `--build-number`)
+bij elke push naar `main`, en publiceert 'm naar de vaste GitHub-Release-tag
+`wind-latest`.
 
 ## Handmatige verificatie (buiten CI)
 

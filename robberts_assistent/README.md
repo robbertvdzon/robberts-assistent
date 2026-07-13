@@ -1,16 +1,33 @@
 # robberts_assistent
 
-A new Flutter project.
+Flutter-app (APK + web) voor de dagelijkse samenvatting en de chat-assistent van
+`robberts-assistent-backend`. Google-login (echt op web/productie; op PR-previews
+overgeslagen via `SKIP_GOOGLE_AUTH`, zie `docs/factory/deployment.md`).
 
-## Getting Started
+## Schermen
 
-This project is a starting point for a Flutter application.
+- **Samenvatting** — dagelijks overzicht uit de backend.
+- **Assistent** — chat met de backend's AI (Spring AI/OpenAI), met tools voor
+  Robberts notitie en windmetingen/-voorspellingen bij IJmuiden
+  (`robberts-assistent-backend/.../assistant/ai/`).
+- **Updates** — toont voor alle drie de apps (wind, robberts_assistent, notities)
+  de geïnstalleerde vs. laatste GitHub-Release-versie, met een bijwerk-knop per
+  app (zie `lib/update_checker.dart`/`lib/updates_screen.dart`).
 
-A few resources to get you started if this is your first Flutter project:
+Bij opstarten checkt de app ook zichzelf (async, niet-blokkerend) en vraagt een
+dialoogje om bij te werken als er een nieuwere versie is (`lib/self_update_prompt.dart`).
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Build & test
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter pub get
+flutter test
+flutter build apk --release \
+  --build-number=<N> \
+  --dart-define=API_BASE_URL=https://robberts-assistent.vdzonsoftware.nl \
+  --dart-define=GOOGLE_CLIENT_ID=<web-oauth-client-id>
+```
+
+CI (`.github/workflows/robberts-assistent-apk.yml`) bouwt en publiceert de
+release-APK naar de vaste GitHub-Release-tag `robberts-assistent-latest` bij
+elke push naar `main`; `frontend-image.yml` bouwt de web-variant.
