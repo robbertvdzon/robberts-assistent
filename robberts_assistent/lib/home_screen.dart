@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'assistant_screen.dart';
+import 'self_update_prompt.dart';
 import 'summary_screen.dart';
 import 'updates_screen.dart';
 
@@ -18,6 +20,18 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   var _tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Web heeft geen APK/MethodChannel-concept — alleen op Android relevant. Async/niet-blokkerend:
+    // de rest van het scherm wacht niet op deze check.
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) maybePromptSelfUpdate(context);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

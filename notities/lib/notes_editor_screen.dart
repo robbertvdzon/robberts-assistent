@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'self_update_prompt.dart';
 
 /// Toont de ene notitie-string in een bewerkbaar tekstvak. Slaat vanzelf op:
 /// - 10 seconden na de laatste toetsaanslag (debounce), of
@@ -32,6 +33,10 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _load();
+    // Async/niet-blokkerend: de editor wacht niet op deze check.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybePromptSelfUpdate(context);
+    });
   }
 
   Future<void> _load() async {

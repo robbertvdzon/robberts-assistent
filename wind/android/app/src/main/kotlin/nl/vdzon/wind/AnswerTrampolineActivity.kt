@@ -70,6 +70,12 @@ abstract class AnswerTrampolineActivity : Activity(), TextToSpeech.OnInitListene
                 ?: fallbackAnswer
             proceedIfReady()
         }
+
+        // Losse achtergrondthread (niet `scope`, dat wordt in onDestroy geannuleerd zodra de
+        // trampoline klaar is spreken — deze check mag best nog even doorlopen na het afsluiten).
+        // Zie WindUpdateChecker voor de throttling (1x/12u) en waarom dit een notificatie post
+        // i.p.v. een dialoogje: deze activity moet instant blijven, ook bij "Hey Google, open Wind".
+        Thread { runCatching { WindUpdateChecker.checkAndNotifyIfDue(applicationContext) } }.start()
     }
 
     override fun onInit(status: Int) {
