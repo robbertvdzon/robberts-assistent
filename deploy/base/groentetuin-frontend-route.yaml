@@ -8,7 +8,8 @@ spec:
   # LET OP: nieuwe publieke hostname moet handmatig in Cloudflare Zero Trust
   # geregistreerd worden (zie docs/factory/deployment.md) — GitOps zet alleen de
   # OpenShift-Route, niet de externe DNS/tunnel.
-  host: groentetuin.vdzonsoftware.nl
+  # (groentetuin.vdzonsoftware.nl was al bezet, daarom moestuin.)
+  host: moestuin.vdzonsoftware.nl
   to:
     kind: Service
     name: groentetuin-frontend
