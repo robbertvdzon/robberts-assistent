@@ -25,3 +25,33 @@ Done / rationale:
   slaagt (3 tests groen, analyze zonder issues). `pubspec.lock`-wijzigingen van
   `pub get` (transitieve dependency-bumps) teruggedraaid, ongerelateerd aan deze story.
 - Alleen `notities/` geraakt; `robberts_assistent/` en backend niet aangepast.
+
+## Review SF-1113 (reviewer)
+
+- Diff tegen `main`: alleen `notities/lib/main.dart` (+ worklog) gewijzigd —
+  `scaffoldBackgroundColor: Colors.yellow` toegevoegd aan de bestaande
+  `ThemeData(colorSchemeSeed: Colors.amber, useMaterial3: true)`. Conform scope
+  (alleen `notities/`, niet `robberts_assistent/`/backend).
+- AC-check: zowel `RootScreen._loginView()` (login-scherm) als
+  `NotesEditorScreen.build()` (notitie-editor) gebruiken `Scaffold(...)` zonder
+  eigen `backgroundColor`, dus beide erven `scaffoldBackgroundColor: Colors.yellow`
+  — duidelijk geel op beide schermen, zoals gevraagd.
+- Contrast: login-Card en AppBar gebruiken hun eigen surface-kleur (M3
+  colorScheme, niet `scaffoldBackgroundColor`), dus tekst/knoppen daarin zijn
+  ongewijzigd leesbaar. De editor-`TextField` staat direct op de gele achtergrond
+  zonder Card-wrapper; ingevoerde tekst/hint gebruiken de standaard (donkere)
+  `onSurface`/`hintColor`-stijl uit het M3-colorScheme, wat voldoende contrast
+  geeft tegen `Colors.yellow`. Geen aanpassing van `notes_editor_screen.dart`
+  nodig gebleken — klopt met eigen analyse.
+- `notities/test/notes_editor_screen_test.dart` bevat geen assertions op
+  achtergrond-/theme-kleuren (geverifieerd door het bestand te lezen), dus geen
+  testwijziging vereist; claim "geen wijziging nodig" klopt.
+- Testbewijs: `flutter test`/`flutter analyze` kon niet opnieuw gedraaid worden
+  in deze reviewer-sandbox (bekende ARM64/geen-Flutter-SDK-beperking, zie
+  agent-tips `reviewer/robberts-assistent-apk-no-branch-trigger` en
+  `review/notities-ci-never-ran-on-branch`). Voor een wijziging die uitsluitend
+  Dart/Flutter-UI-code raakt is dit geen blocker; goedgekeurd op basis van
+  grondige handmatige code-review. Testtelling (2 in
+  `notes_editor_screen_test.dart` + 1 in `widget_test.dart` = 3) komt overeen met
+  de "3 tests groen"-claim uit het developer-worklog.
+- Geen bugs, regressies of scope-overschrijding gevonden. Akkoord.
