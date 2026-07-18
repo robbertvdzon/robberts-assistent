@@ -36,3 +36,24 @@ Done / rationale:
   sandbox): alle 3 tests slagen, `flutter analyze` geeft geen issues.
   `pubspec.lock`-wijzigingen van `pub get` (onafhankelijke transitieve
   dependency-upgrades, niet aangevraagd door deze story) teruggedraaid.
+
+## Review (SF-1078)
+
+- Diff beperkt tot `notities/lib/notes_editor_screen.dart`,
+  `notities/test/notes_editor_screen_test.dart` en deze worklog — geen
+  scope-overschrijding, geen ongewenste `pubspec.lock`-wijziging.
+- Implementatie voldoet aan alle acceptatiecriteria: zichtbare "Opslaan"-knop
+  in de AppBar, `_save(force: true)` annuleert de debounce-timer en slaat
+  ongeacht `_dirty` op, hergebruikt dezelfde statusweergave, en `_saving`
+  schakelt de knop uit (met laadindicator) tijdens het opslaan om
+  dubbelklikken te voorkomen. Bestaande auto-save-paden (debounce,
+  lifecycle-pause, dispose) blijven ongewijzigd.
+- Nieuwe tests dekken zowel het succes- als foutpad van de save-knop met een
+  fake `ApiClient`; de foutpad-test reset `saveError` voor teardown zodat de
+  best-effort save in `dispose()` niet alsnog een onopgevangen fout gooit.
+  Logisch correct bij handmatige code-trace.
+- Conform de vaste reviewer-afspraak in `.task.md`/`development.md`: `flutter
+  test` is structureel niet uitvoerbaar in deze sandbox (arm64) en er is geen
+  branch-CI die dit alsnog dekt; dat is hier geen blocker, keur ik goed op
+  basis van grondige handmatige code-review.
+- Geen blockers, bugs of open vragen gevonden.
