@@ -1,22 +1,11 @@
 package nl.vdzon.robbertsassistent.notifier
 
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Bean
 
 /**
- * Stub-[Notifier] die het bericht alleen logt. Actief zolang er geen echt kanaal geconfigureerd
- * is (bv. Telegram in fase 1). Dankzij [ConditionalOnMissingBean] neemt een echte Notifier —
- * zodra die als bean bestaat — automatisch de plek over, zonder code-wijziging elders.
+ * Stub-[Notifier] die het bericht alleen logt. De fallback zolang er geen echt kanaal
+ * (Telegram/FCM) geconfigureerd is; [NotifierConfig] kiest tussen deze en de echte notifier.
  */
-@Configuration
-class LoggingNotifierConfig {
-    @Bean
-    @ConditionalOnMissingBean(Notifier::class)
-    fun loggingNotifier(): Notifier = LoggingNotifier()
-}
-
 class LoggingNotifier : Notifier {
     private val logger = LoggerFactory.getLogger(javaClass)
 
