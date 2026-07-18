@@ -55,3 +55,20 @@ Done / rationale:
   `notes_editor_screen_test.dart` + 1 in `widget_test.dart` = 3) komt overeen met
   de "3 tests groen"-claim uit het developer-worklog.
 - Geen bugs, regressies of scope-overschrijding gevonden. Akkoord.
+
+## Test SF-1114 (tester)
+
+- Flutter SDK bleek beschikbaar in deze sandbox (`/opt/flutter/bin/flutter`, aarch64) —
+  echte testrun uitgevoerd i.p.v. alleen code-review.
+- `flutter pub get`: geslaagd (transitieve `pubspec.lock`-bumps nadien teruggedraaid
+  met `git checkout -- notities/pubspec.lock`, ongerelateerd aan deze story).
+- `flutter test` (2026-07-18, start 11:24:18 UTC, eind 11:24:20 UTC): 3/3 tests groen
+  (2x `notes_editor_screen_test.dart` + 1x `widget_test.dart`, apart bevestigd).
+- `flutter analyze`: geen issues.
+- AC-check: `RootScreen._loginView()` en `NotesEditorScreen.build()` gebruiken beide
+  `Scaffold(...)` zonder eigen `backgroundColor`, dus beide erven
+  `scaffoldBackgroundColor: Colors.yellow` uit `main.dart` — duidelijk geel op login-
+  én editor-scherm. Alleen `notities/` geraakt (`git diff --stat` tegen main: enkel
+  `notities/lib/main.dart` + worklog).
+- Geen preview-URL voor `notities/` (APK-only), dus geen screenshot mogelijk/vereist.
+- Geen bugs gevonden. Akkoord.
