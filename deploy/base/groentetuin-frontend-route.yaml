@@ -1,0 +1,19 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: groentetuin-frontend
+  labels:
+    app: groentetuin-frontend
+spec:
+  # LET OP: nieuwe publieke hostname moet handmatig in Cloudflare Zero Trust
+  # geregistreerd worden (zie docs/factory/deployment.md) — GitOps zet alleen de
+  # OpenShift-Route, niet de externe DNS/tunnel.
+  host: groentetuin.vdzonsoftware.nl
+  to:
+    kind: Service
+    name: groentetuin-frontend
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

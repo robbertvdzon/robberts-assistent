@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: groentetuin-frontend
+  labels:
+    app: groentetuin-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: groentetuin-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

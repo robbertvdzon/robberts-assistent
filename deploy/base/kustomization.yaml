@@ -6,6 +6,9 @@ resources:
 - robberts-assistent-frontend-deployment.yaml
 - robberts-assistent-frontend-service.yaml
 - robberts-assistent-frontend-route.yaml
+- groentetuin-frontend-deployment.yaml
+- groentetuin-frontend-service.yaml
+- groentetuin-frontend-route.yaml
 images:
 - name: ghcr.io/robbertvdzon/robberts-assistent-backend
   newName: ghcr.io/robbertvdzon/robberts-assistent-backend
@@ -13,5 +16,8 @@ images:
 - name: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newName: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newTag: sha-72f1cd7
+- name: ghcr.io/robbertvdzon/groentetuin-frontend
+  newName: ghcr.io/robbertvdzon/groentetuin-frontend
+  newTag: main
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
