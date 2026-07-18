@@ -38,6 +38,12 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- FCM-achtergrondmeldingen op het high-importance kanaal (zie FcmService/PushService),
+             zodat ze geluid maken, op het lockscreen verschijnen en naar het horloge spiegelen. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="assistent_meldingen" />
+
         <!-- FileProvider voor de update-installer: content://-URI naar de gedownloade APK in de
              cache-map, zodat de package-installer erbij kan zonder file://-URI's bloot te geven
              (verplicht sinds Android 7, StrictMode FileUriExposedException). -->

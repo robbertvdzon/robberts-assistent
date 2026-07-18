@@ -119,33 +119,12 @@ class _RootScreenState extends State<RootScreen> {
     if (mounted) setState(() {});
   }
 
-  /// Toont een binnenkomende push als dialog (foreground; op de achtergrond doet Android het zelf).
-  void _showPush(String title, String body) {
-    if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.notifications_active, color: Colors.deepPurple),
-            const SizedBox(width: 8),
-            Expanded(child: Text(title)),
-          ],
-        ),
-        content: Text(body),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('OK')),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!initialized) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (api.token == null) return _loginView();
     // FCM opzetten zodra ingelogd (idempotent — draait maar één keer echt).
-    WidgetsBinding.instance.addPostFrameCallback((_) => FcmService.setup(api, _showPush));
+    WidgetsBinding.instance.addPostFrameCallback((_) => FcmService.setup(api));
     return HomeScreen(api: api, onLoggedOut: _logout);
   }
 

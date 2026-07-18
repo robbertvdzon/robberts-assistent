@@ -1,28 +1,50 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'api_client.dart';
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond
-/// of gesloten is toont Android de notification-payload zelf, dus hier is niets nodig.
+/// of gesloten is toont Android de FCM-notification-payload zelf op het opgegeven kanaal.
 @pragma('vm:entry-point')
 Future<void> _backgroundHandler(RemoteMessage message) async {}
 
-/// Zet FCM op (alleen Android): vraagt notificatie-permissie, haalt het device-token op en
-/// registreert het bij de backend zodat de agent er push naartoe kan sturen. [onForegroundMessage]
-/// wordt aangeroepen bij een push terwijl de app open is (Android toont die dan niet zelf).
+// Moet gelijk zijn aan het kanaal-id dat de backend meestuurt (zie PushService).
+const _channelId = 'assistent_meldingen';
+const _channelName = 'Assistent-meldingen';
+
+/// Zet FCM op (alleen Android): permissie vragen, token registreren bij de backend, en een
+/// high-importance notificatie-kanaal aanmaken. Binnenkomende push wordt als echte
+/// systeem-notificatie getoond (heads-up, lockscreen, spiegelt naar een gekoppeld horloge) —
+/// ook wanneer de app open is.
 class FcmService {
   static bool _done = false;
+  static final _local = FlutterLocalNotificationsPlugin();
+  static var _notifId = 0;
 
-  static Future<void> setup(
-    ApiClient api,
-    void Function(String title, String body) onForegroundMessage,
-  ) async {
+  static Future<void> setup(ApiClient api) async {
     if (kIsWeb || _done) return; // FCM-web vereist extra config; alleen Android voor nu.
     _done = true;
     try {
       await Firebase.initializeApp();
+
+      // Lokale notificaties + high-importance kanaal (zodat ook FCM-achtergrondmeldingen op dit
+      // kanaal geluid maken en op het lockscreen verschijnen).
+      await _local.initialize(
+        const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+      );
+      await _local
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(
+            const AndroidNotificationChannel(
+              _channelId,
+              _channelName,
+              description: 'Meldingen van je assistent',
+              importance: Importance.high,
+            ),
+          );
+
       FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission();
@@ -33,11 +55,24 @@ class FcmService {
       }
       messaging.onTokenRefresh.listen((t) => api.registerFcmToken(t).catchError((_) {}));
 
+      // Voorgrond: FCM toont niets zelf → wij posten een echte notificatie op het kanaal.
       FirebaseMessaging.onMessage.listen((message) {
         final n = message.notification;
         final title = n?.title ?? message.data['title'] ?? 'Melding';
         final body = n?.body ?? message.data['body'] ?? '';
-        onForegroundMessage(title, body);
+        _local.show(
+          _notifId++,
+          title,
+          body,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              _channelId,
+              _channelName,
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+          ),
+        );
       });
     } catch (_) {
       _done = false; // volgende keer opnieuw proberen

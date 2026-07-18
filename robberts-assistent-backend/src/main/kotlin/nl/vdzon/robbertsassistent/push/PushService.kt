@@ -1,5 +1,7 @@
 package nl.vdzon.robbertsassistent.push
 
+import com.google.firebase.messaging.AndroidConfig
+import com.google.firebase.messaging.AndroidNotification
 import com.google.firebase.messaging.FirebaseMessagingException
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
@@ -37,6 +39,19 @@ class PushService(
                 val message = Message.builder()
                     .setToken(token)
                     .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+                    // Hoge prioriteit + high-importance kanaal met geluid: heads-up melding,
+                    // zichtbaar op het lockscreen en spiegelt naar een gekoppeld horloge.
+                    .setAndroidConfig(
+                        AndroidConfig.builder()
+                            .setPriority(AndroidConfig.Priority.HIGH)
+                            .setNotification(
+                                AndroidNotification.builder()
+                                    .setChannelId(NOTIFICATION_CHANNEL_ID)
+                                    .setSound("default")
+                                    .build(),
+                            )
+                            .build(),
+                    )
                     .putData("title", title)
                     .putData("body", body)
                     .build()
@@ -53,5 +68,10 @@ class PushService(
             }
         }
         return sent
+    }
+
+    private companion object {
+        // Moet gelijk zijn aan het kanaal dat de app aanmaakt (zie FcmService in robberts_assistent).
+        const val NOTIFICATION_CHANNEL_ID = "assistent_meldingen"
     }
 }
