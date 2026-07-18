@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_client.dart';
+import 'chat_screen.dart';
 import 'google_signin_button_stub.dart' if (dart.library.html) 'google_signin_button_web.dart' as gis_button;
-import 'home_screen.dart';
 
 void main() {
   runApp(const GroentetuinApp());
@@ -120,7 +120,7 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     if (!initialized) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (api.token == null) return _loginView();
-    return HomeScreen(api: api, onLoggedOut: _logout);
+    return ChatScreen(api: api, onLoggedOut: _logout);
   }
 
   Widget _loginView() => Scaffold(

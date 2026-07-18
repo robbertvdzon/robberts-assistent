@@ -8,6 +8,7 @@ import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.ai.openai.api.OpenAiApi
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Primary
 
 private val SYSTEM_PROMPT = """
     Je bent Robberts persoonlijke assistent. Antwoord kort en to-the-point, in het Nederlands.
@@ -44,6 +45,7 @@ class AiConfig {
         }
 
     @Bean
+    @Primary
     fun assistantChatClient(
         chatModel: ChatModel,
         notesTools: NotesTools,

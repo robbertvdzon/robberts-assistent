@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Praat met `robberts-assistent-backend`. Bewaart het sessie-token in
@@ -65,6 +67,55 @@ class ApiClient {
     }
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
+
+  /// Stuurt een tekstbericht + optionele foto's naar de moestuin-AI (multipart POST
+  /// `/api/v1/garden/chat`) en geeft het antwoord + conversationId terug.
+  Future<GardenChatReply> gardenChat({
+    required String message,
+    String? conversationId,
+    List<GardenAttachment> photos = const [],
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/v1/garden/chat'));
+    request.headers.addAll(authHeaders());
+    request.fields['message'] = message;
+    if (conversationId != null) request.fields['conversationId'] = conversationId;
+    for (final photo in photos) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'photos',
+        photo.bytes,
+        filename: photo.filename,
+        contentType: MediaType.parse(photo.contentType),
+      ));
+    }
+    final response = await http.Response.fromStream(await request.send());
+    if (response.statusCode == 401) {
+      await clearSession();
+      throw const UnauthorizedException();
+    }
+    if (response.statusCode >= 400) {
+      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return GardenChatReply(
+      conversationId: body['conversationId'] as String,
+      reply: body['reply'] as String,
+    );
+  }
+}
+
+/// Een foto-bijlage voor de moestuin-chat.
+class GardenAttachment {
+  final Uint8List bytes;
+  final String filename;
+  final String contentType;
+  const GardenAttachment({required this.bytes, required this.filename, required this.contentType});
+}
+
+/// Het antwoord van de moestuin-AI op één beurt.
+class GardenChatReply {
+  final String conversationId;
+  final String reply;
+  const GardenChatReply({required this.conversationId, required this.reply});
 }
 
 class UnauthorizedException implements Exception {
