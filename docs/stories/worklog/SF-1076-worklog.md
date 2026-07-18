@@ -57,3 +57,25 @@ Done / rationale:
   branch-CI die dit alsnog dekt; dat is hier geen blocker, keur ik goed op
   basis van grondige handmatige code-review.
 - Geen blockers, bugs of open vragen gevonden.
+
+## Test (SF-1079)
+
+- Flutter SDK bleek dit keer wél daadwerkelijk werkend in de tester-sandbox
+  (`/opt/flutter/bin/flutter`, versie 3.44.6, ondanks eerdere agent-tip dat dit
+  structureel niet zou werken op arm64) — dus volledige testrun uitgevoerd i.p.v.
+  alleen code-review.
+- `flutter pub get` (09:53:52–09:53:56 UTC): 5 transitieve dependency-upgrades in
+  `pubspec.lock`, niet aangevraagd door deze story — teruggedraaid met
+  `git checkout -- notities/pubspec.lock` na de testrun, geen wijzigingen
+  achtergelaten.
+- `flutter test` (09:53:56–09:53:59 UTC): alle 3 tests groen (2 nieuwe in
+  `notes_editor_screen_test.dart` + 1 bestaande in `widget_test.dart`), exitcode 0.
+- `flutter analyze` (09:54:07–09:54:12 UTC): "No issues found!", exitcode 0.
+- Handmatige code-trace tegen de acceptatiecriteria: save-knop zichtbaar in de
+  AppBar, `_save(force: true)` annuleert de lopende debounce-`Timer` en slaat
+  ongeacht `_dirty` op, hergebruikt dezelfde statusweergave, `_saving` schakelt
+  de knop uit met laadindicator tijdens het opslaan. Auto-save-paden (debounce,
+  lifecycle pause/inactive, dispose) ongewijzigd. Alle acceptatiecriteria voldaan.
+- Geen preview/screenshot van toepassing: `notities` is APK-only, geen web-preview
+  (bevestigd in `docs/factory/deployment.md`).
+- Geen bugs of open vragen gevonden.
