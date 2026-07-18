@@ -18,7 +18,11 @@ class NotitiesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Notities',
-      theme: ThemeData(colorSchemeSeed: Colors.amber, useMaterial3: true),
+      theme: ThemeData(
+        colorSchemeSeed: Colors.amber,
+        useMaterial3: true,
+        scaffoldBackgroundColor: Colors.yellow,
+      ),
       home: const RootScreen(),
     );
   }

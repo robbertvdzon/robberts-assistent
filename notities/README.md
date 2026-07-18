@@ -5,6 +5,10 @@ Flutter-app (APK-only) met één auto-opslaande notitie, gekoppeld aan
 
 ## Gedrag
 
+- Achtergrondkleur van de app (login-scherm en notitie-editor) is geel
+  (`scaffoldBackgroundColor: Colors.yellow` in `lib/main.dart`, bovenop het
+  bestaande Material 3-thema met `colorSchemeSeed: Colors.amber`). AppBar,
+  kaarten en knoppen behouden hun eigen thema-kleur voor voldoende contrast.
 - Slaat automatisch op: 10 seconden na de laatste toetsaanslag (debounce), en
   meteen bij het naar de achtergrond gaan of afsluiten van de app.
 - Heeft daarnaast een "Opslaan"-knop in de `AppBar` van de editor
