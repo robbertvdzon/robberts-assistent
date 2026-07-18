@@ -1,15 +1,20 @@
 # Development
 
-Deze repo bevat drie Flutter/Android-apps en één Kotlin/Spring-Boot-backend:
+Deze repo bevat vier Flutter/Android-apps en één Kotlin/Spring-Boot-backend:
 
 - **wind/** — PoC-app zonder backend-afhankelijkheid voor eigen bestaan (wel een
   chat-assistent-call voor de wind-/voorspellingstekst, zie hieronder). Alleen
   APK, geen web-deploy.
 - **robberts_assistent/** — dagelijkse samenvatting + chat-assistent, Google-
   login. Draait als APK én als web-app op OpenShift.
+- **groentetuin/** — moestuin-AI-chat (tekst + foto's → vision-antwoord), Google-
+  login. Draait als APK én als web-app (`moestuin.vdzonsoftware.nl`).
 - **notities/** — één auto-opslaande notitie, Google-login. Alleen APK.
 - **robberts-assistent-backend/** — Kotlin/Spring Boot/Spring Modulith backend
-  voor alle drie (auth, notes, summary, assistant-modules).
+  voor alle apps. Modules: `auth`, `config`, `health`, `notes`, `summary`,
+  `assistant` (+`ai/`), `reminders`, `gardenchat`, `google`, `firebase`,
+  `notifier`. Koppelingen achter ports met stub/in-memory fallback (zie
+  `technical-spec.md` en de root `CLAUDE.md`).
 
 Zie `deployment.md` voor hoe elke component gebouwd/gedeployed wordt en
 `secrets-local.md` voor lokale env-vars.

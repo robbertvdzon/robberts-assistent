@@ -1,46 +1,60 @@
 # Technical Spec
 
+Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `CLAUDE.md`.
+
 ## Stack & versies
 
-- **Flutter** (stable) + **Dart** `>=3.0.0 <4.0.0` voor UI.
-- **Android host** in **Kotlin 1.9.10**; JDK 17.
-- **Android Gradle Plugin** 8.1.0, **Gradle** 8.3 (wrapper gecommit).
-- `compileSdk`/`targetSdk` = 34, `minSdk` = 23.
-- Package/applicationId: `nl.vdzon.wind`.
-- Dependency: `androidx.core:core-ktx` (o.a. `NotificationCompat`).
+- **Backend:** Kotlin, Spring Boot 3.5, **Spring Modulith**, Java 21, Maven. Spring AI
+  (`spring-ai-openai` + `spring-ai-client-chat`, handmatige bean-wiring, geen
+  auto-configuratie-starter) met **OpenAI gpt-4o-mini** (vision-capable). `firebase-admin`
+  (Firestore + Cloud Storage). JdbcTemplate + Flyway. Package-root `nl.vdzon.robbertsassistent`.
+- **Apps:** Flutter (stable), Dart `>=3.0.0 <4.0.0`. `wind/` daarnaast native Kotlin (App
+  Actions-trampoline-activities, TTS, notificaties). Web-apps: Flutter web → nginx-container.
+- **Android:** applicationId's `nl.vdzon.*` (o.a. `nl.vdzon.groentetuin`, `nl.vdzon.robberts_assistent`);
+  gedeelde release-keystore (Google Sign-In hangt aan de SHA-1).
 
-## Architectuur
+## Architectuur (backend)
 
-- **App Actions** worden gedeclareerd in `res/xml/shortcuts.xml` als twee
-  capabilities met custom intents, gekoppeld aan native trampoline-activities.
-- **Trampoline-activities** (`AnswerTrampolineActivity` + twee subklassen)
-  draaien met `@android:style/Theme.Translucent.NoDisplay`, `noHistory` en
-  `excludeFromRecents` → geen zichtbaar scherm. Ze:
-  1. maken/gebruiken een notification channel en posten een notificatie;
-  2. spreken de tekst uit via `TextToSpeech`;
-  3. sluiten pas af in de `UtteranceProgressListener.onDone` (of bij
-     TTS-fout/ontbreken), zodat het uitspreken niet wordt afgekapt.
-- **Flutter-scherm** (`MainActivity` als `FlutterActivity` + `lib/main.dart`)
-  toont dezelfde waarden voor handmatig testen.
-- **Gedeelde waarheid**: antwoord-teksten staan in `WindAnswers.kt` (native) en
-  `wind_data.dart` (Flutter). Deze moeten synchroon blijven.
+- **Spring Modulith**: elke directe subpackage onder `robbertsassistent` is een module;
+  `ModulithArchitectureTest` dwingt de grenzen af. Cross-module verwijzingen alleen naar types
+  in de base-package van de andere module.
+- **Koppelingen achter ports met fallback.** Een selector-`@Configuration` kiest per koppeling
+  de echte implementatie (als de secret gezet is) of de fallback (stub/in-memory/mock).
+  Voorbeelden: `Notifier` (Telegram/Logging), `ReminderRepository` + `ConversationRepository`
+  (Firestore/in-memory), `PhotoStorage` (Firebase Storage/in-memory), `CalendarClient` +
+  `DocsClient` (Google/stub). Firebase-init-fouten worden afgevangen → fallback, geen crashloop.
+- **Config:** `AppSecrets` + `AppSecretsLoader` lezen `secrets.env` (lokaal) of env-vars (prod,
+  uit de Sealed Secret via `envFrom`). Ontbrekende secret ⇒ fallback (zie `effectiveMockAi`).
+- **AI-agent:** twee `ChatClient`-beans in `assistant/ai/AiConfig` — `assistantChatClient`
+  (`@Primary`, met alle `@Tool`-beans) en `gardenChatClient` (`@Qualifier`, vision, eigen
+  system-prompt). `MockChatModel` in preview/tests (deterministisch, geen kosten/netwerk).
+- **Data:** notities in Postgres (JdbcTemplate + Flyway `V1`); reminders + chat-conversaties in
+  Firestore (named database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in
+  Firebase Storage (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
+
+## Web-apps
+
+- `Dockerfile`: Flutter web build (met `--dart-define` voor `GOOGLE_CLIENT_ID`, `API_BASE_URL`,
+  `SKIP_GOOGLE_AUTH`) → nginx-unprivileged. `nginx.conf` proxyt `/api/` same-origin naar
+  `robberts-assistent-backend:80` (geen CORS) en serveert de Flutter-app.
+- Google-login: web via de GIS-knop (`google_sign_in_web`), mobiel via `signIn()`. `ApiClient`
+  ruilt het Google-ID-token in voor een sessie-token en stuurt dat als Bearer mee.
 
 ## Codeconventies
 
-- Native code onder `android/app/src/main/kotlin/nl/vdzon/wind/`.
-- Één verantwoordelijkheid per trampoline-activity; gedeelde logica in de
-  abstracte basisklasse.
-- Nederlandse UI- en antwoordteksten; TTS-locale `nl_NL`.
+- Nederlands in commentaar/docs/commits/UI.
+- Nieuwe skill = nieuwe module (subpackage) + evt. een `@Tool` in `assistant/ai/`, geregistreerd
+  in `AiConfig`. Nieuwe koppeling = port + fallback + `AppSecrets`-key + secrets-documentatie.
+- Match de bestaande stijl per module (JdbcTemplate voor Postgres, port-selector voor koppelingen).
 
 ## Bekende valkuilen
 
-- **POST_NOTIFICATIONS** is runtime-permissie op Android 13+; zonder toestemming
-  wordt de notificatie overgeslagen (geen crash). Voor een volledige demo moet
-  de gebruiker de permissie verlenen (bv. door de app één keer te openen en toe
-  te staan).
-- **TTS-timing**: de activity mag niet afsluiten vóór `onDone`, anders wordt de
-  spraak afgekapt.
-- **Gradle-wrapper** wordt door `flutter build` niet geregenereerd en is daarom
-  bewust gecommit; verwijder deze niet.
-- App Actions-invocatie ("Hey Google, vraag Wind ...") en de notificatie op een
-  Garmin-horloge zijn alleen op echte hardware te verifiëren, niet in CI.
+- **Modulith-grenzen:** een verweesde `.class` in `target/` (na hernoemen/verwijderen van een
+  class) kan een dubbele bean geven — draai `mvn clean test` bij vreemde bean-conflicten.
+- **Firebase-credentials in prod:** gebruik `RA_FIREBASE_CREDENTIALS_JSON` (inhoud), niet
+  `_FILE` (pad bestaat niet in de container).
+- **Sealed Secrets:** nieuwe keys mergen met `kubeseal --merge-into`; bij een verlopen
+  `cluster-cert.pem` ontsleutelt de controller de secret niet en blijven koppelingen op fallback
+  (cert verversen met `kubeseal --fetch-cert`).
+- **Google-vision** weigert ongeldige/te kleine afbeeldingen (`image_parse_error`) — test met
+  echte foto's.

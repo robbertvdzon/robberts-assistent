@@ -1,39 +1,50 @@
 # Functional Spec
 
+Functionele afspraken per skill/app. Overzicht en architectuur: root `CLAUDE.md`.
+
 ## Doel
 
-De **Wind**-app is een proof-of-concept die aantoont dat de keten
-"Hey Google" → Android App Actions → eigen app werkt met een hands-free gevoel
-(spraak + notificatie, geen zichtbaar scherm), vóórdat er een backend of echte
-weerdata wordt gebouwd.
+Een persoonlijke assistent die Robbert helpt met uiteenlopende taken, opgebouwd uit losse
+**skills** in één backend, aangesproken door apps en door een AI-agent. De AI-agent is ook de
+test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te testen.
 
-## Gebruikersflows
+## Skills (backend)
 
-1. **Hands-free (hoofd-PoC).** De gebruiker zegt via Google Assistant iets als
-   "Hey Google, vraag Wind naar de huidige windsnelheid" of "... naar de
-   voorspelling". De bijbehorende trampoline-activity start onzichtbaar, spreekt
-   het antwoord uit én post een notificatie met exact dezelfde tekst, en sluit
-   zichzelf direct af. De notificatie kan doorkomen op een gekoppeld
-   Garmin-horloge (smart-notifications).
-2. **Handmatig (test zonder spraak).** De gebruiker opent de app en ziet een
-   scherm met dezelfde windsnelheid- en voorspellingswaarden.
+- **Notities** — één auto-opslaande notitie-string; lezen/overschrijven via REST en via de
+  agent (`NotesTools`).
+- **Wind / kite-check** — de agent haalt actuele wind + voorspelling bij IJmuiden op
+  (windfinder + Open-Meteo, `WindTools`) en beantwoordt kite-vragen.
+- **Reminders** — een reminder met tekst + tijdstip; een `@Scheduled`-agent controleert elke
+  minuut welke "due" zijn en pusht ze via de Notifier. Aanmaken via REST en via de agent
+  ("zet een reminder over 10 minuten"). Zichtbaar in de app.
+- **Moestuin-AI-chat** — de gebruiker stuurt tekst + één of meer foto's; de backend slaat de
+  foto's op, laat een vision-AI antwoorden (plant/ziekte/verzorging herkennen) en bewaart de
+  chat. Multi-turn: doorpraten binnen één conversatie.
+- **Google Agenda** (read-only) — de agent leest Robberts agenda ("wanneer moet ik naar de
+  tandarts", "vakanties dit jaar").
+- **Google Docs** (read-only) — de agent leest een doc op id en beantwoordt vragen eruit.
+- **Dagelijkse samenvatting** — samenvatting-skill.
 
-## Antwoorden
+## Push / meldingen
 
-- **Huidige windsnelheid**: hardcoded waarde met eenheid.
-- **Voorspelling**: hardcoded voorspellingstekst.
-- De uitgesproken tekst, de notificatietekst en de schermtekst zijn identiek.
+- **Telegram** (uitgaand): reminders/alerts gaan naar Robberts Telegram-groep.
+- **FCM** (gepland): push naar de app; de app-kant (lokaal alarm, reminders-scherm,
+  FCM-ontvangst) is nog te bouwen.
 
-## Acceptatiecriteria (terugkerend)
+## Apps
 
-- Buildbare Flutter/Android-app; `flutter build apk --release` slaagt.
-- Minimaal 2 App Actions-capabilities, gekoppeld aan trampoline-activities.
-- Elke trampoline-activity spreekt uit via TextToSpeech, post een gelijke
-  notificatie en toont geen zichtbaar scherm.
-- CI publiceert bij push naar `main` een installeerbare release-APK als GitHub
-  Release.
+- **robberts_assistent** — dagelijkse samenvatting + chat met de assistent. Google-login.
+- **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
+  doorpraten.
+- **notities** — één auto-opslaande notitie. Google-login.
+- **wind** — "Hey Google, vraag Wind …" → onzichtbare trampoline die het antwoord uitspreekt
+  (TTS) + als notificatie post (leesbaar op Garmin-horloge).
 
-## Buiten scope (latere stories)
+## Gedrag / acceptatie (terugkerend)
 
-Backend, OpenShift, Postgres, echte weerdata, Todo-app, Assistent-app,
-Telegram-koppeling.
+- Alles achter Google-login (allowlist `robbert@vdzon.com`); REST-endpoints zijn auth-gated
+  (`/healthz` open, `/api/v1/ping` als geauthenticeerde test).
+- Elke koppeling werkt zonder secret op een fallback (stub/in-memory/mock) → app en tests
+  altijd groen; met secret gaat de echte koppeling live zonder code-wijziging.
+- De agent gebruikt een tool zodra de vraag daarom vraagt en verzint geen gegevens die met
+  een tool op te halen zijn.
