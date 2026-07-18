@@ -1,21 +1,9 @@
 package nl.vdzon.robbertsassistent.google
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
-
 /**
  * Stub-docs met vaste inhoud, zodat de DocsTool-keten getest kan worden vóór de echte Google
- * Docs-koppeling er is. Geleverd via [ConditionalOnMissingBean] zodat de echte client (fase 3)
- * de plek overneemt.
+ * Docs-koppeling er is. [GoogleClientsConfig] kiest tussen deze en [GoogleDocsClient].
  */
-@Configuration
-class StubDocsClientConfig {
-    @Bean
-    @ConditionalOnMissingBean(DocsClient::class)
-    fun stubDocsClient(): DocsClient = StubDocsClient()
-}
-
 class StubDocsClient : DocsClient {
     override fun read(documentId: String): String =
         """

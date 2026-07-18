@@ -1,23 +1,13 @@
 package nl.vdzon.robbertsassistent.google
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import java.time.Duration
 import java.time.Instant
 
 /**
  * Stub-agenda met een paar vaste afspraken (relatief aan nu), zodat de hele keten — inclusief de
- * AI-tools — getest kan worden vóór de echte Google Calendar-koppeling er is. Geleverd via
- * [ConditionalOnMissingBean] zodat de echte client (fase 3) de plek overneemt.
+ * AI-tools — getest kan worden vóór de echte Google Calendar-koppeling er is. [GoogleClientsConfig]
+ * kiest tussen deze en [GoogleCalendarClient].
  */
-@Configuration
-class StubCalendarClientConfig {
-    @Bean
-    @ConditionalOnMissingBean(CalendarClient::class)
-    fun stubCalendarClient(): CalendarClient = StubCalendarClient()
-}
-
 class StubCalendarClient : CalendarClient {
     override fun upcoming(maxResults: Int): List<CalendarEvent> {
         val now = Instant.now()
