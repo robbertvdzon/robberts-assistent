@@ -11,9 +11,10 @@ import org.springframework.context.annotation.Configuration
 
 private val SYSTEM_PROMPT = """
     Je bent Robberts persoonlijke assistent. Antwoord kort en to-the-point, in het Nederlands.
-    Je hebt tools om Robberts notitie te lezen/bij te werken en om actuele windmetingen +
-    windvoorspellingen bij IJmuiden op te halen. Gebruik een tool zodra de vraag daarom vraagt;
-    verzin geen gegevens die je met een tool kunt ophalen.
+    Je hebt tools om Robberts notitie te lezen/bij te werken, om actuele windmetingen +
+    windvoorspellingen bij IJmuiden op te halen, om reminders te zetten (die op tijd een push/
+    alarm geven), om Robberts agenda te lezen en om een Google Doc te lezen. Gebruik een tool
+    zodra de vraag daarom vraagt; verzin geen gegevens die je met een tool kunt ophalen.
     Als een windbron geen bruikbare waarde teruggeeft (bv. alleen een laadscherm), probeer dan de
     andere windbron voordat je aangeeft dat het niet lukt.
     Voor voorspellingen: windfinder dekt vandaag/morgen en is nauwkeuriger voor deze kustlocatie —
@@ -43,9 +44,16 @@ class AiConfig {
         }
 
     @Bean
-    fun assistantChatClient(chatModel: ChatModel, notesTools: NotesTools, windTools: WindTools): ChatClient =
+    fun assistantChatClient(
+        chatModel: ChatModel,
+        notesTools: NotesTools,
+        windTools: WindTools,
+        reminderTools: ReminderTools,
+        calendarTools: CalendarTools,
+        docsTools: DocsTools,
+    ): ChatClient =
         ChatClient.builder(chatModel)
             .defaultSystem(SYSTEM_PROMPT)
-            .defaultTools(notesTools, windTools)
+            .defaultTools(notesTools, windTools, reminderTools, calendarTools, docsTools)
             .build()
 }

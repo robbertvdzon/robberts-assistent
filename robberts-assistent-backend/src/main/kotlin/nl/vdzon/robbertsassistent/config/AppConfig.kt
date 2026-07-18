@@ -24,6 +24,20 @@ data class AppSecrets(
     // Expliciete override om de echte OpenAI-call over te slaan: altijd true in preview/tests
     // (geen kosten, geen netwerk-afhankelijkheid, deterministisch), altijd false in productie.
     val mockAi: Boolean = false,
+    // -- Fundament-koppelingen (fase 0: allemaal optioneel; ontbrekend => stub-fallback) --
+    // Telegram-bot voor uitgaande berichten (Notifier). Zonder token/chat-id valt de
+    // Notifier terug op de LoggingNotifier.
+    val telegramBotToken: String? = null,
+    val telegramChatId: String? = null,
+    // Firebase service-account-JSON (Firestore-database + FCM-push). Zonder deze waarden
+    // blijft de in-memory reminder-repository actief en is er geen echte push.
+    val firebaseCredentialsFile: String? = null,
+    val firebaseProjectId: String? = null,
+    // Google OAuth "offline access" refresh-token flow (Agenda + Docs, read-only). De
+    // backend wisselt de refresh-token zelf in voor korte access-tokens (in memory).
+    val googleOAuthClientId: String? = null,
+    val googleOAuthClientSecret: String? = null,
+    val googleOAuthRefreshToken: String? = null,
 ) {
     /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
     val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
@@ -57,6 +71,13 @@ class AppSecretsLoader(
             previewSkipGoogleAuth = previewSkipGoogleAuth,
             openAiApiKey = optional("RA_OPENAI_API_KEY"),
             mockAi = mockAi,
+            telegramBotToken = optional("RA_TELEGRAM_BOT_TOKEN"),
+            telegramChatId = optional("RA_TELEGRAM_CHAT_ID"),
+            firebaseCredentialsFile = optional("RA_FIREBASE_CREDENTIALS_FILE"),
+            firebaseProjectId = optional("RA_FIREBASE_PROJECT_ID"),
+            googleOAuthClientId = optional("RA_GOOGLE_OAUTH_CLIENT_ID"),
+            googleOAuthClientSecret = optional("RA_GOOGLE_OAUTH_CLIENT_SECRET"),
+            googleOAuthRefreshToken = optional("RA_GOOGLE_OAUTH_REFRESH_TOKEN"),
         )
     }
 
