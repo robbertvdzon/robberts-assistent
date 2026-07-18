@@ -23,6 +23,7 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   Timer? _debounce;
   var _loading = true;
   var _dirty = false;
+  var _saving = false;
   String? _error;
   String _status = '';
 
@@ -65,10 +66,13 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     _debounce = Timer(_debounceDuration, _save);
   }
 
-  Future<void> _save() async {
-    if (!_dirty) return;
+  /// [force] slaat op ongeacht [_dirty], zodat de "Opslaan"-knop ook werkt
+  /// als er niets is gewijzigd sinds de laatste (auto-)save.
+  Future<void> _save({bool force = false}) async {
+    if (!_dirty && !force) return;
     _debounce?.cancel();
     _dirty = false;
+    if (mounted) setState(() => _saving = true);
     final text = _controller.text;
     try {
       await widget.api.saveNotes(text);
@@ -78,6 +82,8 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
       // volgende debounce-tik of app-pauze probeert opnieuw.
       _dirty = true;
       if (mounted) setState(() => _status = 'Opslaan mislukt: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -111,6 +117,17 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Center(child: Text(_status, style: const TextStyle(fontSize: 12))),
             ),
+          IconButton(
+            tooltip: 'Opslaan',
+            icon: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save),
+            onPressed: _saving ? null : () => _save(force: true),
+          ),
           IconButton(
             tooltip: 'Uitloggen',
             icon: const Icon(Icons.logout),
