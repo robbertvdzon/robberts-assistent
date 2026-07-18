@@ -73,7 +73,7 @@ EOF
     val="${val%\'}"; val="${val#\'}"
 
     case "$key" in
-      RA_GOOGLE_CLIENT_ID|RA_REMEMBER_SECRET|RA_ALLOWED_EMAILS|RA_PREVIEW_SKIP_GOOGLE_AUTH|RA_DATABASE_URL|RA_OPENAI_API_KEY)
+      RA_GOOGLE_CLIENT_ID|RA_REMEMBER_SECRET|RA_ALLOWED_EMAILS|RA_PREVIEW_SKIP_GOOGLE_AUTH|RA_DATABASE_URL|RA_OPENAI_API_KEY|RA_TELEGRAM_BOT_TOKEN|RA_TELEGRAM_CHAT_ID)
         printf '  %s: |-\n' "$key"
         printf '%s\n' "$val" | sed 's/^/    /'
         count=$((count + 1))
