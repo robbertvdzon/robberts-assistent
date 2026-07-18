@@ -47,6 +47,11 @@ patches:
             value: "true"
           - name: RA_MOCK_AI
             value: "true"
+          # Firebase leegmaken in preview → in-memory opslag, zodat PR-previews niet naar
+          # de echte Firestore/Storage (prod-data) schrijven. Overschrijft de via Reflector
+          # gemirrorde secret-waarde (expliciete env wint van envFrom).
+          - name: RA_FIREBASE_PROJECT_ID
+            value: ""
       # Minder strikt rollout-gedrag — preview spawn moet snel zijn (geen
       # PVC/Recreate-vereiste hier, maar consistent met het personal-feed-patroon).
       - op: replace

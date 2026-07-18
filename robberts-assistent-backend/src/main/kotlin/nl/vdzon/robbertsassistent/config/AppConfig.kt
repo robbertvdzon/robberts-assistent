@@ -29,10 +29,16 @@ data class AppSecrets(
     // Notifier terug op de LoggingNotifier.
     val telegramBotToken: String? = null,
     val telegramChatId: String? = null,
-    // Firebase service-account-JSON (Firestore-database + FCM-push). Zonder deze waarden
-    // blijft de in-memory reminder-repository actief en is er geen echte push.
+    // Firebase service-account (Firestore-database + Cloud Storage). Zonder deze waarden blijft
+    // alles op de in-memory fallback. Credentials kan als bestandspad (lokaal) OF als JSON-inhoud
+    // (productie/sealed secret) — de eerste die gezet is wint.
     val firebaseCredentialsFile: String? = null,
+    val firebaseCredentialsJson: String? = null,
     val firebaseProjectId: String? = null,
+    // Named Firestore-database (naast de default), bv. "robberts-assistent". Leeg => default DB.
+    val firebaseDatabaseId: String? = null,
+    // Cloud Storage-bucket voor de moestuin-foto's, bv. "tuinbewatering.firebasestorage.app".
+    val firebaseStorageBucket: String? = null,
     // Google OAuth "offline access" refresh-token flow (Agenda + Docs, read-only). De
     // backend wisselt de refresh-token zelf in voor korte access-tokens (in memory).
     val googleOAuthClientId: String? = null,
@@ -41,6 +47,11 @@ data class AppSecrets(
 ) {
     /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
     val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
+
+    /** Of Firebase (Firestore + Storage) bruikbaar is: credentials (bestand of JSON) + project-id. */
+    val firebaseConfigured: Boolean
+        get() = (!firebaseCredentialsFile.isNullOrBlank() || !firebaseCredentialsJson.isNullOrBlank()) &&
+            !firebaseProjectId.isNullOrBlank()
 }
 
 @Configuration
@@ -74,7 +85,10 @@ class AppSecretsLoader(
             telegramBotToken = optional("RA_TELEGRAM_BOT_TOKEN"),
             telegramChatId = optional("RA_TELEGRAM_CHAT_ID"),
             firebaseCredentialsFile = optional("RA_FIREBASE_CREDENTIALS_FILE"),
+            firebaseCredentialsJson = optional("RA_FIREBASE_CREDENTIALS_JSON"),
             firebaseProjectId = optional("RA_FIREBASE_PROJECT_ID"),
+            firebaseDatabaseId = optional("RA_FIREBASE_DATABASE_ID"),
+            firebaseStorageBucket = optional("RA_FIREBASE_STORAGE_BUCKET"),
             googleOAuthClientId = optional("RA_GOOGLE_OAUTH_CLIENT_ID"),
             googleOAuthClientSecret = optional("RA_GOOGLE_OAUTH_CLIENT_SECRET"),
             googleOAuthRefreshToken = optional("RA_GOOGLE_OAUTH_REFRESH_TOKEN"),
