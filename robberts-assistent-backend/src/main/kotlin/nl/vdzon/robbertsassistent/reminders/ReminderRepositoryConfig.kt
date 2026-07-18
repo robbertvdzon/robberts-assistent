@@ -15,12 +15,18 @@ class ReminderRepositoryConfig {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Bean
-    fun reminderRepository(firebase: FirebaseProvider): ReminderRepository =
-        if (firebase.isConfigured) {
-            logger.info("Reminder-opslag: Firestore")
-            FirestoreReminderRepository(firebase.firestore())
-        } else {
+    fun reminderRepository(firebase: FirebaseProvider): ReminderRepository {
+        if (!firebase.isConfigured) {
             logger.info("Reminder-opslag: in-memory (geen Firebase-config)")
-            InMemoryReminderRepository()
+            return InMemoryReminderRepository()
         }
+        // Fail-safe: een Firebase-init-fout mag de app niet laten crashen (anders blijft de oude
+        // pod staan). Val dan terug op in-memory en log de oorzaak.
+        return runCatching { FirestoreReminderRepository(firebase.firestore()) }
+            .onSuccess { logger.info("Reminder-opslag: Firestore") }
+            .getOrElse {
+                logger.error("Firestore-init faalde, val terug op in-memory reminders", it)
+                InMemoryReminderRepository()
+            }
+    }
 }
