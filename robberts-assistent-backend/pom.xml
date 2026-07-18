@@ -84,6 +84,14 @@
             <artifactId>kotlin-stdlib</artifactId>
         </dependency>
 
+        <!-- Firebase Admin SDK: levert Firestore (reminders-opslag) én FCM. Alleen actief als
+             RA_FIREBASE_* geconfigureerd is; anders valt de reminder-repo terug op in-memory. -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.2.0</version>
+        </dependency>
+
         <!-- Notities-persistentie: JdbcTemplate + Flyway-migraties. Postgres (RA_DATABASE_URL)
              in productie, H2 in-memory als die niet gezet is (lokaal/tests). -->
         <dependency>
