@@ -1,0 +1,41 @@
+{
+  "project_info": {
+    "project_number": "1083192167302",
+    "project_id": "tuinbewatering",
+    "storage_bucket": "tuinbewatering.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1083192167302:android:1a65c27031c28b853d3a07",
+        "android_client_info": {
+          "package_name": "nl.vdzon.robberts_assistent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOzpR8OBSqsflTCZ84DUtFTnG7-gfuDBU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1083192167302-b38lpk7pffin1jvqbtheleb587ghc0gi.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1083192167302-3veb5k6pge4adrug94fl5lbthn92gg7v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.tuinbewateringweg"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

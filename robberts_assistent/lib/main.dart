@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_client.dart';
+import 'fcm_service.dart';
 import 'google_signin_button_stub.dart' if (dart.library.html) 'google_signin_button_web.dart' as gis_button;
 import 'home_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const RobbertsAssistentApp());
 }
 
@@ -117,10 +119,33 @@ class _RootScreenState extends State<RootScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Toont een binnenkomende push als dialog (foreground; op de achtergrond doet Android het zelf).
+  void _showPush(String title, String body) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.notifications_active, color: Colors.deepPurple),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title)),
+          ],
+        ),
+        content: Text(body),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!initialized) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (api.token == null) return _loginView();
+    // FCM opzetten zodra ingelogd (idempotent — draait maar één keer echt).
+    WidgetsBinding.instance.addPostFrameCallback((_) => FcmService.setup(api, _showPush));
     return HomeScreen(api: api, onLoggedOut: _logout);
   }
 

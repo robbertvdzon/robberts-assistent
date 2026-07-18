@@ -5,6 +5,8 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // FCM/Firebase — leest android/app/google-services.json.
+    id("com.google.gms.google-services")
 }
 
 // Vaste release-keystore i.p.v. de debug-key: Google Sign-In (OAuth Android-client) is gekoppeld

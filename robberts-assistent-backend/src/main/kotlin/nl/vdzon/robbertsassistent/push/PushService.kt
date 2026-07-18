@@ -1,0 +1,57 @@
+package nl.vdzon.robbertsassistent.push
+
+import com.google.firebase.messaging.FirebaseMessagingException
+import com.google.firebase.messaging.Message
+import com.google.firebase.messaging.MessagingErrorCode
+import com.google.firebase.messaging.Notification
+import nl.vdzon.robbertsassistent.firebase.FirebaseProvider
+import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Service
+
+/**
+ * Stuurt push-notificaties (FCM) naar de geregistreerde telefoon(s). Zonder Firebase of zonder
+ * geregistreerde tokens is het een no-op (return 0). Verlopen/ongeldige tokens worden opgeruimd.
+ */
+@Service
+class PushService(
+    private val firebase: FirebaseProvider,
+    private val tokenStore: FcmTokenStore,
+) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
+    /** Stuurt naar alle geregistreerde tokens; geeft terug naar hoeveel toestellen verstuurd is. */
+    fun sendToAll(title: String, body: String): Int {
+        if (!firebase.isConfigured) {
+            logger.info("Push overgeslagen: Firebase niet geconfigureerd")
+            return 0
+        }
+        val tokens = tokenStore.all()
+        if (tokens.isEmpty()) {
+            logger.info("Push overgeslagen: geen geregistreerde FCM-tokens")
+            return 0
+        }
+        val messaging = firebase.messaging()
+        var sent = 0
+        tokens.forEach { token ->
+            runCatching {
+                val message = Message.builder()
+                    .setToken(token)
+                    .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+                    .putData("title", title)
+                    .putData("body", body)
+                    .build()
+                messaging.send(message)
+                sent++
+            }.onFailure { ex ->
+                val code = (ex as? FirebaseMessagingException)?.messagingErrorCode
+                if (code == MessagingErrorCode.UNREGISTERED || code == MessagingErrorCode.INVALID_ARGUMENT) {
+                    tokenStore.remove(token)
+                    logger.info("FCM-token opgeruimd ({})", code)
+                } else {
+                    logger.warn("FCM-push faalde: {}", ex.message)
+                }
+            }
+        }
+        return sent
+    }
+}

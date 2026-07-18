@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- "Update alle drie de apps"-knop (UpdateInstaller.kt): zelf gedownloade APK's installeren. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- FCM-push-notificaties tonen (Android 13+ runtime-permissie). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="Robbert&apos;s assistent"
         android:name="${applicationName}"

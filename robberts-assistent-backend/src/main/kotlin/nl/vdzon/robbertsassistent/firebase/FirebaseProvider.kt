@@ -7,6 +7,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.cloud.FirestoreClient
 import com.google.firebase.cloud.StorageClient
+import com.google.firebase.messaging.FirebaseMessaging
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
@@ -37,6 +38,9 @@ class FirebaseProvider(private val secrets: AppSecrets) {
 
     /** De Cloud Storage-bucket voor o.a. de moestuin-foto's. */
     fun bucket(): Bucket = StorageClient.getInstance(app).bucket(secrets.firebaseStorageBucket)
+
+    /** FCM voor push-notificaties naar de app. */
+    fun messaging(): FirebaseMessaging = FirebaseMessaging.getInstance(app)
 
     private fun initApp(): FirebaseApp {
         if (FirebaseApp.getApps().any { it.name == APP_NAME }) return FirebaseApp.getInstance(APP_NAME)

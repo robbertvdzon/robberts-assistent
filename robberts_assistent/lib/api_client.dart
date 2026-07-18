@@ -81,6 +81,11 @@ class ApiClient {
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
+  /// Registreert het FCM-device-token bij de backend, zodat de agent er push naartoe kan sturen.
+  Future<void> registerFcmToken(String token) async {
+    await postJson('/api/v1/fcm/token', {'token': token});
+  }
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
