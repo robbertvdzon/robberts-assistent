@@ -159,12 +159,17 @@ Gebouwd + gedeployed: backend-fundament (auth, notes, summary, assistant + tools
 + scheduler, moestuin-AI-chat, Google Agenda/Docs (code), Firebase (Firestore + Storage),
 Telegram-notifier; apps robberts_assistent + groentetuin/moestuin live met Google-login.
 
-**Lokaal end-to-end geverifieerd** met echte creds: Firestore, Storage, vision-chat, echte
-Google-agenda. **Bekend openstaand punt:** de via `kubeseal --merge-into` toegevoegde secrets
-(OAuth, Firebase, Telegram) lijken in prod niet ontsleuteld te worden (waarschijnlijk stale
-`cluster-cert.pem`) → Agenda/Docs/Firestore/Storage/Telegram draaien in prod voorlopig op de
-fallback; login + OpenAI werken wel. Fix: cert verversen (`kubeseal --fetch-cert`) en opnieuw
-sealen. Nog te bouwen: app-kant alarm + reminders-scherm + FCM-ontvangst.
+**Live in prod, end-to-end geverifieerd** met echte creds: Firestore (reminders + chat),
+Firebase Storage (foto's), Telegram-notifier, echte Google Agenda/Docs (OAuth), vision-chat.
+
+Historische valkuil (opgelost): met firebase-admin erbij crashte de backend op de
+**`alpine`**-base met SIGSEGV in gRPC's `netty-tcnative` (BoringSSL is voor glibc gebouwd, niet
+musl) → CrashLoopBackOff, waardoor de oude pod bleef draaien en koppelingen op fallback leken te
+staan. Opgelost door een **glibc-base** (`eclipse-temurin:21-jre`, zie backend-`Dockerfile`).
+Les: een SIGSEGV in native code omzeilt de Java-fail-safe; check `kubectl get pods`/pod-logs.
+
+Nog te bouwen: app-kant **lokaal alarm** + **reminders-scherm** + **FCM-ontvangst** (heeft de
+`google-services.json` nodig, staat in `.keys/`).
 
 ---
 
