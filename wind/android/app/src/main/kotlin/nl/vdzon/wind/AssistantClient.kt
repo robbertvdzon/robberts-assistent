@@ -9,6 +9,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -18,7 +19,9 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Praat met `robberts-assistent-backend` (zelfde patroon als de Flutter-apps' `ApiClient`, maar
- * dan native): silent Google Sign-In -> sessie-token -> `/api/v1/assistant/message`. Bewust GEEN
+ * dan native): silent Google Sign-In -> sessie-token -> `/api/v1/assistant/chat` (multipart, altijd
+ * zonder `conversationId` — deze headless call start bewust telkens een nieuw, kortstondig gesprek).
+ * Bewust GEEN
  * interactieve sign-in-popup hier — dit wordt aangeroepen vanuit de headless trampoline-activities
  * (zie [AnswerTrampolineActivity]), die altijd snel moeten blijven en nooit UI mogen tonen. De
  * interactieve login (eenmalig, als er nog geen Google-account gekoppeld is) gebeurt in
@@ -117,16 +120,18 @@ object AssistantClient {
     private suspend fun askAssistant(token: String, question: String): String? =
         withContext(Dispatchers.IO) {
             runCatching {
-                val body = JSONObject().put("text", question).toString()
-                    .toRequestBody(JSON.toMediaType())
+                val body = MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("message", question)
+                    .build()
                 val request = Request.Builder()
-                    .url("${BuildConfig.API_BASE_URL}/api/v1/assistant/message")
+                    .url("${BuildConfig.API_BASE_URL}/api/v1/assistant/chat")
                     .header("Authorization", "Bearer $token")
                     .post(body)
                     .build()
                 httpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
-                    JSONObject(response.body?.string().orEmpty()).getString("text")
+                    JSONObject(response.body?.string().orEmpty()).getString("reply")
                 }
             }.getOrNull()
         }
