@@ -1,27 +1,12 @@
 package nl.vdzon.robbertsassistent.assistant.ai
 
+import nl.vdzon.robbertsassistent.notes.InMemoryNotesRepository
 import nl.vdzon.robbertsassistent.notes.NotesService
-import org.flywaydb.core.Flyway
-import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Zelfde H2-in-memory-opzet als [nl.vdzon.robbertsassistent.notes.NotesServiceTest]. */
 class NotesToolsTest {
-    private lateinit var tools: NotesTools
-
-    @BeforeTest
-    fun setUp() {
-        val dataSource = EmbeddedDatabaseBuilder()
-            .setType(EmbeddedDatabaseType.H2)
-            .generateUniqueName(true)
-            .build()
-        Flyway.configure().dataSource(dataSource).load().migrate()
-        tools = NotesTools(NotesService(JdbcTemplate(dataSource)))
-    }
+    private val tools = NotesTools(NotesService(InMemoryNotesRepository()))
 
     @Test
     fun `getNotes meldt expliciet dat de notitie leeg is`() {

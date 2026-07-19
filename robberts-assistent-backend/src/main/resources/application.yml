@@ -8,10 +8,6 @@ spring:
       # Moestuin-foto's kunnen enkele MB zijn; ruimer dan de default 1MB/10MB.
       max-file-size: 15MB
       max-request-size: 60MB
-  datasource:
-    # Productie: RA_DATABASE_URL (Postgres/Neon). Lokaal/tests zonder die env-var:
-    # H2 in-memory, zodat de app ook zonder database-setup draait.
-    url: ${RA_DATABASE_URL:jdbc:h2:mem:robbertsassistent;DB_CLOSE_DELAY=-1}
 server:
   port: ${PORT:8080}
   error:
