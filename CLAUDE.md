@@ -79,10 +79,11 @@ fallback (zie §5).
 | `health` | `/healthz` (open) + `/api/v1/ping` (auth, testendpoint). |
 | `notes` | Eén notitie-string in Firestore (document `notes/note`). |
 | `summary` | Dagelijkse samenvatting. |
-| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
+| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `WeatherTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
 | `reminders` | Reminder-model + repository-port (Firestore/in-memory), REST-controller, `@Scheduled ReminderScheduler` (due → `Notifier`). |
 | `gardenchat` | Moestuin-AI-chat: multipart (tekst + foto's) → vision-AI; conversaties in Firestore, foto's in Firebase Storage; multi-turn. |
 | `google` | `CalendarClient` + `DocsClient` (echt via OAuth refresh-token, of stubs) + `GoogleOAuthService`. |
+| `weather` | `WeatherClient`: regen-/weersvoorspelling bij IJmuiden via Open-Meteo (keyless, altijd echt); `StubWeatherClient` alleen voor tests. |
 | `firebase` | `FirebaseProvider`: gedeelde FirebaseApp → named Firestore-db + Storage-bucket. |
 | `notifier` | `Notifier`-port; `TelegramNotifier` (echt) of `LoggingNotifier` (fallback). |
 | `couplings` | Status + live-test van alle externe koppelingen (voedt het "Koppelingen"-scherm in de app). |

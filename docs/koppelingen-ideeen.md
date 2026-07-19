@@ -11,7 +11,7 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
 
 ## Weer & buiten (kite / moestuin / strand)
 - ✅ Wind/kite — actuele meting + voorspelling IJmuiden (windfinder + Open-Meteo)
-- 🔜 Regen/weersvoorspelling — Open-Meteo (gratis, geen key) of Buienradar-radar
+- ✅ Regen/weersvoorspelling — Open-Meteo (gratis, geen key), incl. "gaat het komende uren regenen"
 - 🔜 Getijden — Rijkswaterstaat (fietsen op het strand, kite)
 - 🔜 UV / pollen / luchtkwaliteit — Open-Meteo levert dit ook
 
