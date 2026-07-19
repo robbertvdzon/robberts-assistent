@@ -7,7 +7,7 @@ gebruiken (zie [CLAUDE.md](../CLAUDE.md) §5).
 Onderscheid: **pull** (agent haalt op als je iets vraagt) vs **push** (de wereld tikt jóú aan,
 proactief) — dat laatste maakt van een vraag-baak een echte assistent.
 
-Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
+Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu niet, later opnieuw · ❌ = bewust niet (Robberts keuze of blijvend blokkerend).
 
 ## Weer & buiten (kite / moestuin / strand)
 - ✅ Wind/kite — actuele meting + voorspelling IJmuiden (windfinder + Open-Meteo)
@@ -35,19 +35,26 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
 - 🔜 Google Contacts — namen ophalen voor "telegram naar X"
 
 ## Sport & gezondheid
-- 🔜 Strava — activiteiten/training (OAuth refresh-token, net als Google)
-- 🔜 Garmin — slaap/stappen/HR (let op: geen fatsoenlijke publieke API, onofficieel/lastig)
+- ⏸️ Strava — activiteiten/training (OAuth refresh-token, net als Google); lukt de app-registratie
+  even niet, later opnieuw proberen
+- ❌ Garmin — geen fatsoenlijke publieke API; developer-program staat sowieso gepauzeerd en is
+  uberhaupt alleen voor bedrijven, niet voor persoonlijk gebruik
 
 ## Huis & tuin
 - ✅ Moestuin-AI-chat — foto's + tekst → vision-antwoord
 - 🔜 Home Assistant — sensoren, verwarming, lampen; kan de agent ook *triggeren* (thuis-cluster)
-- 🔜 Robotmaaier — status/starten (afhankelijk van merk-API, bv. Husqvarna Automower)
+- 🔜 Robotmaaier (Husqvarna Automower) — `HUSQVARNA_USERNAME`/`_PASSWORD` staan in secrets.env,
+  maar de moderne Automower Connect API accepteert geen username/password meer (`invalid_client`
+  bij een test-call) — vereist een geregistreerde app (Application Key + Secret) via
+  developer.husqvarnagroup.cloud
 - 🔜 Energieprijzen / slimme meter — dynamische stroomprijs, "goedkoop uur om te laden"
 
 ## Onderweg
-- 🔜 NS / 9292 — treintijden en vertragingen
-- 🔜 PostNL / DHL — track & trace (PostNL-API is vaak zakelijk = lastiger)
-- 🔜 Reistijd/verkeer — Google Maps ("wanneer vertrekken voor je afspraak")
+- 🔜 NS / 9292 — treintijden en vertragingen; `NS_PRIMARY_KEY` staat in secrets.env en **werkt**
+  (departures-endpoint getest, HTTP 200) — klaar om de module te bouwen
+- ❌ PostNL / DHL — voorlopig niet (Robberts keuze)
+- ❌ Reistijd/verkeer (Google Maps) — voorlopig niet, Google Maps Platform vereist een
+  Cloud-project met facturering (Robberts keuze: te duur)
 
 ## Werk / info
 - ✅ FCM push — meldingen naar de telefoon
@@ -65,10 +72,16 @@ Alle keyless kandidaten uit deze lijst zijn gebouwd: ~~weer/regen~~ ✅, ~~getij
 ~~luchtkwaliteit/UV/pollen~~ ✅, ~~nieuws/RSS~~ ✅, ~~afvalkalender~~ ✅ (HVC Groep, Heemskerk).
 
 Volgende stappen (vereisen wel een secret/token of extra werk):
-1. **Afvalkalender → auto-reminders** — upgrade: automatisch een reminder zetten de avond vóór
+1. **NS/9292** — key staat al in secrets.env en werkt; klaar om te bouwen.
+2. **Afvalkalender → auto-reminders** — upgrade: automatisch een reminder zetten de avond vóór
    ophaaldag, gebruikt de bestaande reminders-koppeling.
-2. **Agenda-schrijven** (upgrade) — maakt de agent proactief
-3. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
+3. **Agenda-schrijven** (upgrade) — maakt de agent proactief
+4. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
+
+Bewust niet (nu): Google Maps, PostNL, DHL (Robberts keuze). Later opnieuw proberen: Strava
+(app-registratie lukte niet meteen). Vereist eerst een Husqvarna-app-registratie (Application
+Key + Secret): Robotmaaier. Garmin: developer-program is dicht voor nieuwe (persoonlijke)
+aanvragen — voorlopig geen weg vooruit.
 
 De actuele status van de al-gebouwde koppelingen is live te zien in de assistent-app onder
 **Koppelingen** (met een test-knop), gevoed door `GET /api/v1/couplings` +
