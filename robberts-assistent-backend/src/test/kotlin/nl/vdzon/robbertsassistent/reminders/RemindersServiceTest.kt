@@ -1,8 +1,11 @@
 package nl.vdzon.robbertsassistent.reminders
 
+import nl.vdzon.robbertsassistent.scheduling.Recurrence
+import nl.vdzon.robbertsassistent.scheduling.RecurrenceUnit
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RemindersServiceTest {
@@ -18,15 +21,37 @@ class RemindersServiceTest {
     }
 
     @Test
-    fun `due geeft alleen verstreken, niet-afgeleverde reminders`() {
+    fun `due geeft alleen actieve, verstreken reminders`() {
         val now = Instant.now()
         val verleden = service.create("verleden", now.minusSeconds(10))
         service.create("toekomst", now.plusSeconds(600))
 
         assertEquals(listOf("verleden"), service.due(now).map { it.message })
 
-        service.markDelivered(verleden.id)
+        service.markFired(verleden, now) // eenmalig → inactief
         assertTrue(service.due(now).isEmpty())
+    }
+
+    @Test
+    fun `markFired schuift een herhalende reminder door naar de toekomst`() {
+        val now = Instant.now()
+        val reminder = service.create("btw", now.minusSeconds(10), Recurrence(RecurrenceUnit.MONTHS, 3))
+
+        service.markFired(reminder, now)
+
+        val updated = service.list().single()
+        assertTrue(updated.active)
+        assertTrue(updated.dueAt.isAfter(now))
+    }
+
+    @Test
+    fun `markFired zet een eenmalige reminder op inactief`() {
+        val now = Instant.now()
+        val reminder = service.create("eenmalig", now.minusSeconds(10))
+
+        service.markFired(reminder, now)
+
+        assertFalse(service.list().single().active)
     }
 
     @Test

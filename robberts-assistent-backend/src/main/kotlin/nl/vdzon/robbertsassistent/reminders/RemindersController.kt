@@ -14,8 +14,8 @@ import java.time.Instant
 import java.time.format.DateTimeParseException
 
 /**
- * REST-API voor reminders, zodat de assistent-app ze kan tonen/beheren. Zelfde auth-gate als de
- * andere controllers ([AuthService.requireAuthorization]).
+ * REST-API voor reminders (de app toont/beheert ze). Auth-gated. Reminders leveren op tijd een
+ * push-notificatie; eenmalig of herhalend (recurrence).
  */
 @RestController
 class RemindersController(
@@ -42,7 +42,7 @@ class RemindersController(
         } catch (ex: DateTimeParseException) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "dueAt moet een ISO-8601 tijdstip zijn")
         }
-        return remindersService.create(request.message, dueAt).toResponse()
+        return remindersService.create(request.message, dueAt, request.recurrence?.toRecurrence()).toResponse()
     }
 
     @DeleteMapping("/api/v1/reminders/{id}")
@@ -55,10 +55,3 @@ class RemindersController(
         return RemindersResponse(remindersService.list().map { it.toResponse() })
     }
 }
-
-private fun Reminder.toResponse() = ReminderResponse(
-    id = id,
-    message = message,
-    dueAt = dueAt.toString(),
-    delivered = delivered,
-)

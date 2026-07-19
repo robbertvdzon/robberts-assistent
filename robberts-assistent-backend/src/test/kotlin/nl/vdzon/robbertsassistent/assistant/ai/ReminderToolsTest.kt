@@ -13,20 +13,39 @@ class ReminderToolsTest {
     private val tools = ReminderTools(service)
 
     @Test
-    fun `createReminderInMinutes zet een reminder in de toekomst`() {
+    fun `createReminder zet een eenmalige reminder in de toekomst`() {
         val before = Instant.now()
-        tools.createReminderInMinutes("bel de tandarts", 10)
+        tools.createReminder("bel de tandarts", 10)
 
         val reminder = service.list().single()
         assertEquals("bel de tandarts", reminder.message)
         assertTrue(reminder.dueAt.isAfter(before.plus(Duration.ofMinutes(9))))
+        assertEquals(null, reminder.recurrence)
     }
 
     @Test
-    fun `listOpenReminders meldt leeg en toont daarna de reminder`() {
-        assertEquals("Er staan geen reminders open.", tools.listOpenReminders())
+    fun `createReminder met herhaling zet een recurrence`() {
+        tools.createReminder("btw aangifte", 0, everyUnit = "maand", everyInterval = 3)
 
-        tools.createReminderInMinutes("boodschappen doen", 5)
-        assertTrue(tools.listOpenReminders().contains("boodschappen doen"))
+        val reminder = service.list().single()
+        assertEquals(3, reminder.recurrence?.interval)
+    }
+
+    @Test
+    fun `listReminders meldt leeg en toont daarna de reminder`() {
+        assertEquals("Er staan geen reminders open.", tools.listReminders())
+
+        tools.createReminder("boodschappen doen", 5)
+        assertTrue(tools.listReminders().contains("boodschappen doen"))
+    }
+
+    @Test
+    fun `deleteReminder verwijdert op id-prefix`() {
+        tools.createReminder("weg", 5)
+        val id = service.list().single().id
+        val result = tools.deleteReminder(id.take(8))
+
+        assertTrue(result.contains("verwijderd"))
+        assertTrue(service.list().isEmpty())
     }
 }
