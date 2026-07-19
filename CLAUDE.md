@@ -55,10 +55,10 @@ robberts-assistent/
   firebase-admin (Firestore + Cloud Storage). JdbcTemplate + Flyway.
 - **Apps:** Flutter (stable), Dart `>=3.0.0 <4.0.0`. `wind/` heeft native Kotlin (App
   Actions-trampoline-activities). Web-apps draaien als nginx-container (Flutter web build).
-- **Data:** **Firestore** (notities, reminders, alarms, chat-historie, FCM-tokens — named
+- **Data:** **Firestore** (notities, reminders, alarms, chat-conversaties, FCM-tokens — named
   database `robberts-assistent` in Google-project `tuinbewatering`); **Firebase Storage**
-  (moestuin-foto's, bucket `tuinbewatering.firebasestorage.app`, map `moestuin/`). Geen
-  SQL-database meer (Neon opgezegd).
+  (moestuin-foto's in map `moestuin/`, assistent-gespreksfoto's in map `assistent-chat/`, bucket
+  `tuinbewatering.firebasestorage.app`). Geen SQL-database meer (Neon opgezegd).
 - **Auth:** Google-login → eigen HMAC-sessie-token (allowlist `robbert@vdzon.com`).
 - **Push:** Telegram (uitgaand) + FCM (gepland, app-kant nog te bouwen).
 - **Deploy:** OpenShift single-node thuis, **GitOps via ArgoCD**, images op `ghcr.io`,
@@ -79,7 +79,7 @@ fallback (zie §5).
 | `health` | `/healthz` (open) + `/api/v1/ping` (auth, testendpoint). |
 | `notes` | Eén notitie-string in Firestore (document `notes/note`). |
 | `summary` | Dagelijkse samenvatting. |
-| `assistant` | Chat-assistent. `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
+| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
 | `reminders` | Reminder-model + repository-port (Firestore/in-memory), REST-controller, `@Scheduled ReminderScheduler` (due → `Notifier`). |
 | `gardenchat` | Moestuin-AI-chat: multipart (tekst + foto's) → vision-AI; conversaties in Firestore, foto's in Firebase Storage; multi-turn. |
 | `google` | `CalendarClient` + `DocsClient` (echt via OAuth refresh-token, of stubs) + `GoogleOAuthService`. |
@@ -112,8 +112,10 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
 
 ## 6. Apps
 
-- **`robberts_assistent/`** — dagelijkse samenvatting + chat-assistent. Google-login (web:
-  GIS-knop, mobiel: `signIn()`). Web op OpenShift (`robberts-assistent.vdzonsoftware.nl`) + APK.
+- **`robberts_assistent/`** — dagelijkse samenvatting + chat-assistent met persistente,
+  benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij, net als
+  `groentetuin`). Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
+  (`robberts-assistent.vdzonsoftware.nl`) + APK.
 - **`groentetuin/`** — moestuin-AI-chat: login → foto's maken/kiezen + tekst → vision-antwoord,
   multi-turn. `ApiClient.gardenChat` (multipart). Web op `moestuin.vdzonsoftware.nl` + APK.
   App-id blijft `nl.vdzon.groentetuin` (interne naam ≠ publieke host "moestuin").
@@ -159,6 +161,16 @@ via de software-factory (branch, worklog in `docs/stories/`, PR → preview).
 Gebouwd + gedeployed: backend-fundament (auth, notes, summary, assistant + tools), reminders
 + scheduler, moestuin-AI-chat, Google Agenda/Docs (code), Firebase (Firestore + Storage),
 Telegram-notifier; apps robberts_assistent + groentetuin/moestuin live met Google-login.
+
+Nieuw (SF-1119): de assistent-chat in `robberts_assistent` is omgebouwd van één stateless
+vraag/antwoord-lijst naar persistente, benoemde **gesprekken** (`POST /api/v1/assistant/chat`,
+`GET /api/v1/assistant/conversations(/{id})`, `GET /api/v1/assistant/photos/{id}`), analoog aan
+`gardenchat`: Firestore-opslag (`assistant-conversations`, in-memory fallback), zelf-verzonnen
+titel na de eerste uitwisseling (deterministische placeholder onder `RA_MOCK_AI`), en
+foto-ondersteuning (camera/galerij, vision) via een eigen `PhotoStorage` (map `assistent-chat/`
+in Firebase Storage). Het oude `POST /api/v1/assistant/message` is vervallen; de native
+`wind`-app roept nu `/api/v1/assistant/chat` aan (altijd zonder `conversationId`, dus telkens
+een nieuw kortstondig gesprek).
 
 **Live in prod, end-to-end geverifieerd** met echte creds: Firestore (reminders + chat),
 Firebase Storage (foto's), Telegram-notifier, echte Google Agenda/Docs (OAuth), vision-chat.
