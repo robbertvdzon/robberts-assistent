@@ -55,9 +55,10 @@ robberts-assistent/
   firebase-admin (Firestore + Cloud Storage). JdbcTemplate + Flyway.
 - **Apps:** Flutter (stable), Dart `>=3.0.0 <4.0.0`. `wind/` heeft native Kotlin (App
   Actions-trampoline-activities). Web-apps draaien als nginx-container (Flutter web build).
-- **Data:** Postgres/Neon (notities); **Firestore** (reminders + chat-historie, named
+- **Data:** **Firestore** (notities, reminders, alarms, chat-historie, FCM-tokens — named
   database `robberts-assistent` in Google-project `tuinbewatering`); **Firebase Storage**
-  (moestuin-foto's, bucket `tuinbewatering.firebasestorage.app`, map `moestuin/`).
+  (moestuin-foto's, bucket `tuinbewatering.firebasestorage.app`, map `moestuin/`). Geen
+  SQL-database meer (Neon opgezegd).
 - **Auth:** Google-login → eigen HMAC-sessie-token (allowlist `robbert@vdzon.com`).
 - **Push:** Telegram (uitgaand) + FCM (gepland, app-kant nog te bouwen).
 - **Deploy:** OpenShift single-node thuis, **GitOps via ArgoCD**, images op `ghcr.io`,
@@ -76,7 +77,7 @@ fallback (zie §5).
 | `config` | `AppSecrets` + `AppSecretsLoader` (leest `secrets.env` lokaal, env-vars in prod). |
 | `auth` | Google ID-token verifiëren → HMAC-sessie-token; `requireAuthorization()` gate. |
 | `health` | `/healthz` (open) + `/api/v1/ping` (auth, testendpoint). |
-| `notes` | Eén notitie-string in Postgres (JdbcTemplate + Flyway `V1`). |
+| `notes` | Eén notitie-string in Firestore (document `notes/note`). |
 | `summary` | Dagelijkse samenvatting. |
 | `assistant` | Chat-assistent. `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
 | `reminders` | Reminder-model + repository-port (Firestore/in-memory), REST-controller, `@Scheduled ReminderScheduler` (due → `Notifier`). |
