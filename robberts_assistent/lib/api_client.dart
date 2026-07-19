@@ -186,6 +186,19 @@ class ApiClient {
 
   Future<void> deleteAlarm(String id) => _delete('/api/v1/alarms/$id');
 
+  // -- Koppelingen ------------------------------------------------------------
+  /// Status van alle externe koppelingen (geconfigureerd + echt/fallback), zonder live-test.
+  Future<List<Coupling>> listCouplings() async {
+    final body = await getJson('/api/v1/couplings');
+    return (body['couplings'] as List).map((e) => Coupling.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Test alle koppelingen live en geeft de status inclusief testresultaat terug.
+  Future<List<Coupling>> testCouplings() async {
+    final body = await postJson('/api/v1/couplings/test');
+    return (body['couplings'] as List).map((e) => Coupling.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -357,5 +370,52 @@ class Alarm {
         time: DateTime.parse(m['time'] as String).toLocal(),
         recurrence: Recurrence.fromJson(m['recurrence'] as Map<String, dynamic>?),
         active: m['active'] as bool? ?? true,
+      );
+}
+
+/// Status van één externe koppeling (voor het Koppelingen-scherm).
+class Coupling {
+  final String id;
+  final String name;
+  final String description;
+  final bool configured;
+
+  /// `'echt'` (echte koppeling actief) of `'fallback'` (stub/in-memory/log).
+  final String mode;
+  final CouplingTest? test;
+
+  const Coupling({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.configured,
+    required this.mode,
+    this.test,
+  });
+
+  bool get isReal => mode == 'echt';
+
+  static Coupling fromJson(Map<String, dynamic> m) => Coupling(
+        id: m['id'] as String,
+        name: m['name'] as String,
+        description: m['description'] as String,
+        configured: m['configured'] as bool? ?? false,
+        mode: m['mode'] as String? ?? 'fallback',
+        test: m['test'] == null ? null : CouplingTest.fromJson(m['test'] as Map<String, dynamic>),
+      );
+}
+
+/// Uitkomst van de live-test van een koppeling.
+class CouplingTest {
+  final bool ok;
+  final String detail;
+  final int durationMs;
+
+  const CouplingTest({required this.ok, required this.detail, required this.durationMs});
+
+  static CouplingTest fromJson(Map<String, dynamic> m) => CouplingTest(
+        ok: m['ok'] as bool? ?? false,
+        detail: m['detail'] as String? ?? '',
+        durationMs: (m['durationMs'] as num?)?.toInt() ?? 0,
       );
 }

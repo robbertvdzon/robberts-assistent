@@ -85,6 +85,7 @@ fallback (zie §5).
 | `google` | `CalendarClient` + `DocsClient` (echt via OAuth refresh-token, of stubs) + `GoogleOAuthService`. |
 | `firebase` | `FirebaseProvider`: gedeelde FirebaseApp → named Firestore-db + Storage-bucket. |
 | `notifier` | `Notifier`-port; `TelegramNotifier` (echt) of `LoggingNotifier` (fallback). |
+| `couplings` | Status + live-test van alle externe koppelingen (voedt het "Koppelingen"-scherm in de app). |
 
 Twee `ChatClient`-beans: `assistantChatClient` (`@Primary`, met tools) en `gardenChatClient`
 (`@Qualifier`, vision, eigen system-prompt).
@@ -198,5 +199,6 @@ trillen) toont een full-screen `AlarmActivity` over het lockscreen met **Sluit**
 - `docs/factory/functional-spec.md` / `technical-spec.md` — functionele/technische afspraken.
 - `docs/factory/development.md` — lokaal bouwen/testen; `deployment.md` — deploy-flow + config.
 - `docs/foundation-couplings.md` — ontwerp + gefaseerd implementatieplan van de koppelingen.
+- `docs/koppelingen-ideeen.md` — kandidaat-koppelingen (ideeën + status) voor uitbreiding.
 - `docs/setup-guide-details.md` — console-setup met concrete waarden (project `tuinbewatering`).
 - `PLAN.md` — oorspronkelijke visie (apps, "Hey Google"-aanpak).
