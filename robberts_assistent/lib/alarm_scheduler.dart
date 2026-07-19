@@ -1,81 +1,70 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/services.dart' show PlatformException;
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest_all.dart' as tzdata;
-import 'package:timezone/timezone.dart' as tz;
 
 import 'api_client.dart';
 
-/// Plant de alarms lokaal in via Android AlarmManager (flutter_local_notifications `zonedSchedule`):
-/// als full-screen alarm met alarmgeluid, exact als dat mag (anders inexact → hooguit enkele minuten
-/// later). Gaat af ook als de telefoon slaapt/vergrendeld is; de boot-receiver herstelt de planning
-/// na een reboot. Herhalende alarms worden voor de eerstvolgende keren ingepland.
+/// Plant de alarms lokaal in als **echte wekker** via een native Android-laag (AlarmManager
+/// `setAlarmClock` → full-screen [AlarmActivity] + loopende ringtoon met Sluit/Snooze).
+///
+/// De flow: deze klasse haalt de alarms bij de backend op, rekent de eerstvolgende voorkomens uit
+/// en geeft een platte lijst (id, tekst, tijdstip) door aan de native kant via een MethodChannel.
+/// Alles daarna — afgaan, geluid, over het lockscreen tonen, snoozen, opnieuw inplannen na reboot —
+/// gebeurt native (zie `android/app/src/main/kotlin/.../alarm/`).
+///
+/// `setAlarmClock` is altijd exact (ook in Doze) en heeft géén SCHEDULE_EXACT_ALARM-permissie nodig,
+/// dus de vroegere "exacte alarms staan uit"-situatie kan hier niet meer optreden.
 class AlarmScheduler {
-  static final _local = FlutterLocalNotificationsPlugin();
-  static bool _tzInit = false;
-
-  /// `false` als exacte alarms niet toegestaan zijn (dan wordt inexact gebruikt). De UI kan hierop
-  /// een hint tonen. `null` zolang er nog niet gesynct is.
-  static bool? exactAllowed;
-
-  static const _channelId = 'assistent_alarms';
-  static const _channelName = 'Alarms';
+  static const _channel = MethodChannel('nl.vdzon.robberts_assistent/alarm');
   static const _idBase = 100000;
-  static const _alarmPayload = 'alarm';
 
-  static AndroidFlutterLocalNotificationsPlugin? get _android =>
-      _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  /// Behouden voor de UI (schedules_screen). Met `setAlarmClock` zijn alarms altijd exact, dus dit
+  /// is altijd `true`; de gele "exact alarm"-banner verschijnt niet meer.
+  static bool? exactAllowed = true;
 
-  /// Vraagt (indien nodig) de exact-alarm-permissie; opent op Android 13+ de instelling. Geeft terug
-  /// of exacte alarms nu toegestaan zijn.
+  /// Vroeger vroeg dit de exact-alarm-permissie; niet meer nodig. Vraagt nu (best-effort) de
+  /// notificatie-permissie, want de full-screen wekker verschijnt via een notification-kanaal.
   static Future<bool> requestExactPermission() async {
     if (kIsWeb) return true;
-    final ok = (await _android?.requestExactAlarmsPermission()) ?? true;
-    exactAllowed = ok;
-    return ok;
+    await _requestNotificationsPermission();
+    exactAllowed = true;
+    return true;
   }
 
-  /// Haalt de alarms bij de backend op en (her)plant ze lokaal.
+  static Future<void> _requestNotificationsPermission() async {
+    final android = FlutterLocalNotificationsPlugin()
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await android?.requestNotificationsPermission();
+  }
+
+  /// Haalt de alarms bij de backend op en (her)plant ze native. Berekent per alarm de eerstvolgende
+  /// voorkomens (recurring: de komende 6) en stuurt een platte lijst naar de native laag, die eerst
+  /// alle vorige planningen wist.
   static Future<void> sync(ApiClient api) async {
     if (kIsWeb) return;
-    if (!_tzInit) {
-      tzdata.initializeTimeZones();
-      tz.setLocalLocation(tz.getLocation('Europe/Amsterdam'));
-      _tzInit = true;
-    }
-    await _local.initialize(
-      const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
-    );
-    await _android?.createNotificationChannel(
-      const AndroidNotificationChannel(
-        _channelId,
-        _channelName,
-        description: 'Wekkers/alarms van je assistent',
-        importance: Importance.max,
-        playSound: true,
-      ),
-    );
-    await _android?.requestNotificationsPermission();
-    exactAllowed = (await _android?.requestExactAlarmsPermission()) ?? true;
+    await _requestNotificationsPermission();
 
     final alarms = await api.listAlarms();
-
-    // Vorige alarm-planningen wissen.
-    for (final p in await _local.pendingNotificationRequests()) {
-      if (p.payload == _alarmPayload) await _local.cancel(p.id);
-    }
-
-    // (Her)plannen — per alarm afgeschermd, zodat één fout de rest niet blokkeert.
-    var id = _idBase;
     final now = DateTime.now();
+
+    final payload = <Map<String, Object>>[];
+    var id = _idBase;
     for (final alarm in alarms.where((a) => a.active)) {
       for (final when in _nextOccurrences(alarm, now)) {
-        try {
-          await _schedule(id++, alarm.message, when);
-        } catch (_) {
-          // negeer dit ene alarm, ga door met de rest
-        }
+        payload.add({
+          'id': id++,
+          'message': alarm.message,
+          'triggerAtMillis': when.millisecondsSinceEpoch,
+        });
       }
+    }
+
+    try {
+      await _channel.invokeMethod('scheduleAll', {'alarms': payload});
+    } on MissingPluginException {
+      // Native laag niet beschikbaar (bv. oude build) — stil negeren.
+    } on PlatformException {
+      // Inplannen mislukt — stil negeren, volgende sync probeert het opnieuw.
     }
   }
 
@@ -94,47 +83,5 @@ class AlarmScheduler {
       t = recurrence.nextAfter(t);
     }
     return result;
-  }
-
-  static Future<void> _schedule(int id, String message, DateTime when) async {
-    final scheduled = tz.TZDateTime.from(when, tz.local);
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        importance: Importance.max,
-        priority: Priority.max,
-        category: AndroidNotificationCategory.alarm,
-        fullScreenIntent: true,
-        audioAttributesUsage: AudioAttributesUsage.alarm,
-        ongoing: true,
-        autoCancel: false,
-      ),
-    );
-    try {
-      await _local.zonedSchedule(
-        id,
-        'Alarm',
-        message,
-        scheduled,
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        payload: _alarmPayload,
-      );
-    } on PlatformException {
-      // Exacte alarms niet toegestaan → inexact (kan enkele minuten later afgaan, maar gaat wél af).
-      exactAllowed = false;
-      await _local.zonedSchedule(
-        id,
-        'Alarm',
-        message,
-        scheduled,
-        details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        payload: _alarmPayload,
-      );
-    }
   }
 }

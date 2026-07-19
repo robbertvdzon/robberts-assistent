@@ -169,8 +169,14 @@ musl) → CrashLoopBackOff, waardoor de oude pod bleef draaien en koppelingen op
 staan. Opgelost door een **glibc-base** (`eclipse-temurin:21-jre`, zie backend-`Dockerfile`).
 Les: een SIGSEGV in native code omzeilt de Java-fail-safe; check `kubectl get pods`/pod-logs.
 
-Nog te bouwen: app-kant **lokaal alarm** + **reminders-scherm** + **FCM-ontvangst** (heeft de
-`google-services.json` nodig, staat in `.keys/`).
+App-kant gebouwd: **reminders/alarms-scherm**, **FCM-ontvangst** (google-services.json in `.keys/`),
+en een **native wekker** — een échte alarm-ervaring i.p.v. alleen een notificatie. De Flutter-laag
+(`lib/alarm_scheduler.dart`) rekent de eerstvolgende voorkomens uit en geeft ze via een MethodChannel
+(`nl.vdzon.robberts_assistent/alarm`) door aan native Kotlin (`android/app/src/main/kotlin/.../alarm/`):
+`AlarmScheduling` plant ze in met `AlarmManager.setAlarmClock` (altijd exact, geen SCHEDULE_EXACT_ALARM
+nodig, overleeft Doze), `AlarmReceiver` → `AlarmService` (foreground-service, loopende alarm-ringtoon +
+trillen) toont een full-screen `AlarmActivity` over het lockscreen met **Sluit** en **Snooze**;
+`BootReceiver` herplant na reboot (persistentie in SharedPreferences).
 
 ---
 

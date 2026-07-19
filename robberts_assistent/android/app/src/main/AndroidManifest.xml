@@ -6,13 +6,16 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- FCM-push-notificaties tonen (Android 13+ runtime-permissie). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Lokaal ingeplande alarms (flutter_local_notifications + AlarmManager): exact alarm,
-         full-screen over lockscreen, geluid/trillen, en opnieuw inplannen na reboot. -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Native wekker (AlarmManager.setAlarmClock → AlarmService/AlarmActivity): full-screen over
+         het lockscreen, loopende ringtoon/trillen via een foreground-service, en opnieuw inplannen
+         na reboot. setAlarmClock is altijd exact en heeft SCHEDULE_EXACT_ALARM niet nodig; USE_EXACT_ALARM
+         is voor wekker-apps auto-verleend. -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <application
         android:label="Robbert&apos;s assistent"
         android:name="${applicationName}"
@@ -64,18 +67,37 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- flutter_local_notifications: geplande alarms afvuren + na reboot opnieuw inplannen. -->
+        <!-- Native wekker (zie kotlin/.../alarm/). -->
+        <!-- Full-screen wekker-scherm, verschijnt over het lockscreen en zet het scherm aan. -->
+        <activity
+            android:name=".alarm.AlarmActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+
+        <!-- Foreground-service die de ringtoon in een lus speelt + de full-screen-notificatie toont. -->
+        <service
+            android:name=".alarm.AlarmService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Ontvangt het AlarmManager-broadcast als een alarm afgaat. -->
         <receiver
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:name=".alarm.AlarmReceiver"
             android:exported="false" />
+
+        <!-- Plant de opgeslagen alarms opnieuw in na reboot / app-update. -->
         <receiver
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
-            android:exported="false">
+            android:name=".alarm.BootReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
     </application>

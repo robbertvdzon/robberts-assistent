@@ -4,13 +4,18 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlin.concurrent.thread
+import nl.vdzon.robberts_assistent.alarm.AlarmChannel
 
-/** Registreert het update-MethodChannel voor de "update alle drie de apps"-knop (zie [UpdateInstaller]). */
+/**
+ * Registreert het update-MethodChannel voor de "update alle drie de apps"-knop (zie [UpdateInstaller])
+ * en het alarm-MethodChannel voor de native wekker (zie [AlarmChannel]).
+ */
 class MainActivity : FlutterActivity() {
     private val installer by lazy { UpdateInstaller(applicationContext) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        AlarmChannel.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "installedVersionCode" -> {
