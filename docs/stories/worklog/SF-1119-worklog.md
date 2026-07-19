@@ -64,3 +64,39 @@ Done / rationale:
   `.task.md`). `wind/`-Kotlin-tests/build kon niet lokaal gedraaid worden (bekende sandbox-beperking,
   zie `docs/factory/development.md`) — de wijziging in `AssistantClient.kt` is klein en qua patroon
   identiek aan de al-werkende `completeLogin`-call, alleen met een multipart-body i.p.v. JSON.
+
+## Review (SF-1120)
+
+- Volledige story-diff (`git diff main...HEAD`) bekeken, niet alleen de laatste commit.
+- Backend: `Conversation`/`ConversationMessage`, `ConversationRepository` (in-memory +
+  Firestore, collectie `assistant-conversations`), `PhotoStorage` (in-memory + Firebase
+  Storage, map `assistent-chat/`), `AssistantStoreConfig` met expliciete bean-namen
+  (`assistantConversationRepository`/`assistantPhotoStorage`) om de eerder gevonden
+  botsing met `gardenchat.GardenStoreConfig` te voorkomen — klopt en matcht het bestaande
+  patroon. `POST /api/v1/assistant/chat` (multipart), `GET /api/v1/assistant/conversations`,
+  `GET /api/v1/assistant/conversations/{id}`, `GET /api/v1/assistant/photos/{id}` dekken de
+  acceptatiecriteria. Titelgeneratie via losse `titleChatClient`-bean met deterministische
+  placeholder onder `RA_MOCK_AI`, precies zoals de Aannames voorschrijven. Oude
+  `AssistantMessageRequest`/`Response` en het oude endpoint zijn weg; geen resterende
+  referenties elders in de repo (gecheckt met een repo-brede grep).
+- `wind/`-app (niet expliciet in scope, maar wél een echte consumer van het oude endpoint) is
+  meeverbouwd naar de nieuwe multipart-`/chat`-call en leest nu `reply` i.p.v. `text` uit de
+  response — inhoudelijk correct en overeenkomstig het nieuwe DTO.
+- `mvn test` zelf opnieuw gedraaid als gerichte check (66/66 groen, incl.
+  `AssistantServiceTest`, `AssistantIntegrationTest` en `ModulithArchitectureTest`).
+- `./gradlew test` in `wind/android` kon niet draaien (`local.properties` ontbreekt — geen
+  Android-SDK in de sandbox); bekende, niet-blokkerende sandbox-beperking, wijziging is klein
+  en 1-op-1 naar het bestaande patroon.
+- Frontend (`robberts_assistent`): `conversations_screen.dart` (lijst + "Nieuw gesprek"),
+  `home_screen.dart` opent dit scherm i.p.v. direct de chat, `assistant_screen.dart` laadt
+  historie (incl. foto's via `fetchAssistantPhoto`) en heeft foto-ondersteuning
+  (camera/galerij, preview, thumbnails) naar het patroon van `groentetuin/lib/chat_screen.dart`.
+  `api_client.dart`-methodes (`assistantChat`, `assistantConversations`,
+  `assistantConversation`, `fetchAssistantPhoto`) en DTO's sluiten aan op de backend-response-
+  velden. `pubspec.lock`-diff bevat alleen verwachte transitieve deps van `image_picker`/
+  `http_parser`. `flutter test`/`flutter analyze` structureel niet uitvoerbaar in deze sandbox
+  (bekende beperking, zie agent-tips) — geaccepteerd op basis van grondige handmatige
+  code-review van `assistant_screen.dart`, `conversations_screen.dart`,
+  `assistant_screen_test.dart` en `conversations_screen_test.dart`, die er inhoudelijk correct
+  uitzien en de acceptatiecriteria dekken.
+- Geen bugs of scope-afwijkingen gevonden. Akkoord.
