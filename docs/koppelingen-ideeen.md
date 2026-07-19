@@ -15,7 +15,8 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
   Heemskerk), incl. "gaat het komende uren regenen"
 - ✅ Getijden — Rijkswaterstaat WaterWebservices, locatie IJmuiden buitenhaven (fietsen op het
   strand, kite)
-- 🔜 UV / pollen / luchtkwaliteit — Open-Meteo levert dit ook
+- ✅ UV / pollen / luchtkwaliteit — Open-Meteo Air-Quality-API, locatie moestuin (Luttik Cie 12,
+  Heemskerk)
 
 ## Agenda & taken
 - ✅ Google Agenda — read-only (afspraken lezen/zoeken)
@@ -50,7 +51,7 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
 ## Werk / info
 - ✅ FCM push — meldingen naar de telefoon
 - 🔜 Software Factory — build/deploy-status, stories, worklogs
-- 🔜 Nieuws / RSS — personal-news-feed in de dagelijkse samenvatting
+- ✅ Nieuws / RSS — laatste NOS-koppen (keyless, standaard feed feeds.nos.nl/nosnieuwsalgemeen)
 
 ## Overig
 - 🔜 Spotify — nu spelend / afspelen
@@ -59,8 +60,12 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
 ---
 
 ## Aanrader-volgorde (mijn inschatting)
-1. **Weer/regen** (Open-Meteo, keyless) — meeste synergie, minste gedoe
-2. **Afvalkalender → auto-reminders** — direct dagelijks nut, gebruikt bestaande reminders
+1. ~~**Weer/regen** (Open-Meteo, keyless)~~ ✅, ~~**getijden**~~ ✅, ~~**luchtkwaliteit/UV/pollen**~~ ✅,
+   ~~**nieuws/RSS**~~ ✅ — alle keyless kandidaten uit deze lijst zijn gebouwd.
+2. **Afvalkalender → auto-reminders** — direct dagelijks nut, gebruikt bestaande reminders. Nog
+   niet gebouwd: vereist Robberts postcode+huisnummer (géén secret, maar wel eerst na te vragen)
+   en de juiste afvalinzamelaar-API voor die gemeente (bv. Ximmio/HVC/Cyclus/RD4 — verschilt per
+   gemeente).
 3. **Agenda-schrijven** (upgrade) — maakt de agent proactief
 4. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
 
