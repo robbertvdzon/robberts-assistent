@@ -55,7 +55,17 @@ class AiConfig {
         } else {
             OpenAiChatModel.builder()
                 .openAiApi(OpenAiApi.builder().apiKey(secrets.openAiApiKey).build())
-                .defaultOptions(OpenAiChatOptions.builder().model("gpt-5.6-terra").maxCompletionTokens(600).build())
+                .defaultOptions(
+                    OpenAiChatOptions.builder()
+                        .model("gpt-5.6-terra")
+                        .maxCompletionTokens(600)
+                        // gpt-5.6-terra staat function tools niet toe in combinatie met
+                        // reasoning_effort op /v1/chat/completions (400 "Function tools with
+                        // reasoning_effort are not supported... set reasoning_effort to 'none'").
+                        // We gebruiken @Tool's, dus expliciet uitzetten.
+                        .reasoningEffort("none")
+                        .build(),
+                )
                 .build()
         }
 
