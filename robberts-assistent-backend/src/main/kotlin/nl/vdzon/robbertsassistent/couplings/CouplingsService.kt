@@ -1,10 +1,15 @@
 package nl.vdzon.robbertsassistent.couplings
 
 import com.google.firebase.messaging.Message
+import nl.vdzon.robbertsassistent.airquality.AirQualityClient
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import nl.vdzon.robbertsassistent.firebase.FirebaseProvider
 import nl.vdzon.robbertsassistent.google.CalendarClient
+import nl.vdzon.robbertsassistent.news.NewsClient
 import nl.vdzon.robbertsassistent.push.FcmTokenStore
+import nl.vdzon.robbertsassistent.tides.TideClient
+import nl.vdzon.robbertsassistent.waste.WasteClient
+import nl.vdzon.robbertsassistent.weather.WeatherClient
 import org.springframework.stereotype.Service
 import java.net.URI
 import java.net.http.HttpClient
@@ -27,6 +32,11 @@ class CouplingsService(
     private val firebase: FirebaseProvider,
     private val calendarClient: CalendarClient,
     private val tokenStore: FcmTokenStore,
+    private val weatherClient: WeatherClient,
+    private val tideClient: TideClient,
+    private val airQualityClient: AirQualityClient,
+    private val newsClient: NewsClient,
+    private val wasteClient: WasteClient,
 ) {
     private val http: HttpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build()
 
@@ -85,6 +95,42 @@ class CouplingsService(
             configured = secrets.firebaseConfigured,
             mode = if (secrets.firebaseConfigured) "echt" else "fallback",
         ),
+        // Keyless koppelingen: geen secret nodig, dus altijd geconfigureerd + echt.
+        CouplingStatus(
+            id = "weather",
+            name = "Weer/regen",
+            description = "Regen-/weersvoorspelling bij de moestuin (Open-Meteo).",
+            configured = true,
+            mode = "echt",
+        ),
+        CouplingStatus(
+            id = "tides",
+            name = "Getijden",
+            description = "Hoog-/laagwater en waterhoogte bij IJmuiden (Rijkswaterstaat).",
+            configured = true,
+            mode = "echt",
+        ),
+        CouplingStatus(
+            id = "airquality",
+            name = "Luchtkwaliteit/UV/pollen",
+            description = "Luchtkwaliteitsindex, UV-index en pollen bij de moestuin (Open-Meteo).",
+            configured = true,
+            mode = "echt",
+        ),
+        CouplingStatus(
+            id = "news",
+            name = "Nieuws",
+            description = "Laatste nieuwskoppen (NOS, RSS).",
+            configured = true,
+            mode = "echt",
+        ),
+        CouplingStatus(
+            id = "waste",
+            name = "Afvalkalender",
+            description = "Afvalophaaldata voor Robberts huisadres (HVC Groep).",
+            configured = true,
+            mode = "echt",
+        ),
     )
 
     /** Statuslijst mét live-test per koppeling; tests draaien parallel. */
@@ -101,6 +147,11 @@ class CouplingsService(
             "storage" -> testStorage()
             "google" -> testGoogle()
             "fcm" -> testFcm()
+            "weather" -> testWeather()
+            "tides" -> testTides()
+            "airquality" -> testAirQuality()
+            "news" -> testNews()
+            "waste" -> testWaste()
             else -> false to "onbekende koppeling"
         }
     }
@@ -153,6 +204,31 @@ class CouplingsService(
         // Dry-run: valideert token + pad zonder een echte push af te leveren.
         firebase.messaging().send(Message.builder().setToken(tokens.first()).putData("ping", "1").build(), true)
         return true to "push-pad gevalideerd (dry-run, ${tokens.size} toestel)"
+    }
+
+    private fun testWeather(): Pair<Boolean, String> {
+        val forecast = weatherClient.hourlyForecast(1)
+        return forecast.error?.let { false to it } ?: (true to "voorspelling opgehaald (${forecast.hours.size} uur)")
+    }
+
+    private fun testTides(): Pair<Boolean, String> {
+        val forecast = tideClient.forecast(1)
+        return forecast.error?.let { false to it } ?: (true to "getijdata opgehaald (${forecast.levels.size} punt(en))")
+    }
+
+    private fun testAirQuality(): Pair<Boolean, String> {
+        val forecast = airQualityClient.hourlyForecast(1)
+        return forecast.error?.let { false to it } ?: (true to "luchtkwaliteitsdata opgehaald (${forecast.hours.size} uur)")
+    }
+
+    private fun testNews(): Pair<Boolean, String> {
+        val feed = newsClient.latestHeadlines(1)
+        return feed.error?.let { false to it } ?: (true to "${feed.items.size} nieuwsitem(s) opgehaald")
+    }
+
+    private fun testWaste(): Pair<Boolean, String> {
+        val schedule = wasteClient.upcomingPickups()
+        return schedule.error?.let { false to it } ?: (true to "${schedule.pickups.size} ophaalmoment(en) gevonden")
     }
 
     private inline fun timed(block: () -> Pair<Boolean, String>): TestResult {

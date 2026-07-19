@@ -1,16 +1,31 @@
 package nl.vdzon.robbertsassistent.couplings
 
+import nl.vdzon.robbertsassistent.airquality.StubAirQualityClient
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import nl.vdzon.robbertsassistent.firebase.FirebaseProvider
 import nl.vdzon.robbertsassistent.google.StubCalendarClient
+import nl.vdzon.robbertsassistent.news.StubNewsClient
 import nl.vdzon.robbertsassistent.push.InMemoryFcmTokenStore
+import nl.vdzon.robbertsassistent.tides.StubTideClient
+import nl.vdzon.robbertsassistent.waste.StubWasteClient
+import nl.vdzon.robbertsassistent.weather.StubWeatherClient
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class CouplingsServiceTest {
 
     private fun service(secrets: AppSecrets) =
-        CouplingsService(secrets, FirebaseProvider(secrets), StubCalendarClient(), InMemoryFcmTokenStore())
+        CouplingsService(
+            secrets,
+            FirebaseProvider(secrets),
+            StubCalendarClient(),
+            InMemoryFcmTokenStore(),
+            StubWeatherClient(),
+            StubTideClient(),
+            StubAirQualityClient(),
+            StubNewsClient(),
+            StubWasteClient(),
+        )
 
     private val bareSecrets = AppSecrets(
         rememberSecret = "s",
@@ -18,13 +33,21 @@ class CouplingsServiceTest {
         allowedEmails = setOf("robbert@vdzon.com"),
     )
 
-    @Test
-    fun `zonder secrets staat alles op fallback en niets geconfigureerd`() {
-        val statuses = service(bareSecrets).statuses()
+    private val keylessIds = setOf("weather", "tides", "airquality", "news", "waste")
 
-        assertEquals(setOf("openai", "telegram", "firestore", "storage", "google", "fcm"), statuses.map { it.id }.toSet())
-        assertEquals(true, statuses.all { !it.configured }, "geen enkele koppeling zou geconfigureerd moeten zijn")
-        assertEquals(true, statuses.all { it.mode == "fallback" }, "alles zou op fallback moeten staan")
+    @Test
+    fun `zonder secrets staan de secret-koppelingen op fallback, de keyless koppelingen altijd op echt`() {
+        val statuses = service(bareSecrets).statuses()
+        val byId = statuses.associateBy { it.id }
+
+        assertEquals(
+            setOf("openai", "telegram", "firestore", "storage", "google", "fcm") + keylessIds,
+            statuses.map { it.id }.toSet(),
+        )
+        val secretBacked = byId.filterKeys { it !in keylessIds }.values
+        assertEquals(true, secretBacked.all { !it.configured }, "geen enkele secret-koppeling zou geconfigureerd moeten zijn")
+        assertEquals(true, secretBacked.all { it.mode == "fallback" }, "secret-koppelingen zouden op fallback moeten staan")
+        assertEquals(true, keylessIds.all { byId.getValue(it).configured && byId.getValue(it).mode == "echt" })
         assertEquals(true, statuses.all { it.test == null }, "de lijst-weergave doet geen live-test")
     }
 
@@ -51,5 +74,14 @@ class CouplingsServiceTest {
         assertEquals("echt", byId.getValue("google").mode)
         assertEquals("echt", byId.getValue("fcm").mode)
         assertEquals(true, byId.values.all { it.configured })
+    }
+
+    @Test
+    fun `testAll geeft ok terug voor de keyless koppelingen op basis van de stubs`() {
+        val byId = service(bareSecrets).testAll().associateBy { it.id }
+
+        keylessIds.forEach { id ->
+            assertEquals(true, byId.getValue(id).test?.ok, "$id zou een geslaagde live-test moeten geven")
+        }
     }
 }
