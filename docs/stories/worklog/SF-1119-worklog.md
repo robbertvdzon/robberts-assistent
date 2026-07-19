@@ -100,3 +100,51 @@ Done / rationale:
   `assistant_screen_test.dart` en `conversations_screen_test.dart`, die er inhoudelijk correct
   uitzien en de acceptatiecriteria dekken.
 - Geen bugs of scope-afwijkingen gevonden. Akkoord.
+
+## Test (SF-1121)
+
+- Backend: `mvn test` in `robberts-assistent-backend/` opnieuw gedraaid (start `2026-07-19
+  11:00:17 UTC`, eind `11:00:36 UTC`) → 66/66 groen, 0 failures/errors (surefire-reports
+  opgeteld), incl. `AssistantServiceTest`, `AssistantIntegrationTest`,
+  `ModulithArchitectureTest`.
+- Frontend `robberts_assistent`: Flutter-SDK bleek dit keer wél beschikbaar in de sandbox
+  (`/opt/flutter/bin/flutter` 3.44.6) — `flutter pub get` + `flutter test` (alle
+  testbestanden, incl. de nieuwe `assistant_screen_test.dart` en
+  `conversations_screen_test.dart`) → alle tests groen (+6); `flutter analyze` → geen issues.
+  `pubspec.lock` bleef ongewijzigd (geen `git checkout` nodig).
+- Preview (`robberts-assistent-pr-9`, `RA_MOCK_AI=true`, in-memory conversatie-opslag):
+  end-to-end via curl + Playwright/Chromium tegen de echte preview-URL, geen mocks:
+  - `POST /api/v1/assistant/chat` zonder `conversationId` → nieuwe conversatie, deterministische
+    placeholder-titel (eerste woorden van de vraag) — werkt zonder AI-secret.
+  - Vervolgvraag met `conversationId` → volledige berichtenhistorie blijft behouden en wordt
+    teruggegeven; een tweede, onafhankelijke nieuwe conversatie kent de eerste niet (geen
+    vermenging).
+  - `GET /api/v1/assistant/conversations` → lijst met titel + `updatedAt`, meest-recent-eerst,
+    klopt na elk bericht.
+  - `GET /api/v1/assistant/conversations/{id}` → volledige historie inclusief `imageIds`.
+  - Foto-upload (`photos`-multipart-veld) → `imageIds` gevuld, `GET
+    /api/v1/assistant/photos/{id}` levert exact dezelfde bytes terug (`cmp` identiek).
+  - Oude `POST /api/v1/assistant/message` → 404, zoals verwacht (endpoint vervallen).
+  - Browser (Playwright, `ignoreHTTPSErrors`, viewport 412×915) tegen de preview-URL: "Assistent"-
+    tab opent het nieuwe gesprekkenscherm (lijst met titel + tijdstip, "Nieuw gesprek"-FAB);
+    tikken op een gesprek opent het chatscherm met bestaande historie; "Chatten"-tab (tekstmodus)
+    → typen + versturen toont vraag/antwoord, vervolgvraag in hetzelfde gesprek werkt; foto via
+    "Uit galerij kiezen" → preview/thumbnail in de bubbel, blijft zichtbaar na terug-en-opnieuw-
+    openen van het gesprek; na een volledige page-reload (app "sluiten/heropenen" binnen dezelfde
+    backend-sessie) blijft de gesprekkenlijst met bijgewerkte tijdstippen intact. Screenshots
+    staan in `screenshots/` (o.a. `02-conversations.png`, `07-chat-opened.png`,
+    `16-photo-sent.png`, `17-photo-reopened.png`).
+  - Waarneming, geen bug: tussen twee testrondes bleek de conversatielijst in preview leeg
+    (backend-pod is kennelijk herstart/opnieuw gesynct tussen de rondes in). Dit is verwacht
+    gedrag van de in-memory-fallback in preview (geen Firestore-config daar, zie
+    `foundation-couplings.md`/CLAUDE.md §5) en geen regressie van deze story — persistentie-over-
+    herstarten-heen vereist Firestore, dat in preview bewust leeg blijft. Binnen één
+    backend-sessie (incl. volledige page-reload) is de persistentie wél bevestigd.
+  - `wind/`-app: `AssistantClient.kt`-diff nagelopen — multipart-veld `message` en response-veld
+    `reply` sluiten exact aan op `AssistantController`/`AssistantChatResponse`. Gradle-build kon
+    niet lokaal (geen Android-SDK/`local.properties`, bekende sandbox-beperking) — geaccepteerd op
+    basis van deze code-match plus de al bevestigde live backend-contractdata hierboven.
+- Geen bugs gevonden; alle acceptatiecriteria uit `.task.md` bevestigd tegen de preview.
+  Tijdelijke testconversaties/foto's staan alleen in de in-memory preview-opslag (geen delete-
+  endpoint per Aannames-scope) en verdwijnen vanzelf bij een volgende pod-restart/redeploy —
+  geen aparte cleanup nodig.
