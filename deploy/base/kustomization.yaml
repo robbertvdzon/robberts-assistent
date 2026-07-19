@@ -18,6 +18,6 @@ images:
   newTag: sha-c4efe86
 - name: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newName: ghcr.io/robbertvdzon/robberts-assistent-frontend
-  newTag: sha-1105a56
+  newTag: sha-c4efe86
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
