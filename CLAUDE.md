@@ -51,7 +51,7 @@ robberts-assistent/
 ## 3. Tech stack
 
 - **Backend:** Kotlin, Spring Boot 3.5, **Spring Modulith**, Java 21, Maven. Spring AI
-  (`spring-ai-openai`, handmatige bean-wiring) met **OpenAI gpt-4o-mini** (vision-capable).
+  (`spring-ai-openai`, handmatige bean-wiring) met **OpenAI gpt-5.6-terra** (vision-capable).
   firebase-admin (Firestore + Cloud Storage). JdbcTemplate + Flyway.
 - **Apps:** Flutter (stable), Dart `>=3.0.0 <4.0.0`. `wind/` heeft native Kotlin (App
   Actions-trampoline-activities). Web-apps draaien als nginx-container (Flutter web build).

@@ -53,7 +53,7 @@ class AiConfig {
         } else {
             OpenAiChatModel.builder()
                 .openAiApi(OpenAiApi.builder().apiKey(secrets.openAiApiKey).build())
-                .defaultOptions(OpenAiChatOptions.builder().model("gpt-4o-mini").maxTokens(600).build())
+                .defaultOptions(OpenAiChatOptions.builder().model("gpt-5.6-terra").maxTokens(600).build())
                 .build()
         }
 

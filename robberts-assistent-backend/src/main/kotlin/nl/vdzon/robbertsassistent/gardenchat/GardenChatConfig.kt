@@ -15,8 +15,8 @@ private val GARDEN_SYSTEM_PROMPT = """
 
 /**
  * Aparte [ChatClient] voor de moestuin-chat: eigen system-prompt, geen tools, en multimodaal
- * (de foto's gaan als Media mee). Hergebruikt het [ChatModel] uit `assistant.ai.AiConfig`
- * (OpenAI gpt-4o-mini is vision-capable; in preview/tests de deterministische mock).
+ * (de foto's gaan als Media mee). Hergebruikt het [ChatModel] uit `assistant.ai.AiConfig` — moet
+ * dus een vision-capable model blijven (in preview/tests de deterministische mock).
  */
 @Configuration
 class GardenChatConfig {
