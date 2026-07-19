@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'assistant_screen.dart';
+import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
 import 'summary_screen.dart';
 import 'updates_screen.dart';
@@ -38,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final screens = [
       SummaryScreen(api: widget.api),
       AssistantScreen(api: widget.api),
+      SchedulesScreen(api: widget.api),
       const UpdatesScreen(),
     ];
     return Scaffold(
@@ -58,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Samenvatting'),
           NavigationDestination(icon: Icon(Icons.assistant_outlined), selectedIcon: Icon(Icons.assistant), label: 'Assistent'),
+          NavigationDestination(icon: Icon(Icons.alarm_outlined), selectedIcon: Icon(Icons.alarm), label: 'Herinneringen'),
           NavigationDestination(icon: Icon(Icons.system_update_outlined), selectedIcon: Icon(Icons.system_update), label: 'Updates'),
         ],
       ),

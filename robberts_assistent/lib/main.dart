@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'alarm_scheduler.dart';
 import 'api_client.dart';
 import 'fcm_service.dart';
 import 'google_signin_button_stub.dart' if (dart.library.html) 'google_signin_button_web.dart' as gis_button;
@@ -123,8 +124,11 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     if (!initialized) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (api.token == null) return _loginView();
-    // FCM opzetten zodra ingelogd (idempotent — draait maar één keer echt).
-    WidgetsBinding.instance.addPostFrameCallback((_) => FcmService.setup(api));
+    // FCM + alarm-planning opzetten zodra ingelogd.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FcmService.setup(api);
+      AlarmScheduler.sync(api);
+    });
     return HomeScreen(api: api, onLoggedOut: _logout);
   }
 

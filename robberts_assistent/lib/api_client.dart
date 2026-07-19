@@ -86,6 +86,43 @@ class ApiClient {
     await postJson('/api/v1/fcm/token', {'token': token});
   }
 
+  Future<void> _delete(String path) async {
+    final response = await http.delete(Uri.parse('$baseUrl$path'), headers: authHeaders());
+    await _throwOnError(response);
+  }
+
+  // -- Reminders --------------------------------------------------------------
+  Future<List<Reminder>> listReminders() async {
+    final body = await getJson('/api/v1/reminders');
+    return (body['reminders'] as List).map((e) => Reminder.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> createReminder({required String message, required DateTime at, Recurrence? recurrence}) async {
+    await postJson('/api/v1/reminders', {
+      'message': message,
+      'dueAt': at.toUtc().toIso8601String(),
+      if (recurrence != null) 'recurrence': recurrence.toJson(),
+    });
+  }
+
+  Future<void> deleteReminder(String id) => _delete('/api/v1/reminders/$id');
+
+  // -- Alarms -----------------------------------------------------------------
+  Future<List<Alarm>> listAlarms() async {
+    final body = await getJson('/api/v1/alarms');
+    return (body['alarms'] as List).map((e) => Alarm.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> createAlarm({required String message, required DateTime at, Recurrence? recurrence}) async {
+    await postJson('/api/v1/alarms', {
+      'message': message,
+      'time': at.toUtc().toIso8601String(),
+      if (recurrence != null) 'recurrence': recurrence.toJson(),
+    });
+  }
+
+  Future<void> deleteAlarm(String id) => _delete('/api/v1/alarms/$id');
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -120,4 +157,73 @@ String _extractMessage(http.Response response) {
     // Geen JSON-body; val terug op de ruwe tekst.
   }
   return 'Inloggen mislukt (HTTP ${response.statusCode}).';
+}
+
+/// Herhaling: unit = DAYS/WEEKS/MONTHS/YEARS, elke [interval].
+class Recurrence {
+  final String unit;
+  final int interval;
+  const Recurrence(this.unit, this.interval);
+
+  Map<String, dynamic> toJson() => {'unit': unit, 'interval': interval};
+
+  static Recurrence? fromJson(Map<String, dynamic>? m) {
+    if (m == null || m['interval'] == null) return null;
+    return Recurrence(m['unit'] as String, (m['interval'] as num).toInt());
+  }
+
+  /// Volgende voorkomen ná [from] (kalender-correct voor maanden/jaren).
+  DateTime nextAfter(DateTime from) {
+    switch (unit) {
+      case 'DAYS':
+        return from.add(Duration(days: interval));
+      case 'WEEKS':
+        return from.add(Duration(days: 7 * interval));
+      case 'MONTHS':
+        return DateTime(from.year, from.month + interval, from.day, from.hour, from.minute, from.second);
+      case 'YEARS':
+        return DateTime(from.year + interval, from.month, from.day, from.hour, from.minute, from.second);
+      default:
+        return from.add(Duration(days: interval));
+    }
+  }
+
+  String get label {
+    const nl = {'DAYS': 'dag', 'WEEKS': 'week', 'MONTHS': 'maand', 'YEARS': 'jaar'};
+    return 'elke $interval ${nl[unit] ?? unit.toLowerCase()}';
+  }
+}
+
+class Reminder {
+  final String id;
+  final String message;
+  final DateTime dueAt;
+  final Recurrence? recurrence;
+  final bool active;
+  const Reminder({required this.id, required this.message, required this.dueAt, this.recurrence, required this.active});
+
+  static Reminder fromJson(Map<String, dynamic> m) => Reminder(
+        id: m['id'] as String,
+        message: m['message'] as String,
+        dueAt: DateTime.parse(m['dueAt'] as String).toLocal(),
+        recurrence: Recurrence.fromJson(m['recurrence'] as Map<String, dynamic>?),
+        active: m['active'] as bool? ?? true,
+      );
+}
+
+class Alarm {
+  final String id;
+  final String message;
+  final DateTime time;
+  final Recurrence? recurrence;
+  final bool active;
+  const Alarm({required this.id, required this.message, required this.time, this.recurrence, required this.active});
+
+  static Alarm fromJson(Map<String, dynamic> m) => Alarm(
+        id: m['id'] as String,
+        message: m['message'] as String,
+        time: DateTime.parse(m['time'] as String).toLocal(),
+        recurrence: Recurrence.fromJson(m['recurrence'] as Map<String, dynamic>?),
+        active: m['active'] as bool? ?? true,
+      );
 }
