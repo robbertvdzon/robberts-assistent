@@ -91,7 +91,7 @@ fallback (zie §5).
 | `automower` | `AutomowerClient`: robotmaaier (Husqvarna Automower Connect API, `client_credentials`) — status + starten/parkeren; `RA_HUSQVARNA_APP_KEY`/`_APP_SECRET` bepalen echt vs. `StubAutomowerClient`. |
 | `firebase` | `FirebaseProvider`: gedeelde FirebaseApp → named Firestore-db + Storage-bucket. |
 | `notifier` | `Notifier`-port; `TelegramNotifier` (echt) of `LoggingNotifier` (fallback). |
-| `couplings` | Status + live-test van alle externe koppelingen (voedt het "Koppelingen"-scherm in de app). |
+| `couplings` | `CouplingProbe`-SPI + `CouplingsService`: elke module registreert een `@Component` die `CouplingProbe` implementeert (id/naam/omschrijving/configured/mode/test); Spring injecteert automatisch `List<CouplingProbe>`. Voedt het "Koppelingen"-scherm in de app — een nieuwe koppeling toevoegen betekent alleen een nieuwe `CouplingProbe`-implementatie in de eigen module, geen wijziging hier of in de app. |
 
 Twee `ChatClient`-beans: `assistantChatClient` (`@Primary`, met tools) en `gardenChatClient`
 (`@Qualifier`, vision, eigen system-prompt).
@@ -101,7 +101,9 @@ Twee `ChatClient`-beans: `assistantChatClient` (`@Primary`, met tools) en `garde
 ## 5. Koppelingen + het stub/fallback-patroon
 
 Elke koppeling is actief zodra de bijbehorende secret gezet is; anders fallback. Config via
-`AppSecrets` (keys hieronder). In prod komen deze uit de **Sealed Secret** via `envFrom`.
+`AppSecrets` (keys hieronder). In prod komen deze uit de **Sealed Secret** via `envFrom`. Elke
+koppeling registreert ook een `CouplingProbe` (`@Component` in de eigen module, zie §4/`couplings`)
+zodat 'ie automatisch op het "Koppelingen"-scherm verschijnt.
 
 | Koppeling | Actief bij | Fallback |
 |---|---|---|
@@ -159,7 +161,10 @@ via de software-factory (branch, worklog in `docs/stories/`, PR → preview).
 - **Tests:** backend `mvn test` (vanuit `robberts-assistent-backend/`); `ModulithArchitectureTest`
   bewaakt module-grenzen. Apps: `flutter test` + `flutter analyze`.
 - **Nieuwe skill:** module = nieuwe subpackage; nieuwe agent-capability = een `@Tool` in
-  `assistant/ai/` geregistreerd in `AiConfig`. Koppeling = port + fallback + `AppSecrets`-key.
+  `assistant/ai/` geregistreerd in `AiConfig`. Koppeling = port + fallback + `AppSecrets`-key
+  (indien niet keyless) + een `CouplingProbe`-`@Component` (zie `couplings.CouplingProbe`) —
+  dat laatste is voldoende om op het "Koppelingen"-scherm te verschijnen, geen andere wijziging
+  nodig.
 - **Commits/branches:** Nederlands; factory gebruikt branch-prefix `ai/` en story-worklogs.
 
 ---

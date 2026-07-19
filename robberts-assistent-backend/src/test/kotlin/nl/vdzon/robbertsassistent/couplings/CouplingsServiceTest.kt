@@ -1,31 +1,52 @@
 package nl.vdzon.robbertsassistent.couplings
 
+import nl.vdzon.robbertsassistent.airquality.AirQualityCouplingProbe
 import nl.vdzon.robbertsassistent.airquality.StubAirQualityClient
+import nl.vdzon.robbertsassistent.assistant.ai.OpenAiCouplingProbe
+import nl.vdzon.robbertsassistent.automower.AutomowerCouplingProbe
+import nl.vdzon.robbertsassistent.automower.StubAutomowerClient
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import nl.vdzon.robbertsassistent.firebase.FirebaseProvider
+import nl.vdzon.robbertsassistent.firebase.FirestoreCouplingProbe
+import nl.vdzon.robbertsassistent.firebase.StorageCouplingProbe
+import nl.vdzon.robbertsassistent.google.GoogleCouplingProbe
 import nl.vdzon.robbertsassistent.google.StubCalendarClient
+import nl.vdzon.robbertsassistent.news.NewsCouplingProbe
 import nl.vdzon.robbertsassistent.news.StubNewsClient
+import nl.vdzon.robbertsassistent.notifier.TelegramCouplingProbe
+import nl.vdzon.robbertsassistent.push.FcmCouplingProbe
 import nl.vdzon.robbertsassistent.push.InMemoryFcmTokenStore
 import nl.vdzon.robbertsassistent.tides.StubTideClient
+import nl.vdzon.robbertsassistent.tides.TideCouplingProbe
 import nl.vdzon.robbertsassistent.waste.StubWasteClient
+import nl.vdzon.robbertsassistent.waste.WasteCouplingProbe
 import nl.vdzon.robbertsassistent.weather.StubWeatherClient
+import nl.vdzon.robbertsassistent.weather.WeatherCouplingProbe
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class CouplingsServiceTest {
 
-    private fun service(secrets: AppSecrets) =
-        CouplingsService(
-            secrets,
-            FirebaseProvider(secrets),
-            StubCalendarClient(),
-            InMemoryFcmTokenStore(),
-            StubWeatherClient(),
-            StubTideClient(),
-            StubAirQualityClient(),
-            StubNewsClient(),
-            StubWasteClient(),
+    /** Zelfde probes als in productie, maar keyless clients zijn stubs waar dat scheelt. */
+    private fun service(secrets: AppSecrets): CouplingsService {
+        val firebase = FirebaseProvider(secrets)
+        return CouplingsService(
+            listOf(
+                OpenAiCouplingProbe(secrets),
+                TelegramCouplingProbe(secrets),
+                FirestoreCouplingProbe(firebase),
+                StorageCouplingProbe(secrets, firebase),
+                GoogleCouplingProbe(secrets, StubCalendarClient()),
+                FcmCouplingProbe(secrets, firebase, InMemoryFcmTokenStore()),
+                AutomowerCouplingProbe(secrets, StubAutomowerClient()),
+                WeatherCouplingProbe(StubWeatherClient()),
+                TideCouplingProbe(StubTideClient()),
+                AirQualityCouplingProbe(StubAirQualityClient()),
+                NewsCouplingProbe(StubNewsClient()),
+                WasteCouplingProbe(StubWasteClient()),
+            ),
         )
+    }
 
     private val bareSecrets = AppSecrets(
         rememberSecret = "s",
@@ -41,7 +62,7 @@ class CouplingsServiceTest {
         val byId = statuses.associateBy { it.id }
 
         assertEquals(
-            setOf("openai", "telegram", "firestore", "storage", "google", "fcm") + keylessIds,
+            setOf("openai", "telegram", "firestore", "storage", "google", "fcm", "automower") + keylessIds,
             statuses.map { it.id }.toSet(),
         )
         val secretBacked = byId.filterKeys { it !in keylessIds }.values
@@ -63,6 +84,8 @@ class CouplingsServiceTest {
             googleOAuthClientId = "gid",
             googleOAuthClientSecret = "gsecret",
             googleOAuthRefreshToken = "grefresh",
+            husqvarnaAppKey = "hkey",
+            husqvarnaAppSecret = "hsecret",
         )
 
         val byId = service(configured).statuses().associateBy { it.id }
@@ -73,6 +96,7 @@ class CouplingsServiceTest {
         assertEquals("echt", byId.getValue("storage").mode)
         assertEquals("echt", byId.getValue("google").mode)
         assertEquals("echt", byId.getValue("fcm").mode)
+        assertEquals("echt", byId.getValue("automower").mode)
         assertEquals(true, byId.values.all { it.configured })
     }
 
