@@ -13,7 +13,7 @@ import java.time.ZoneId
 
 /**
  * Echte weersvoorspelling via de Open-Meteo forecast-API (open-meteo.com) — gratis, geen API-key.
- * Coördinaten: IJmuiden Zuidpier, zelfde locatie als de wind-tool.
+ * Coördinaten: Luttik Cie 12, Heemskerk (Robberts moestuin).
  */
 @Component
 class OpenMeteoWeatherClient(private val httpClient: HttpClient = HttpClient.newHttpClient()) : WeatherClient {
@@ -35,9 +35,9 @@ class OpenMeteoWeatherClient(private val httpClient: HttpClient = HttpClient.new
         }.getOrElse { WeatherForecast(emptyList(), "Kon Open-Meteo niet ophalen: ${it.message}") }
 
     internal companion object {
-        // IJmuiden Zuidpier-coördinaten (zelfde als WindTools). Gratis, geen API-key nodig.
+        // Luttik Cie 12, Heemskerk (moestuin). Gratis, geen API-key nodig.
         private const val FORECAST_URL = "https://api.open-meteo.com/v1/forecast" +
-            "?latitude=52.4614&longitude=4.5552" +
+            "?latitude=52.5078&longitude=4.6420" +
             "&hourly=temperature_2m,precipitation,precipitation_probability,weathercode" +
             "&forecast_days=3&timezone=Europe%2FAmsterdam"
 

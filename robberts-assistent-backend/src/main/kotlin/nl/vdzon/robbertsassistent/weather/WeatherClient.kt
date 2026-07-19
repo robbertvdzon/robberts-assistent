@@ -22,10 +22,10 @@ data class WeatherForecast(
 )
 
 /**
- * Weersvoorspelling voor de thuislocatie (IJmuiden, zelfde coördinaten als [WindTools][nl.vdzon.robbertsassistent.assistant.ai.WindTools]).
- * Fase 0 (keyless, geen secret nodig): [OpenMeteoWeatherClient] is de enige, altijd-actieve
- * implementatie. [StubWeatherClient] bestaat alleen voor tests, zodat tools zonder netwerk-call
- * getest kunnen worden (zelfde patroon als `StubCalendarClient`).
+ * Weersvoorspelling voor Luttik Cie 12, Heemskerk (Robberts moestuin). Fase 0 (keyless, geen
+ * secret nodig): [OpenMeteoWeatherClient] is de enige, altijd-actieve implementatie.
+ * [StubWeatherClient] bestaat alleen voor tests, zodat tools zonder netwerk-call getest kunnen
+ * worden (zelfde patroon als `StubCalendarClient`).
  */
 interface WeatherClient {
     /** Uurvoorspelling vanaf nu, oplopend in tijd, voor maximaal [hours] uur vooruit (max. 72). */

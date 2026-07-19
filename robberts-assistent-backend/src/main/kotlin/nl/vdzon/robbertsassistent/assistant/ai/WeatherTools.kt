@@ -10,23 +10,24 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * Geeft de chat-assistent toegang tot de regen-/weersvoorspelling bij IJmuiden via [WeatherClient]
- * (Open-Meteo, keyless — geen secret nodig, zie CLAUDE.md §5).
+ * Geeft de chat-assistent toegang tot de regen-/weersvoorspelling bij Robberts moestuin (Luttik
+ * Cie 12, Heemskerk) via [WeatherClient] (Open-Meteo, keyless — geen secret nodig, zie CLAUDE.md §5).
  */
 @Component
 class WeatherTools(private val weatherClient: WeatherClient) {
 
     @Tool(
-        description = "Voorspelling per uur voor de komende 6 uur bij IJmuiden (temperatuur, " +
-            "neerslag in mm, kans op neerslag %). Gebruik dit voor vragen als 'gaat het (het " +
-            "komende uur) regenen' of 'moet ik straks een paraplu mee'.",
+        description = "Voorspelling per uur voor de komende 6 uur bij de moestuin in Heemskerk " +
+            "(temperatuur, neerslag in mm, kans op neerslag %). Gebruik dit voor vragen als 'gaat " +
+            "het (het komende uur) regenen' of 'moet ik straks een paraplu mee'.",
     )
     fun getRainForecastNextHours(): String = format(weatherClient.hourlyForecast(NEAR_TERM_HOURS), allHours = true)
 
     @Tool(
-        description = "Weersvoorspelling voor de komende 3 dagen bij IJmuiden, per 3 uur " +
-            "(temperatuur, neerslag, weersomstandigheid zoals 'bewolkt' of 'regen'). Gebruik " +
-            "getRainForecastNextHours voor vragen over de eerstkomende uren, dit voor verder vooruit.",
+        description = "Weersvoorspelling voor de komende 3 dagen bij de moestuin in Heemskerk, " +
+            "per 3 uur (temperatuur, neerslag, weersomstandigheid zoals 'bewolkt' of 'regen'). " +
+            "Gebruik getRainForecastNextHours voor vragen over de eerstkomende uren, dit voor " +
+            "verder vooruit.",
     )
     fun getWeatherForecast(): String = format(weatherClient.hourlyForecast(MULTI_DAY_HOURS), allHours = false)
 
