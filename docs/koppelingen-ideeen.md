@@ -24,7 +24,8 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
 - ✅ Reminders & alarms — eigen lijst, push-melding of echte wekker
 - 🔜 Agenda **schrijven** — upgrade van de bestaande read-only koppeling (agent zet zelf afspraken)
 - 🔜 Google Tasks of Todoist — echte takenlijst naast de ene notitie
-- 🔜 Afvalkalender → automatische reminders ("morgen groene bak buiten")
+- ✅ Afvalkalender — HVC Groep (keyless, postcode+huisnummer als config), geen automatische
+  reminders nog (🔜 upgrade: "morgen groene bak buiten")
 
 ## Communicatie / mail
 - ✅ Telegram — uitgaand (meldingen)
@@ -60,14 +61,14 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
 ---
 
 ## Aanrader-volgorde (mijn inschatting)
-1. ~~**Weer/regen** (Open-Meteo, keyless)~~ ✅, ~~**getijden**~~ ✅, ~~**luchtkwaliteit/UV/pollen**~~ ✅,
-   ~~**nieuws/RSS**~~ ✅ — alle keyless kandidaten uit deze lijst zijn gebouwd.
-2. **Afvalkalender → auto-reminders** — direct dagelijks nut, gebruikt bestaande reminders. Nog
-   niet gebouwd: vereist Robberts postcode+huisnummer (géén secret, maar wel eerst na te vragen)
-   en de juiste afvalinzamelaar-API voor die gemeente (bv. Ximmio/HVC/Cyclus/RD4 — verschilt per
-   gemeente).
-3. **Agenda-schrijven** (upgrade) — maakt de agent proactief
-4. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
+Alle keyless kandidaten uit deze lijst zijn gebouwd: ~~weer/regen~~ ✅, ~~getijden~~ ✅,
+~~luchtkwaliteit/UV/pollen~~ ✅, ~~nieuws/RSS~~ ✅, ~~afvalkalender~~ ✅ (HVC Groep, Heemskerk).
+
+Volgende stappen (vereisen wel een secret/token of extra werk):
+1. **Afvalkalender → auto-reminders** — upgrade: automatisch een reminder zetten de avond vóór
+   ophaaldag, gebruikt de bestaande reminders-koppeling.
+2. **Agenda-schrijven** (upgrade) — maakt de agent proactief
+3. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
 
 De actuele status van de al-gebouwde koppelingen is live te zien in de assistent-app onder
 **Koppelingen** (met een test-knop), gevoed door `GET /api/v1/couplings` +
