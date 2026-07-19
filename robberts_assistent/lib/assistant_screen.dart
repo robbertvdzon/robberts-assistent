@@ -41,7 +41,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   final _picker = ImagePicker();
   final _pending = <AssistantAttachment>[];
 
-  _Mode _mode = _Mode.voice;
+  _Mode _mode = _Mode.chat;
   var _listening = false;
   var _speechAvailable = false;
   var _busy = false;
@@ -371,7 +371,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   );
 
   Widget _voiceControls() => Padding(
-    padding: const EdgeInsets.all(24),
+    padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -401,7 +401,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
     padding: EdgeInsets.only(
       left: 4,
       right: 12,
-      bottom: 12 + MediaQuery.of(context).viewInsets.bottom,
+      // viewInsets = toetsenbord, padding.bottom = systeem-navigatiebalk (0 als het toetsenbord die
+      // al bedekt). Zonder padding.bottom valt het invoerveld achter de Android-knoppen.
+      bottom: 12 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom,
       top: 4,
     ),
     child: Row(
