@@ -13,7 +13,8 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat.
 - ✅ Wind/kite — actuele meting + voorspelling IJmuiden (windfinder + Open-Meteo)
 - ✅ Regen/weersvoorspelling — Open-Meteo (gratis, geen key), locatie moestuin (Luttik Cie 12,
   Heemskerk), incl. "gaat het komende uren regenen"
-- 🔜 Getijden — Rijkswaterstaat (fietsen op het strand, kite)
+- ✅ Getijden — Rijkswaterstaat WaterWebservices, locatie IJmuiden buitenhaven (fietsen op het
+  strand, kite)
 - 🔜 UV / pollen / luchtkwaliteit — Open-Meteo levert dit ook
 
 ## Agenda & taken

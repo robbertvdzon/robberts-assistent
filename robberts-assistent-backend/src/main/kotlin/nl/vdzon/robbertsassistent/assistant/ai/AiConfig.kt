@@ -20,7 +20,8 @@ private val SYSTEM_PROMPT = """
     Je bent Robberts persoonlijke assistent. Antwoord kort en to-the-point, in het Nederlands.
     Je hebt tools om Robberts notitie te lezen/bij te werken, om actuele windmetingen +
     windvoorspellingen bij IJmuiden op te halen, om de regen-/weersvoorspelling bij de moestuin in
-    Heemskerk op te halen (komende uren of komende dagen), om reminders te zetten (push-notificatie op tijd,
+    Heemskerk op te halen (komende uren of komende dagen), om de getijvoorspelling (hoog-/laagwater,
+    waterhoogte) bij IJmuiden op te halen, om reminders te zetten (push-notificatie op tijd,
     eenmalig of herhalend), om alarms te zetten (een echte wekker op de telefoon, eenmalig of
     herhalend), om Robberts agenda te lezen, om een Google Doc te lezen, en om een push-notificatie
     naar Robberts telefoon te sturen. Kies een reminder als een melding volstaat, en een alarm als
@@ -61,6 +62,7 @@ class AiConfig {
         notesTools: NotesTools,
         windTools: WindTools,
         weatherTools: WeatherTools,
+        tideTools: TideTools,
         reminderTools: ReminderTools,
         alarmTools: AlarmTools,
         calendarTools: CalendarTools,
@@ -70,7 +72,8 @@ class AiConfig {
         ChatClient.builder(chatModel)
             .defaultSystem(SYSTEM_PROMPT)
             .defaultTools(
-                notesTools, windTools, weatherTools, reminderTools, alarmTools, calendarTools, docsTools, pushTools,
+                notesTools, windTools, weatherTools, tideTools, reminderTools, alarmTools, calendarTools, docsTools,
+                pushTools,
             )
             .build()
 
