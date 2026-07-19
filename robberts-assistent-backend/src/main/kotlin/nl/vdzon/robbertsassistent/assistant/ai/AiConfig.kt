@@ -10,6 +10,12 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
 
+private val TITLE_SYSTEM_PROMPT = """
+    Je verzint een korte titel (maximaal 6 woorden) voor een gesprek, gebaseerd op de eerste vraag
+    en het eerste antwoord die je krijgt. Geef alleen de titel terug, in het Nederlands, zonder
+    aanhalingstekens en zonder leesteken erachter.
+""".trimIndent()
+
 private val SYSTEM_PROMPT = """
     Je bent Robberts persoonlijke assistent. Antwoord kort en to-the-point, in het Nederlands.
     Je hebt tools om Robberts notitie te lezen/bij te werken, om actuele windmetingen +
@@ -62,5 +68,15 @@ class AiConfig {
         ChatClient.builder(chatModel)
             .defaultSystem(SYSTEM_PROMPT)
             .defaultTools(notesTools, windTools, reminderTools, alarmTools, calendarTools, docsTools, pushTools)
+            .build()
+
+    /**
+     * Losse, lichte [ChatClient] (geen tools, geen gesprekshistorie) voor het verzinnen van een
+     * korte titel na de eerste vraag/antwoord-uitwisseling van een gesprek.
+     */
+    @Bean
+    fun titleChatClient(chatModel: ChatModel): ChatClient =
+        ChatClient.builder(chatModel)
+            .defaultSystem(TITLE_SYSTEM_PROMPT)
             .build()
 }

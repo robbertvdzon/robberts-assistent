@@ -7,8 +7,11 @@ overgeslagen via `SKIP_GOOGLE_AUTH`, zie `docs/factory/deployment.md`).
 ## Schermen
 
 - **Samenvatting** — dagelijks overzicht uit de backend.
-- **Assistent** — chat met de backend's AI (Spring AI/OpenAI), met tools voor
-  Robberts notitie en windmetingen/-voorspellingen bij IJmuiden
+- **Assistent** — gesprekkenlijst (titel + laatst bijgewerkt) met een knop voor een nieuw
+  gesprek; een gesprek opent het chatscherm en blijft persistent in Firestore, inclusief een
+  door de assistent zelf verzonnen titel en verstuurde foto's (camera/galerij). Chat met de
+  backend's AI (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda,
+  Google Docs en windmetingen/-voorspellingen bij IJmuiden
   (`robberts-assistent-backend/.../assistant/ai/`).
 - **Updates** — toont voor alle drie de apps (wind, robberts_assistent, notities)
   de geïnstalleerde vs. laatste GitHub-Release-versie, met een bijwerk-knop per

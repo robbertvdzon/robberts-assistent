@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
-import 'assistant_screen.dart';
+import 'conversations_screen.dart';
 import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
 import 'summary_screen.dart';
@@ -38,7 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final screens = [
       SummaryScreen(api: widget.api),
-      AssistantScreen(api: widget.api),
+      ConversationsScreen(api: widget.api),
       SchedulesScreen(api: widget.api),
       const UpdatesScreen(),
     ];

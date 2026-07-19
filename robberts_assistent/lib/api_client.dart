@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Praat met `robberts-assistent-backend`. Zelfde patroon als de softwarefactory
@@ -89,6 +91,67 @@ class ApiClient {
   Future<void> _delete(String path) async {
     final response = await http.delete(Uri.parse('$baseUrl$path'), headers: authHeaders());
     await _throwOnError(response);
+  }
+
+  // -- Assistent-gesprekken -----------------------------------------------------
+  /// Stuurt een tekstbericht + optionele foto's naar de assistent (multipart POST
+  /// `/api/v1/assistant/chat`) en geeft het antwoord + bijgewerkte gesprek terug. Zonder
+  /// `conversationId` maakt de backend een nieuw gesprek aan.
+  Future<AssistantChatReply> assistantChat({
+    required String message,
+    String? conversationId,
+    List<AssistantAttachment> photos = const [],
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/v1/assistant/chat'));
+    request.headers.addAll(authHeaders());
+    request.fields['message'] = message;
+    if (conversationId != null) request.fields['conversationId'] = conversationId;
+    for (final photo in photos) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'photos',
+        photo.bytes,
+        filename: photo.filename,
+        contentType: MediaType.parse(photo.contentType),
+      ));
+    }
+    final response = await http.Response.fromStream(await request.send());
+    await _throwOnError(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return AssistantChatReply(
+      conversationId: body['conversationId'] as String,
+      title: body['title'] as String,
+      reply: body['reply'] as String,
+    );
+  }
+
+  /// Lijst van gesprekken (`GET /api/v1/assistant/conversations`), meest recent eerst.
+  Future<List<AssistantConversationSummary>> assistantConversations() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/v1/assistant/conversations'),
+      headers: authHeaders(),
+    );
+    await _throwOnError(response);
+    final list = jsonDecode(response.body) as List;
+    return list
+        .map((e) => AssistantConversationSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Volledig gesprek inclusief berichten (`GET /api/v1/assistant/conversations/{id}`).
+  Future<AssistantConversationDetail> assistantConversation(String id) async {
+    final body = await getJson('/api/v1/assistant/conversations/$id');
+    return AssistantConversationDetail.fromJson(body);
+  }
+
+  /// Haalt de ruwe bytes van een eerder verstuurde gespreksfoto op
+  /// (`GET /api/v1/assistant/photos/{id}`, auth-gated, vandaar geen kale `Image.network`-URL).
+  Future<Uint8List> fetchAssistantPhoto(String photoId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/v1/assistant/photos/$photoId'),
+      headers: authHeaders(),
+    );
+    await _throwOnError(response);
+    return response.bodyBytes;
   }
 
   // -- Reminders --------------------------------------------------------------
@@ -208,6 +271,75 @@ class Reminder {
         dueAt: DateTime.parse(m['dueAt'] as String).toLocal(),
         recurrence: Recurrence.fromJson(m['recurrence'] as Map<String, dynamic>?),
         active: m['active'] as bool? ?? true,
+      );
+}
+
+/// Een foto-bijlage voor een assistent-bericht.
+class AssistantAttachment {
+  final Uint8List bytes;
+  final String filename;
+  final String contentType;
+  const AssistantAttachment({required this.bytes, required this.filename, required this.contentType});
+}
+
+/// Het antwoord van de assistent op één chat-beurt.
+class AssistantChatReply {
+  final String conversationId;
+  final String title;
+  final String reply;
+  const AssistantChatReply({required this.conversationId, required this.title, required this.reply});
+}
+
+/// Eén regel in de gesprekkenlijst.
+class AssistantConversationSummary {
+  final String conversationId;
+  final String title;
+  final DateTime updatedAt;
+  const AssistantConversationSummary({required this.conversationId, required this.title, required this.updatedAt});
+
+  static AssistantConversationSummary fromJson(Map<String, dynamic> m) => AssistantConversationSummary(
+        conversationId: m['conversationId'] as String,
+        title: m['title'] as String,
+        updatedAt: DateTime.parse(m['updatedAt'] as String).toLocal(),
+      );
+}
+
+/// Eén bericht binnen een gesprek, zoals teruggegeven door de backend.
+class AssistantConversationMessage {
+  final String id;
+  final String role;
+  final String text;
+  final List<String> imageIds;
+  const AssistantConversationMessage({
+    required this.id,
+    required this.role,
+    required this.text,
+    required this.imageIds,
+  });
+
+  bool get fromUser => role == 'user';
+
+  static AssistantConversationMessage fromJson(Map<String, dynamic> m) => AssistantConversationMessage(
+        id: m['id'] as String,
+        role: m['role'] as String,
+        text: m['text'] as String,
+        imageIds: (m['imageIds'] as List? ?? const []).map((e) => e as String).toList(),
+      );
+}
+
+/// Volledig gesprek inclusief berichten.
+class AssistantConversationDetail {
+  final String conversationId;
+  final String title;
+  final List<AssistantConversationMessage> messages;
+  const AssistantConversationDetail({required this.conversationId, required this.title, required this.messages});
+
+  static AssistantConversationDetail fromJson(Map<String, dynamic> m) => AssistantConversationDetail(
+        conversationId: m['conversationId'] as String,
+        title: m['title'] as String,
+        messages: (m['messages'] as List)
+            .map((e) => AssistantConversationMessage.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 }
 

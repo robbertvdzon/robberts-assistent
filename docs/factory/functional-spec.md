@@ -33,7 +33,8 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 
 ## Apps
 
-- **robberts_assistent** — dagelijkse samenvatting + chat met de assistent. Google-login.
+- **robberts_assistent** — dagelijkse samenvatting + chat met de assistent, in persistente,
+  benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij). Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.
 - **notities** — één auto-opslaande notitie. Google-login.
