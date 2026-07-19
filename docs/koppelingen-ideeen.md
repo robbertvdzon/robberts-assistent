@@ -43,10 +43,8 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu ni
 ## Huis & tuin
 - ✅ Moestuin-AI-chat — foto's + tekst → vision-antwoord
 - 🔜 Home Assistant — sensoren, verwarming, lampen; kan de agent ook *triggeren* (thuis-cluster)
-- 🔜 Robotmaaier (Husqvarna Automower) — `HUSQVARNA_USERNAME`/`_PASSWORD` staan in secrets.env,
-  maar de moderne Automower Connect API accepteert geen username/password meer (`invalid_client`
-  bij een test-call) — vereist een geregistreerde app (Application Key + Secret) via
-  developer.husqvarnagroup.cloud
+- ✅ Robotmaaier (Husqvarna Automower) — `client_credentials`-app-key/secret via
+  developer.husqvarnagroup.cloud, status + starten/parkeren
 - 🔜 Energieprijzen / slimme meter — dynamische stroomprijs, "goedkoop uur om te laden"
 
 ## Onderweg
@@ -79,8 +77,7 @@ Volgende stappen (vereisen wel een secret/token of extra werk):
 4. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
 
 Bewust niet (nu): Google Maps, PostNL, DHL (Robberts keuze). Later opnieuw proberen: Strava
-(app-registratie lukte niet meteen). Vereist eerst een Husqvarna-app-registratie (Application
-Key + Secret): Robotmaaier. Garmin: developer-program is dicht voor nieuwe (persoonlijke)
+(app-registratie lukte niet meteen). Garmin: developer-program is dicht voor nieuwe (persoonlijke)
 aanvragen — voorlopig geen weg vooruit.
 
 De actuele status van de al-gebouwde koppelingen is live te zien in de assistent-app onder

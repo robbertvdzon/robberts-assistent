@@ -44,6 +44,10 @@ data class AppSecrets(
     val googleOAuthClientId: String? = null,
     val googleOAuthClientSecret: String? = null,
     val googleOAuthRefreshToken: String? = null,
+    // Husqvarna Automower Connect API — client_credentials-flow (app-key/secret, geen los
+    // OAuth-consent nodig). Zonder deze waarden valt de robotmaaier-koppeling terug op de stub.
+    val husqvarnaAppKey: String? = null,
+    val husqvarnaAppSecret: String? = null,
 ) {
     /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
     val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
@@ -92,6 +96,8 @@ class AppSecretsLoader(
             googleOAuthClientId = optional("RA_GOOGLE_OAUTH_CLIENT_ID"),
             googleOAuthClientSecret = optional("RA_GOOGLE_OAUTH_CLIENT_SECRET"),
             googleOAuthRefreshToken = optional("RA_GOOGLE_OAUTH_REFRESH_TOKEN"),
+            husqvarnaAppKey = optional("RA_HUSQVARNA_APP_KEY"),
+            husqvarnaAppSecret = optional("RA_HUSQVARNA_APP_SECRET"),
         )
     }
 
