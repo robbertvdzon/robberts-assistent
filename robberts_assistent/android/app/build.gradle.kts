@@ -57,6 +57,13 @@ android {
 
     buildTypes {
         release {
+            // R8-minification UIT: die obfusceert de Gson-type-info die flutter_local_notifications
+            // nodig heeft bij pendingNotificationRequests → "Missing type parameter"-crash bij het
+            // (her)plannen van alarms. Flutter-apps hebben nauwelijks baat bij minification (Dart is
+            // al gecompileerd). De proguard-regels hieronder zijn een vangnet mocht 'ie ooit weer aan.
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Lokaal (zonder keystore.properties, bv. `flutter run --release`) blijft de
             // debug-key werken; CI zet keystore.properties neer en signt met de vaste release-key.
             signingConfig = if (keystorePropertiesFile.exists()) {

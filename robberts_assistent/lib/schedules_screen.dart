@@ -56,13 +56,24 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     try {
       if (isAlarm) {
         await widget.api.createAlarm(message: result.message, at: result.at, recurrence: result.recurrence);
-        await _resyncAlarms();
       } else {
         await widget.api.createReminder(message: result.message, at: result.at, recurrence: result.recurrence);
       }
-      await _load();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Opslaan mislukt: $e')));
+      return;
+    }
+    await _load();
+    // Alarms lokaal (her)inplannen — losstaand, zodat een inplan-fout het opslaan niet als mislukt toont.
+    if (isAlarm) {
+      try {
+        await _resyncAlarms();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Alarm opgeslagen, maar lokaal inplannen gaf een fout: $e')));
+        }
+      }
     }
   }
 
