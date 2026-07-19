@@ -121,17 +121,38 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     );
   }
 
+  Future<void> _requestExact() async {
+    await AlarmScheduler.requestExactPermission();
+    await _resyncAlarms();
+    if (mounted) setState(() {});
+  }
+
   Widget _alarmsTab() {
-    if (_alarms.isEmpty) return const _Empty('Nog geen alarms.\nTik op + om er een te maken.');
+    final needPerm = AlarmScheduler.exactAllowed == false;
+    if (_alarms.isEmpty && !needPerm) {
+      return const _Empty('Nog geen alarms.\nTik op + om er een te maken.');
+    }
     return ListView(
-      children: _alarms
-          .map((a) => ListTile(
-                leading: const Icon(Icons.alarm, color: Colors.deepPurple),
-                title: Text(a.message),
-                subtitle: Text(_subtitle(a.time, a.recurrence)),
-                trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _deleteAlarm(a.id)),
-              ))
-          .toList(),
+      children: [
+        if (needPerm)
+          Card(
+            color: Colors.amber.shade100,
+            margin: const EdgeInsets.all(12),
+            child: ListTile(
+              leading: const Icon(Icons.warning_amber),
+              title: const Text('Exacte alarms staan uit'),
+              subtitle: const Text('Alarms gaan nu mogelijk enkele minuten te laat af. '
+                  'Sta "wekker/exact alarm" toe voor precieze timing.'),
+              trailing: TextButton(onPressed: _requestExact, child: const Text('Sta toe')),
+            ),
+          ),
+        ..._alarms.map((a) => ListTile(
+              leading: const Icon(Icons.alarm, color: Colors.deepPurple),
+              title: Text(a.message),
+              subtitle: Text(_subtitle(a.time, a.recurrence)),
+              trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _deleteAlarm(a.id)),
+            )),
+      ],
     );
   }
 
