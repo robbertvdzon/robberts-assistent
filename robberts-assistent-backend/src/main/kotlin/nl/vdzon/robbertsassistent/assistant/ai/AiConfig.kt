@@ -57,12 +57,14 @@ class AiConfig {
                 .openAiApi(OpenAiApi.builder().apiKey(secrets.openAiApiKey).build())
                 .defaultOptions(
                     OpenAiChatOptions.builder()
-                        .model("gpt-5.6-terra")
+                        // gpt-5.6-terra (en waarschijnlijk -luna/-sol) staat function tools op
+                        // /v1/chat/completions alleen toe met reasoning_effort="none", en deze
+                        // API-key mag reasoning_effort niet op "none"/"low" zetten voor dat model
+                        // (HTTP 401 "insufficient permissions") — een doodlopende weg zonder het
+                        // (door deze Spring AI-versie niet ondersteunde) /v1/responses-endpoint.
+                        // gpt-5.5 werkt wél met tools op dit account.
+                        .model("gpt-5.5")
                         .maxCompletionTokens(600)
-                        // gpt-5.6-terra staat function tools niet toe in combinatie met
-                        // reasoning_effort op /v1/chat/completions (400 "Function tools with
-                        // reasoning_effort are not supported... set reasoning_effort to 'none'").
-                        // We gebruiken @Tool's, dus expliciet uitzetten.
                         .reasoningEffort("none")
                         .build(),
                 )
