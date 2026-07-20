@@ -2,68 +2,33 @@ package nl.vdzon.robbertsassistent.assistant
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class MemoryRepositoryTest {
 
     @Test
-    fun `create voegt een item toe en listAll geeft het terug`() {
+    fun `current geeft lege tekst terug zonder eerdere update`() {
         val repo = InMemoryMemoryRepository()
 
-        val item = repo.create("houdt van vissen")
-
-        assertEquals(listOf(item.id), repo.listAll().map { it.id })
-        assertEquals("houdt van vissen", repo.findById(item.id)?.text)
+        assertEquals("", repo.current())
     }
 
     @Test
-    fun `update wijzigt de tekst van een bestaand item`() {
+    fun `update slaat de volledige tekst op en current geeft die terug`() {
         val repo = InMemoryMemoryRepository()
-        val item = repo.create("oud")
 
-        val updated = repo.update(item.id, "nieuw")
+        val result = repo.update("houdt van vissen")
 
-        assertEquals("nieuw", updated?.text)
-        assertEquals("nieuw", repo.findById(item.id)?.text)
+        assertEquals("houdt van vissen", result)
+        assertEquals("houdt van vissen", repo.current())
     }
 
     @Test
-    fun `update geeft null terug voor een onbekend item`() {
+    fun `update overschrijft de vorige tekst volledig`() {
         val repo = InMemoryMemoryRepository()
+        repo.update("oud")
 
-        assertNull(repo.update("onbekend", "iets"))
-    }
+        repo.update("nieuw")
 
-    @Test
-    fun `delete verwijdert een item`() {
-        val repo = InMemoryMemoryRepository()
-        val item = repo.create("weg ermee")
-
-        repo.delete(item.id)
-
-        assertNull(repo.findById(item.id))
-        assertFalse(repo.listAll().any { it.id == item.id })
-    }
-
-    @Test
-    fun `listAll sorteert op updatedAt aflopend`() {
-        val repo = InMemoryMemoryRepository()
-        val a = repo.create("a")
-        val b = repo.create("b")
-
-        repo.update(a.id, "a bijgewerkt")
-
-        assertEquals(listOf(a.id, b.id), repo.listAll().map { it.id })
-    }
-
-    @Test
-    fun `delete van een onbekend item is een no-op`() {
-        val repo = InMemoryMemoryRepository()
-
-        repo.delete("onbekend")
-
-        assertTrue(repo.listAll().isEmpty())
+        assertEquals("nieuw", repo.current())
     }
 }

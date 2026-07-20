@@ -36,7 +36,7 @@ class _FakeApiClient extends ApiClient {
   Future<List<NightlyCheck>> listNightlyChecks() async => [];
 
   @override
-  Future<List<MemoryItem>> listMemory() async => [];
+  Future<String> getMemoryText() async => '';
 }
 
 void main() {

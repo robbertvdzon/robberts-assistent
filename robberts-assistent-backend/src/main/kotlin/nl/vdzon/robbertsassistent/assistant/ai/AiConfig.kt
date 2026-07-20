@@ -18,13 +18,13 @@ private val TITLE_SYSTEM_PROMPT = """
 
 private val MEMORY_SYSTEM_PROMPT = """
     Je houdt een kort geheugen bij van feiten/voorkeuren/context over Robbert, op basis van wat hij
-    in gesprekken met zijn assistent vertelt. Je krijgt de laatste vraag/antwoord-uitwisseling en de
-    huidige geheugen-items. Geef de volledige, bijgewerkte lijst geheugen-items terug: voeg nieuwe
-    feiten/voorkeuren toe die de uitwisseling oplevert, werk verouderde items bij, en verwijder
-    overbodige items. Geef exact één item per regel, in het Nederlands, kort en concreet, zonder
-    opsommingstekens/nummering en zonder verdere uitleg. Herhaal ongewijzigde items exact zoals ze
-    aangeleverd zijn. Als er niets te onthouden valt (en er ook geen bestaande items overblijven),
-    antwoord dan met exact "GEEN".
+    in gesprekken met zijn assistent vertelt. Je krijgt de huidige geheugen-tekst en de laatste
+    vraag/antwoord-uitwisseling. Geef de volledige, bijgewerkte geheugen-tekst terug: verwerk nieuwe
+    feiten/voorkeuren die de uitwisseling oplevert, werk verouderde informatie bij, en laat
+    overbodige informatie weg. Schrijf kort en concreet, in het Nederlands, als vrije tekst (geen
+    opsommingstekens/nummering verplicht) en zonder verdere uitleg over wat je gedaan hebt. Herhaal
+    ongewijzigde delen exact zoals aangeleverd. Als er niets te onthouden valt (en er ook geen
+    bestaande tekst overblijft), antwoord dan met een lege tekst.
 """.trimIndent()
 
 private val SYSTEM_PROMPT = """

@@ -113,45 +113,20 @@ class AssistantController(
     }
 
     @GetMapping("/api/v1/assistant/memory")
-    fun listMemory(
+    fun getMemory(
         @RequestHeader("Authorization", required = false) authorization: String?,
-    ): List<MemoryItemDto> {
+    ): MemoryResponse {
         authService.requireAuthorization(authorization)
-        return assistantService.listMemory().map { it.toDto() }
+        return MemoryResponse(text = assistantService.currentMemory())
     }
 
-    @PostMapping("/api/v1/assistant/memory")
-    fun createMemory(
-        @RequestHeader("Authorization", required = false) authorization: String?,
-        @RequestBody body: MemoryItemRequest,
-    ): MemoryItemDto {
-        authService.requireAuthorization(authorization)
-        if (body.text.isBlank()) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Tekst mag niet leeg zijn")
-        return assistantService.createMemoryItem(body.text).toDto()
-    }
-
-    @PutMapping("/api/v1/assistant/memory/{id}")
+    @PutMapping("/api/v1/assistant/memory")
     fun updateMemory(
         @RequestHeader("Authorization", required = false) authorization: String?,
-        @PathVariable id: String,
-        @RequestBody body: MemoryItemRequest,
-    ): MemoryItemDto {
+        @RequestBody body: MemoryUpdateRequest,
+    ): MemoryResponse {
         authService.requireAuthorization(authorization)
-        if (body.text.isBlank()) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Tekst mag niet leeg zijn")
-        val updated = assistantService.updateMemoryItem(id, body.text)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Geheugen-item niet gevonden")
-        return updated.toDto()
-    }
-
-    @DeleteMapping("/api/v1/assistant/memory/{id}")
-    fun deleteMemory(
-        @RequestHeader("Authorization", required = false) authorization: String?,
-        @PathVariable id: String,
-    ): ResponseEntity<Void> {
-        authService.requireAuthorization(authorization)
-        val deleted = assistantService.deleteMemoryItem(id)
-        if (!deleted) throw ResponseStatusException(HttpStatus.NOT_FOUND, "Geheugen-item niet gevonden")
-        return ResponseEntity.noContent().build()
+        return MemoryResponse(text = assistantService.saveMemory(body.text))
     }
 
     @GetMapping("/api/v1/assistant/photos/{id}")

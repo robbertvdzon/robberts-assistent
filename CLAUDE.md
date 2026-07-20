@@ -79,7 +79,7 @@ fallback (zie §5).
 | `health` | `/healthz` (open) + `/api/v1/ping` (auth, testendpoint). |
 | `notes` | Eén notitie-string in Firestore (document `notes/note`). |
 | `summary` | Dagelijkse samenvatting. |
-| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). Gesprekken zijn te **archiveren/de-archiveren** (`archived`-veld, reversibel) en te **verwijderen** (hard delete incl. best-effort foto-opruiming); `ConversationRepository.listAll()` filtert/pagineert (`includeArchived`, `limit`, `offset`, gesorteerd op `updatedAt` descending). Daarnaast een gebruiker-breed, automatisch bijgewerkt **geheugen**: `MemoryItem`/`MemoryRepository` (Firestore-collectie `assistant-memory`, in-memory fallback) — na elke chat-beurt reconciliëert een losse, stil falende AI-aanroep (`memoryChatClient`) de geheugen-lijst op basis van de laatste uitwisseling; de actuele items gaan als contextprefix mee in elke volgende chat-aanroep. Onder `RA_MOCK_AI` wordt de geheugen-update overgeslagen (deterministisch). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze, incl. `memoryChatClient`), tools (`NotesTools`, `WindTools`, `WeatherTools`, `TideTools`, `AirQualityTools`, `NewsTools`, `WasteTools`, `AutomowerTools`, `StravaTools`, `SoftwareFactoryTools`, `OpenShiftTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
+| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). Gesprekken zijn te **archiveren/de-archiveren** (`archived`-veld, reversibel) en te **verwijderen** (hard delete incl. best-effort foto-opruiming); `ConversationRepository.listAll()` filtert/pagineert (`includeArchived`, `limit`, `offset`, gesorteerd op `updatedAt` descending). Daarnaast een gebruiker-breed, automatisch bijgewerkt **geheugen**: `MemoryRepository` (`current()`/`update(text)`, Firestore-collectie `assistant-memory` met één tekst-document, in-memory fallback) — één vrije-tekst-string in plaats van losse items. Na elke chat-beurt herschrijft een losse, stil falende AI-aanroep (`memoryChatClient`) de volledige geheugen-tekst op basis van de huidige tekst + de laatste uitwisseling; die tekst gaat als contextprefix mee in elke volgende chat-aanroep. Onder `RA_MOCK_AI` wordt de geheugen-update overgeslagen (deterministisch). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze, incl. `memoryChatClient`), tools (`NotesTools`, `WindTools`, `WeatherTools`, `TideTools`, `AirQualityTools`, `NewsTools`, `WasteTools`, `AutomowerTools`, `StravaTools`, `SoftwareFactoryTools`, `OpenShiftTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
 | `reminders` | Reminder-model + repository-port (Firestore/in-memory), REST-controller, `@Scheduled ReminderScheduler` (due → `Notifier`). |
 | `gardenchat` | Moestuin-AI-chat: multipart (tekst + foto's) → vision-AI; conversaties in Firestore, foto's in Firebase Storage; multi-turn. |
 | `google` | `CalendarClient` + `DocsClient` (echt via OAuth refresh-token, of stubs) + `GoogleOAuthService`. |
@@ -135,7 +135,8 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
   direct zichtbaar, oudere onder een uitklapbare "Ouder"-sectie; swipe-links (`flutter_slidable`)
   toont Archiveren/Verwijderen (verwijderen met bevestigingsdialoog); een AppBar-toggle laat
   gearchiveerde gesprekken alsnog zien. Plus Koppelingen-, Nachtchecks- en **Geheugen**-schermen
-  (`memory_screen.dart`: lijst van geheugen-items, toevoegen/bewerken/verwijderen) bereikbaar via
+  (`memory_screen.dart`: één groot bewerkbaar tekstveld met de volledige geheugen-tekst,
+  auto-save net als `notities/lib/notes_editor_screen.dart`) bereikbaar via
   `more_screen.dart`. Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
   (`robberts-assistent.vdzonsoftware.nl`) + APK.
 - **`groentetuin/`** — moestuin-AI-chat: login → foto's maken/kiezen + tekst → vision-antwoord,
@@ -201,10 +202,20 @@ Nieuw (SF-1141): gesprekken zijn te **archiveren/de-archiveren en verwijderen**
 (`PATCH .../{id}/archive|unarchive`, `DELETE /api/v1/assistant/conversations/{id}`), en
 `GET /api/v1/assistant/conversations` ondersteunt `includeArchived`/`limit`/`offset`-paginatie
 (app: eerste 10 direct, oudere onder "Ouder", swipe-acties via `flutter_slidable`). Daarnaast een
-automatisch bijgewerkt, gebruiker-breed **geheugen** (`GET/POST/PUT/DELETE
-/api/v1/assistant/memory(/{id})`, Firestore-collectie `assistant-memory`): na elke chat-beurt
-reconciliëert een losse AI-aanroep de geheugen-lijst, die vervolgens als context meegaat in
-latere gesprekken; app-scherm `memory_screen.dart` via "Meer" → "Geheugen".
+automatisch bijgewerkt, gebruiker-breed **geheugen** (`GET/PUT /api/v1/assistant/memory`,
+Firestore-collectie `assistant-memory`): na elke chat-beurt herschrijft een losse AI-aanroep de
+volledige geheugen-tekst, die vervolgens als context meegaat in latere gesprekken; app-scherm
+`memory_screen.dart` via "Meer" → "Geheugen".
+
+Nieuw (SF-1149): het geheugen is omgezet van een lijst losse `MemoryItem`s naar **één
+vrije-tekst-string** per gebruiker (`MemoryRepository.current()`/`update(text)`, zelfde
+Firestore/in-memory-fallback). De endpoints zijn vereenvoudigd tot `GET`/`PUT
+/api/v1/assistant/memory` (oude `POST`/`PUT .../{id}`/`DELETE .../{id}` zijn vervallen); de
+AI-aanroep na elke chat-beurt krijgt de huidige geheugen-tekst + de laatste uitwisseling mee en
+retourneert de volledige nieuwe tekst (geen reconciliatie tegen losse items meer). Het
+"Geheugen"-scherm toont nu één groot multiline tekstveld met auto-save (10s debounce + save bij
+app-pauze, zelfde patroon als `notities/lib/notes_editor_screen.dart`) i.p.v. een lijst met
+toevoeg/bewerk/verwijder-dialogen.
 
 **Live in prod, end-to-end geverifieerd** met echte creds: Firestore (reminders + chat),
 Firebase Storage (foto's), Telegram-notifier, echte Google Agenda/Docs (OAuth), vision-chat.

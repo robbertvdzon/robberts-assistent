@@ -147,58 +147,30 @@ class AssistantIntegrationTest {
     }
 
     @Test
-    fun `geheugen-endpoints ondersteunen aanmaken, ophalen, bijwerken en verwijderen`() {
-        val createResponse = restTemplate.postForEntity(
-            "/api/v1/assistant/memory",
-            MemoryItemRequest("houdt van kiten"),
-            MemoryItemDto::class.java,
-        )
-        assertEquals(HttpStatus.OK, createResponse.statusCode)
-        val created = createResponse.body!!
-        assertEquals("houdt van kiten", created.text)
-
-        val listResponse = restTemplate.getForEntity("/api/v1/assistant/memory", Array<MemoryItemDto>::class.java)
-        assertEquals(HttpStatus.OK, listResponse.statusCode)
-        assertTrue(listResponse.body!!.any { it.id == created.id })
+    fun `geheugen-endpoints ondersteunen ophalen en volledig bijwerken van de geheugen-tekst`() {
+        val initialResponse = restTemplate.getForEntity("/api/v1/assistant/memory", MemoryResponse::class.java)
+        assertEquals(HttpStatus.OK, initialResponse.statusCode)
+        assertEquals("", initialResponse.body!!.text)
 
         val updateResponse = restTemplate.exchange(
-            "/api/v1/assistant/memory/${created.id}",
+            "/api/v1/assistant/memory",
             HttpMethod.PUT,
-            HttpEntity(MemoryItemRequest("houdt van windsurfen")),
-            MemoryItemDto::class.java,
+            HttpEntity(MemoryUpdateRequest("houdt van kiten")),
+            MemoryResponse::class.java,
         )
         assertEquals(HttpStatus.OK, updateResponse.statusCode)
-        assertEquals("houdt van windsurfen", updateResponse.body!!.text)
+        assertEquals("houdt van kiten", updateResponse.body!!.text)
 
-        val deleteResponse = restTemplate.exchange(
-            "/api/v1/assistant/memory/${created.id}",
-            HttpMethod.DELETE,
-            null,
-            Void::class.java,
-        )
-        assertEquals(HttpStatus.NO_CONTENT, deleteResponse.statusCode)
+        val getResponse = restTemplate.getForEntity("/api/v1/assistant/memory", MemoryResponse::class.java)
+        assertEquals("houdt van kiten", getResponse.body!!.text)
 
-        val afterDelete = restTemplate.getForEntity("/api/v1/assistant/memory", Array<MemoryItemDto>::class.java)
-        assertFalse(afterDelete.body!!.any { it.id == created.id })
-    }
-
-    @Test
-    fun `PUT en DELETE op een onbekend geheugen-item geven 404`() {
-        val updateResponse = restTemplate.exchange(
-            "/api/v1/assistant/memory/onbekend",
+        val overwriteResponse = restTemplate.exchange(
+            "/api/v1/assistant/memory",
             HttpMethod.PUT,
-            HttpEntity(MemoryItemRequest("iets")),
-            String::class.java,
+            HttpEntity(MemoryUpdateRequest("houdt van windsurfen")),
+            MemoryResponse::class.java,
         )
-        assertEquals(HttpStatus.NOT_FOUND, updateResponse.statusCode)
-
-        val deleteResponse = restTemplate.exchange(
-            "/api/v1/assistant/memory/onbekend",
-            HttpMethod.DELETE,
-            null,
-            String::class.java,
-        )
-        assertEquals(HttpStatus.NOT_FOUND, deleteResponse.statusCode)
+        assertEquals("houdt van windsurfen", overwriteResponse.body!!.text)
     }
 
     private fun startConversation(message: String): AssistantChatResponse {

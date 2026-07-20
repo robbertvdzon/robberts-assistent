@@ -191,34 +191,30 @@ class AssistantServiceTest {
     }
 
     @Test
-    fun `createMemoryItem-updateMemoryItem-deleteMemoryItem beheren losse geheugen-items`() {
+    fun `currentMemory en saveMemory beheren de geheugen-tekst`() {
         val service = newService()
 
-        val created = service.createMemoryItem("houdt van windsurfen")
-        assertTrue(service.listMemory().any { it.id == created.id && it.text == "houdt van windsurfen" })
+        assertEquals("", service.currentMemory())
 
-        val updated = service.updateMemoryItem(created.id, "houdt van kiten")
-        assertEquals("houdt van kiten", updated?.text)
-        assertEquals("houdt van kiten", service.listMemory().single { it.id == created.id }.text)
+        val saved = service.saveMemory("houdt van windsurfen")
+        assertEquals("houdt van windsurfen", saved)
+        assertEquals("houdt van windsurfen", service.currentMemory())
 
-        assertEquals(null, service.updateMemoryItem("onbekend", "iets"))
-
-        assertTrue(service.deleteMemoryItem(created.id))
-        assertTrue(service.listMemory().none { it.id == created.id })
-        assertEquals(false, service.deleteMemoryItem(created.id))
+        service.saveMemory("houdt van kiten")
+        assertEquals("houdt van kiten", service.currentMemory())
     }
 
     @Test
-    fun `chat geeft de actuele geheugen-items als context mee aan de hoofd-ChatClient-aanroep`() {
+    fun `chat geeft de actuele geheugen-tekst als context mee aan de hoofd-ChatClient-aanroep`() {
         val memory = InMemoryMemoryRepository()
-        memory.create("kite bij voorkeur boven 15 knopen wind")
+        memory.update("kite bij voorkeur boven 15 knopen wind")
         val service = newService(memory = memory)
 
         val result = service.chat(null, "wat vind ik van deze wind?", emptyList())
 
         assertTrue(
             result.reply.contains("kite bij voorkeur boven 15 knopen wind"),
-            "verwacht dat het geheugen-item in de prompt naar de ChatClient terechtkomt: ${result.reply}",
+            "verwacht dat de geheugen-tekst in de prompt naar de ChatClient terechtkomt: ${result.reply}",
         )
     }
 
@@ -233,38 +229,33 @@ class AssistantServiceTest {
     }
 
     @Test
-    fun `chat werkt het geheugen bij op basis van de AI-uitkomst (nieuwe, behouden en verwijderde items)`() {
+    fun `chat werkt het geheugen bij door de volledige AI-uitkomst op te slaan`() {
         val memory = InMemoryMemoryRepository()
-        val behouden = memory.create("Robbert woont in Heemskerk")
-        memory.create("verouderd feit")
-        val memoryModel = FixedChatModel("Robbert woont in Heemskerk\nRobbert houdt van vissen")
+        memory.update("Robbert woont in Heemskerk")
+        val memoryModel = FixedChatModel("Robbert woont in Heemskerk. Robbert houdt van vissen.")
         val service = newService(mockAi = false, memory = memory, memoryChatModel = memoryModel)
 
         service.chat(null, "ik hou van vissen", emptyList())
 
-        val items = memory.listAll()
-        assertEquals(2, items.size)
-        assertTrue(items.any { it.id == behouden.id && it.text == "Robbert woont in Heemskerk" })
-        assertTrue(items.any { it.text == "Robbert houdt van vissen" })
-        assertTrue(items.none { it.text == "verouderd feit" })
+        assertEquals("Robbert woont in Heemskerk. Robbert houdt van vissen.", memory.current())
     }
 
     @Test
-    fun `chat laat het geheugen ongewijzigd als de AI GEEN teruggeeft`() {
+    fun `chat laat het geheugen ongewijzigd als de AI een leeg antwoord geeft`() {
         val memory = InMemoryMemoryRepository()
-        memory.create("blijft staan")
-        val memoryModel = FixedChatModel("GEEN")
+        memory.update("blijft staan")
+        val memoryModel = FixedChatModel("   ")
         val service = newService(mockAi = false, memory = memory, memoryChatModel = memoryModel)
 
         service.chat(null, "iets onbelangrijks", emptyList())
 
-        assertTrue(memory.listAll().isEmpty())
+        assertEquals("blijft staan", memory.current())
     }
 
     @Test
     fun `chat laat het geheugen ongewijzigd als de geheugen-AI-aanroep faalt`() {
         val memory = InMemoryMemoryRepository()
-        memory.create("blijft staan")
+        memory.update("blijft staan")
         val failingModel = object : ChatModel {
             override fun call(prompt: Prompt): ChatResponse = throw RuntimeException("AI onbereikbaar")
             override fun stream(prompt: Prompt): Flux<ChatResponse> = Flux.error(RuntimeException("AI onbereikbaar"))
@@ -273,6 +264,6 @@ class AssistantServiceTest {
 
         service.chat(null, "iets", emptyList())
 
-        assertEquals(listOf("blijft staan"), memory.listAll().map { it.text })
+        assertEquals("blijft staan", memory.current())
     }
 }
