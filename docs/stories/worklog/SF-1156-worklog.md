@@ -24,3 +24,17 @@ Done / rationale:
 - `flutter test` (18/18 groen) en `flutter analyze` (geen issues) gedraaid in
   `robberts_assistent/`; backend is niet geraakt, dus `mvn test` was niet nodig voor deze
   subtaak.
+
+## Review (SF-1157)
+
+- Diff t.o.v. `main` (8107d89) bevat exact de verwachte 3 bestanden: `home_screen.dart`
+  (`_tab` 0 → 1), `test/home_screen_test.dart` (nieuwe widget-test) en dit worklog.
+- Flutter-SDK was in deze sandbox beschikbaar (`/opt/flutter/bin/flutter`, 3.44.6, aarch64);
+  zelf `flutter test` en `flutter analyze` gedraaid in `robberts_assistent/`: **18/18 tests
+  groen**, **geen analyze-issues**, inclusief de nieuwe test
+  `start standaard op de tab Assistent (ConversationsScreen), niet Samenvatting`.
+- Code-review: wijziging is minimaal en exact scoped op de gevraagde `_tab`-default; geen
+  wijziging aan navigatielogica, tab-volgorde, of overige tabs. Voldoet aan alle
+  acceptatiecriteria uit de story (start op tab "Assistent"/`ConversationsScreen`,
+  platform-onafhankelijk want puur Dart-state, geen wijziging aan overige tabs).
+- Geen bugs, regressies of scope-overschrijding gevonden. Akkoord.
