@@ -24,7 +24,7 @@ data class ChatResult(
 
 /**
  * Kern van de persistente assistent-chat: bewaart de foto's, stuurt tekst + foto's + de volledige
- * gesprekshistorie + de actuele geheugen-items (als contextprefix) naar de assistent-[ChatClient]
+ * gesprekshistorie + de actuele geheugen-tekst (als contextprefix) naar de assistent-[ChatClient]
  * (met tools voor notities/wind/reminders/alarms/agenda/docs/push, zie `assistant.ai.AiConfig`),
  * en bewaart zowel het vraag- als het antwoordbericht in de conversatie. Na de eerste uitwisseling
  * van een gesprek wordt een titel verzonnen — via een lichte, aparte AI-aanroep, of (zonder echte
@@ -82,8 +82,8 @@ class AssistantService(
         val media = uploads.map { Media(MimeTypeUtils.parseMimeType(it.contentType), ByteArrayResource(it.bytes)) }
 
         val history = conversation.messages.map { it.toSpringMessage() }
-        val memoryItems = memory.listAll()
-        val promptText = buildPromptText(text, memoryItems)
+        val memoryText = memory.current()
+        val promptText = buildPromptText(text, memoryText)
 
         val reply = assistantChatClient.prompt()
             .messages(history)
@@ -117,72 +117,38 @@ class AssistantService(
         conversations.save(updated)
 
         if (!secrets.effectiveMockAi) {
-            updateMemoryFromExchange(text, reply, memoryItems)
+            updateMemoryFromExchange(text, reply, memoryText)
         }
 
         return ChatResult(conversationId = updated.id, title = title, reply = reply, messages = updatedMessages)
     }
 
-    fun listMemory(): List<MemoryItem> = memory.listAll()
+    fun currentMemory(): String = memory.current()
 
-    fun createMemoryItem(text: String): MemoryItem = memory.create(text)
+    fun saveMemory(text: String): String = memory.update(text)
 
-    /** `null` als het item niet bestaat. */
-    fun updateMemoryItem(id: String, text: String): MemoryItem? = memory.update(id, text)
-
-    /** `false` als het item niet bestaat. */
-    fun deleteMemoryItem(id: String): Boolean {
-        if (memory.findById(id) == null) return false
-        memory.delete(id)
-        return true
-    }
-
-    /** Geeft de actuele geheugen-items als tekstprefix mee aan de vraag, zodat ze in de AI-prompt terechtkomen. */
-    private fun buildPromptText(text: String, memoryItems: List<MemoryItem>): String {
+    /** Geeft de actuele geheugen-tekst als contextprefix mee aan de vraag, zodat die in de AI-prompt terechtkomt. */
+    private fun buildPromptText(text: String, memoryText: String): String {
         val question = text.ifBlank { "(geen tekst, kijk naar de foto's)" }
-        if (memoryItems.isEmpty()) return question
-        val context = memoryItems.joinToString("\n") { "- ${it.text}" }
-        return "Bekende context over Robbert (geheugen):\n$context\n\nVraag: $question"
+        if (memoryText.isBlank()) return question
+        return "Bekende context over Robbert (geheugen):\n$memoryText\n\nVraag: $question"
     }
 
     /**
-     * Losse, lichte AI-aanroep die op basis van de laatste vraag/antwoord-uitwisseling en de
-     * huidige geheugen-items een bijgewerkte volledige lijst teruggeeft (zie
-     * `AiConfig.MEMORY_SYSTEM_PROMPT`); reconcilieert die tegen de bestaande items. Faalt stil
-     * (geheugen blijft ongewijzigd) bij een fout of een onbruikbaar antwoord.
+     * Losse, lichte AI-aanroep die op basis van de huidige geheugen-tekst en de laatste
+     * vraag/antwoord-uitwisseling een bijgewerkte volledige geheugen-tekst teruggeeft (zie
+     * `AiConfig.MEMORY_SYSTEM_PROMPT`), en die direct opslaat. Faalt stil (geheugen blijft
+     * ongewijzigd) bij een fout of een leeg antwoord.
      */
-    private fun updateMemoryFromExchange(question: String, answer: String, currentItems: List<MemoryItem>) {
+    private fun updateMemoryFromExchange(question: String, answer: String, currentText: String) {
         runCatching {
-            val itemsText = if (currentItems.isEmpty()) {
-                "(nog geen geheugen-items)"
-            } else {
-                currentItems.joinToString("\n") { "- ${it.text}" }
-            }
+            val memoryContext = currentText.ifBlank { "(nog geen geheugen)" }
             val prompt = "Laatste uitwisseling:\nVraag: $question\nAntwoord: $answer\n\n" +
-                "Huidige geheugen-items:\n$itemsText"
+                "Huidig geheugen:\n$memoryContext"
             val content = memoryChatClient.prompt().user(prompt).call().content()?.trim()
             if (content.isNullOrBlank()) return@runCatching
-            reconcileMemory(currentItems, parseMemoryLines(content))
+            memory.update(content)
         }.onFailure { logger.warn("Geheugen-update mislukt, geheugen blijft ongewijzigd", it) }
-    }
-
-    private fun parseMemoryLines(content: String): List<String> {
-        val lines = content.lines()
-            .map { it.trim().trimStart('-', '*', '•').trim() }
-            .filter { it.isNotBlank() }
-        if (lines.size == 1 && lines[0].equals("GEEN", ignoreCase = true)) return emptyList()
-        return lines.distinct()
-    }
-
-    /** Ongewijzigde teksten blijven met hun bestaande id staan; nieuwe teksten worden aangemaakt, verdwenen verwijderd. */
-    private fun reconcileMemory(currentItems: List<MemoryItem>, newTexts: List<String>) {
-        val remainingNewTexts = newTexts.toMutableList()
-        currentItems.forEach { item ->
-            if (!remainingNewTexts.remove(item.text)) {
-                memory.delete(item.id)
-            }
-        }
-        remainingNewTexts.forEach { text -> memory.create(text) }
     }
 
     private fun placeholderTitle(question: String): String =
