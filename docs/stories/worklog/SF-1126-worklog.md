@@ -42,3 +42,18 @@ Done / rationale:
   `test/widget_test.dart`).
 - Niet gewijzigd: backend, andere apps (`groentetuin`, `notities`, `wind`) — puur
   front-end/`robberts_assistent`-scoped zoals in de aannames van de story.
+
+## Review-notities (SF-1127)
+
+- `home_screen.dart`/`more_screen.dart`/`pubspec.yaml`/`web/manifest.json` tegen de story
+  gecontroleerd: 4 tabs (Samenvatting/Assistent/Herinneringen/Meer), `IndexedStack` bewaart
+  state van de 3 hoofdschermen, `MoreScreen` met 3 `ListTile`s in de juiste volgorde
+  (Koppelingen/Nachtchecks/Updates) die naar de ongewijzigde bestaande schermen pushen,
+  AppBar-logo (28x28, `assets/icon/icon.png`) links van de titel, asset correct geregistreerd
+  in `pubspec.yaml`. Alles conform de acceptatiecriteria.
+- In tegenstelling tot de bekende agent-tip ("Flutter-tests zijn structureel niet uitvoerbaar
+  in deze sandbox") bleek `flutter` in déze reviewer-sandbox wél beschikbaar (aarch64, Flutter
+  3.44.6). Zelf gedraaid als gerichte check: `flutter test` → alle 11 tests groen (incl. de
+  nieuwe `test/home_screen_test.dart`), `flutter analyze` → geen issues. Bevestigt de
+  testclaims uit het developer-worklog met echt bewijs.
+- Oordeel: akkoord, geen blockers.
