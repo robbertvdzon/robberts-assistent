@@ -16,6 +16,17 @@ private val TITLE_SYSTEM_PROMPT = """
     aanhalingstekens en zonder leesteken erachter.
 """.trimIndent()
 
+private val MEMORY_SYSTEM_PROMPT = """
+    Je houdt een kort geheugen bij van feiten/voorkeuren/context over Robbert, op basis van wat hij
+    in gesprekken met zijn assistent vertelt. Je krijgt de laatste vraag/antwoord-uitwisseling en de
+    huidige geheugen-items. Geef de volledige, bijgewerkte lijst geheugen-items terug: voeg nieuwe
+    feiten/voorkeuren toe die de uitwisseling oplevert, werk verouderde items bij, en verwijder
+    overbodige items. Geef exact één item per regel, in het Nederlands, kort en concreet, zonder
+    opsommingstekens/nummering en zonder verdere uitleg. Herhaal ongewijzigde items exact zoals ze
+    aangeleverd zijn. Als er niets te onthouden valt (en er ook geen bestaande items overblijven),
+    antwoord dan met exact "GEEN".
+""".trimIndent()
+
 private val SYSTEM_PROMPT = """
     Je bent Robberts persoonlijke assistent. Antwoord kort en to-the-point, in het Nederlands.
     Je hebt tools om Robberts notitie te lezen/bij te werken, om actuele windmetingen +
@@ -112,5 +123,15 @@ class AiConfig {
     fun titleChatClient(chatModel: ChatModel): ChatClient =
         ChatClient.builder(chatModel)
             .defaultSystem(TITLE_SYSTEM_PROMPT)
+            .build()
+
+    /**
+     * Losse, lichte [ChatClient] (geen tools, geen gesprekshistorie) voor het bijwerken van het
+     * geheugen na een chat-beurt, zie `AssistantService.updateMemoryFromExchange`.
+     */
+    @Bean
+    fun memoryChatClient(chatModel: ChatModel): ChatClient =
+        ChatClient.builder(chatModel)
+            .defaultSystem(MEMORY_SYSTEM_PROMPT)
             .build()
 }

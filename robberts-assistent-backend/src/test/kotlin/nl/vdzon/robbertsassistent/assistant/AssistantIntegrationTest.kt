@@ -146,6 +146,61 @@ class AssistantIntegrationTest {
         assertEquals(2, firstPage.body!!.size)
     }
 
+    @Test
+    fun `geheugen-endpoints ondersteunen aanmaken, ophalen, bijwerken en verwijderen`() {
+        val createResponse = restTemplate.postForEntity(
+            "/api/v1/assistant/memory",
+            MemoryItemRequest("houdt van kiten"),
+            MemoryItemDto::class.java,
+        )
+        assertEquals(HttpStatus.OK, createResponse.statusCode)
+        val created = createResponse.body!!
+        assertEquals("houdt van kiten", created.text)
+
+        val listResponse = restTemplate.getForEntity("/api/v1/assistant/memory", Array<MemoryItemDto>::class.java)
+        assertEquals(HttpStatus.OK, listResponse.statusCode)
+        assertTrue(listResponse.body!!.any { it.id == created.id })
+
+        val updateResponse = restTemplate.exchange(
+            "/api/v1/assistant/memory/${created.id}",
+            HttpMethod.PUT,
+            HttpEntity(MemoryItemRequest("houdt van windsurfen")),
+            MemoryItemDto::class.java,
+        )
+        assertEquals(HttpStatus.OK, updateResponse.statusCode)
+        assertEquals("houdt van windsurfen", updateResponse.body!!.text)
+
+        val deleteResponse = restTemplate.exchange(
+            "/api/v1/assistant/memory/${created.id}",
+            HttpMethod.DELETE,
+            null,
+            Void::class.java,
+        )
+        assertEquals(HttpStatus.NO_CONTENT, deleteResponse.statusCode)
+
+        val afterDelete = restTemplate.getForEntity("/api/v1/assistant/memory", Array<MemoryItemDto>::class.java)
+        assertFalse(afterDelete.body!!.any { it.id == created.id })
+    }
+
+    @Test
+    fun `PUT en DELETE op een onbekend geheugen-item geven 404`() {
+        val updateResponse = restTemplate.exchange(
+            "/api/v1/assistant/memory/onbekend",
+            HttpMethod.PUT,
+            HttpEntity(MemoryItemRequest("iets")),
+            String::class.java,
+        )
+        assertEquals(HttpStatus.NOT_FOUND, updateResponse.statusCode)
+
+        val deleteResponse = restTemplate.exchange(
+            "/api/v1/assistant/memory/onbekend",
+            HttpMethod.DELETE,
+            null,
+            String::class.java,
+        )
+        assertEquals(HttpStatus.NOT_FOUND, deleteResponse.statusCode)
+    }
+
     private fun startConversation(message: String): AssistantChatResponse {
         val body = LinkedMultiValueMap<String, Any>()
         body.add("message", message)

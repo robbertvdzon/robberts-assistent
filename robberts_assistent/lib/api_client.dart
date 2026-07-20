@@ -180,6 +180,30 @@ class ApiClient {
     return response.bodyBytes;
   }
 
+  // -- Geheugen -----------------------------------------------------------------
+  /// Alle geheugen-items, meest recent bijgewerkt eerst (`GET /api/v1/assistant/memory`).
+  Future<List<MemoryItem>> listMemory() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/v1/assistant/memory'), headers: authHeaders());
+    await _throwOnError(response);
+    final list = jsonDecode(response.body) as List;
+    return list.map((e) => MemoryItem.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Voegt een nieuw geheugen-item toe (`POST /api/v1/assistant/memory`).
+  Future<MemoryItem> createMemoryItem(String text) async {
+    final body = await postJson('/api/v1/assistant/memory', {'text': text});
+    return MemoryItem.fromJson(body);
+  }
+
+  /// Wijzigt de tekst van een geheugen-item (`PUT /api/v1/assistant/memory/{id}`).
+  Future<MemoryItem> updateMemoryItem(String id, String text) async {
+    final body = await putJson('/api/v1/assistant/memory/$id', {'text': text});
+    return MemoryItem.fromJson(body);
+  }
+
+  /// Verwijdert een geheugen-item (`DELETE /api/v1/assistant/memory/{id}`).
+  Future<void> deleteMemoryItem(String id) => _delete('/api/v1/assistant/memory/$id');
+
   // -- Reminders --------------------------------------------------------------
   Future<List<Reminder>> listReminders() async {
     final body = await getJson('/api/v1/reminders');
@@ -405,6 +429,20 @@ class AssistantConversationDetail {
         messages: (m['messages'] as List)
             .map((e) => AssistantConversationMessage.fromJson(e as Map<String, dynamic>))
             .toList(),
+      );
+}
+
+/// Eén los geheugen-item (feit/voorkeur/context over Robbert, gebruiker-breed).
+class MemoryItem {
+  final String id;
+  final String text;
+  final DateTime updatedAt;
+  const MemoryItem({required this.id, required this.text, required this.updatedAt});
+
+  static MemoryItem fromJson(Map<String, dynamic> m) => MemoryItem(
+        id: m['id'] as String,
+        text: m['text'] as String,
+        updatedAt: DateTime.parse(m['updatedAt'] as String).toLocal(),
       );
 }
 

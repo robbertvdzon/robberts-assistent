@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -108,6 +110,48 @@ class AssistantController(
             title = conversation.title?.takeIf { it.isNotBlank() } ?: "Nieuw gesprek",
             messages = conversation.messages.map { it.toDto() },
         )
+    }
+
+    @GetMapping("/api/v1/assistant/memory")
+    fun listMemory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+    ): List<MemoryItemDto> {
+        authService.requireAuthorization(authorization)
+        return assistantService.listMemory().map { it.toDto() }
+    }
+
+    @PostMapping("/api/v1/assistant/memory")
+    fun createMemory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: MemoryItemRequest,
+    ): MemoryItemDto {
+        authService.requireAuthorization(authorization)
+        if (body.text.isBlank()) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Tekst mag niet leeg zijn")
+        return assistantService.createMemoryItem(body.text).toDto()
+    }
+
+    @PutMapping("/api/v1/assistant/memory/{id}")
+    fun updateMemory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+        @RequestBody body: MemoryItemRequest,
+    ): MemoryItemDto {
+        authService.requireAuthorization(authorization)
+        if (body.text.isBlank()) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Tekst mag niet leeg zijn")
+        val updated = assistantService.updateMemoryItem(id, body.text)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Geheugen-item niet gevonden")
+        return updated.toDto()
+    }
+
+    @DeleteMapping("/api/v1/assistant/memory/{id}")
+    fun deleteMemory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+    ): ResponseEntity<Void> {
+        authService.requireAuthorization(authorization)
+        val deleted = assistantService.deleteMemoryItem(id)
+        if (!deleted) throw ResponseStatusException(HttpStatus.NOT_FOUND, "Geheugen-item niet gevonden")
+        return ResponseEntity.noContent().build()
     }
 
     @GetMapping("/api/v1/assistant/photos/{id}")

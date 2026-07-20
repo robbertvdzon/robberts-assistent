@@ -42,3 +42,13 @@ fun Conversation.toSummaryDto() = ConversationSummaryDto(
     updatedAt = updatedAt.toString(),
     archived = archived,
 )
+
+data class MemoryItemDto(
+    val id: String,
+    val text: String,
+    val updatedAt: String,
+)
+
+data class MemoryItemRequest(val text: String = "")
+
+fun MemoryItem.toDto() = MemoryItemDto(id = id, text = text, updatedAt = updatedAt.toString())
