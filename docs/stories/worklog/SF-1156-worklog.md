@@ -38,3 +38,23 @@ Done / rationale:
   acceptatiecriteria uit de story (start op tab "Assistent"/`ConversationsScreen`,
   platform-onafhankelijk want puur Dart-state, geen wijziging aan overige tabs).
 - Geen bugs, regressies of scope-overschrijding gevonden. Akkoord.
+
+## Test (SF-1158)
+
+- `flutter pub get` + `flutter test` in `robberts_assistent/` (Flutter-SDK aanwezig in de
+  sandbox, `/opt/flutter/bin/flutter` 3.44.6, aarch64): **18/18 tests groen** (2026-07-20,
+  19:55:22–19:55:26 UTC), inclusief de nieuwe widgettest
+  `start standaard op de tab Assistent (ConversationsScreen), niet Samenvatting` (apart nogmaals
+  gedraaid met `-r expanded` ter bevestiging: geslaagd). `flutter analyze`: **geen issues**
+  (19:55:36–19:55:43 UTC). Geen `pubspec.lock`-wijzigingen door de run (niets terug te draaien).
+- Preview `robberts-assistent-pr-13`
+  (`https://robberts-assistent-frontend-robberts-assistent-pr-13.apps.sno.lab.vdzon.com`,
+  `RA_PREVIEW_SKIP_GOOGLE_AUTH`, geen login nodig): Playwright-screenshot direct na laden
+  bevestigt dat de app start op tab "Assistent" (bottom-nav-highlight + "Gesprekken"-scherm,
+  `ConversationsScreen`), niet op "Samenvatting". Vervolgens handmatig op "Samenvatting" en
+  "Herinneringen" geklikt — beide tabs laden normaal hun eigen scherm; navigatie tussen tabs
+  blijft ongewijzigd functioneel. Screenshots in `screenshots/` (`sf1158-start-tab.png`,
+  `sf1158-samenvatting-tab.png`, `sf1158-herinneringen-tab.png`).
+- Backend niet geraakt door deze story (alleen `robberts_assistent`), dus geen `mvn test`
+  nodig.
+- Conclusie: voldoet aan alle acceptatiecriteria. Geen bugs gevonden.
