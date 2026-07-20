@@ -199,6 +199,25 @@ class ApiClient {
     return (body['couplings'] as List).map((e) => Coupling.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  // -- Nachtchecks --------------------------------------------------------------
+  /// Alle nightly checks + hun laatste resultaat (voor het Nachtchecks-scherm).
+  Future<List<NightlyCheck>> listNightlyChecks() async {
+    final body = await getJson('/api/v1/nightly-checks');
+    return (body['checks'] as List).map((e) => NightlyCheck.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Historie van één check, nieuwste eerst.
+  Future<List<CheckRun>> nightlyCheckHistory(String id, {int limit = 30}) async {
+    final body = await getJson('/api/v1/nightly-checks/$id/history?limit=$limit');
+    return (body['runs'] as List).map((e) => CheckRun.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Draait een check meteen (buiten zijn schema om) en geeft het nieuwe resultaat terug.
+  Future<CheckRun> runNightlyCheck(String id) async {
+    final body = await postJson('/api/v1/nightly-checks/$id/run');
+    return CheckRun.fromJson(body);
+  }
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -417,5 +436,47 @@ class CouplingTest {
         ok: m['ok'] as bool? ?? false,
         detail: m['detail'] as String? ?? '',
         durationMs: (m['durationMs'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// Eén uitvoering van een nightly check.
+class CheckRun {
+  final DateTime ranAt;
+  final bool ok;
+  final String summary;
+  final String? detail;
+
+  const CheckRun({required this.ranAt, required this.ok, required this.summary, this.detail});
+
+  static CheckRun fromJson(Map<String, dynamic> m) => CheckRun(
+        ranAt: DateTime.parse(m['ranAt'] as String).toLocal(),
+        ok: m['ok'] as bool? ?? false,
+        summary: m['summary'] as String? ?? '',
+        detail: m['detail'] as String?,
+      );
+}
+
+/// Status van één nightly check (voor het Nachtchecks-scherm).
+class NightlyCheck {
+  final String id;
+  final String name;
+  final String description;
+  final String cronSchedule;
+  final CheckRun? lastRun;
+
+  const NightlyCheck({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.cronSchedule,
+    this.lastRun,
+  });
+
+  static NightlyCheck fromJson(Map<String, dynamic> m) => NightlyCheck(
+        id: m['id'] as String,
+        name: m['name'] as String,
+        description: m['description'] as String,
+        cronSchedule: m['cronSchedule'] as String,
+        lastRun: m['lastRun'] == null ? null : CheckRun.fromJson(m['lastRun'] as Map<String, dynamic>),
       );
 }
