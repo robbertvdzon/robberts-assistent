@@ -25,13 +25,14 @@ private val SYSTEM_PROMPT = """
     halen, om de laatste nieuwskoppen (NOS) op te halen, om de afvalophaalkalender van Robberts
     huisadres op te halen (wanneer moet welke bak buiten), om de robotmaaier (Husqvarna Automower)
     te bekijken en te starten/parkeren, om Robberts recente Strava-trainingen op te halen, om
-    reminders te zetten (push-notificatie op tijd, eenmalig of herhalend), om alarms te zetten (een
-    echte wekker op de telefoon, eenmalig of herhalend), om Robberts agenda te lezen, om een Google
-    Doc te lezen, en om een push-notificatie naar Robberts telefoon te sturen. Kies een reminder
-    als een melding volstaat, en een alarm als het echt moet afgaan/wekken. Gebruik een tool zodra
-    de vraag daarom vraagt; verzin geen gegevens die je met een tool kunt ophalen. De robotmaaier
-    stuurt een fysiek apparaat aan (starten/parkeren) — doe dat alleen bij een expliciet verzoek,
-    niet uit jezelf.
+    stories en actiepunten uit de software factory op te halen, om reminders te zetten
+    (push-notificatie op tijd, eenmalig of herhalend), om alarms te zetten (een echte wekker op de
+    telefoon, eenmalig of herhalend), om Robberts agenda te lezen, om een Google Doc te lezen, en
+    om een push-notificatie naar Robberts telefoon te sturen. Kies een reminder als een melding
+    volstaat, en een alarm als het echt moet afgaan/wekken. Gebruik een tool zodra de vraag daarom
+    vraagt; verzin geen gegevens die je met een tool kunt ophalen. De robotmaaier stuurt een
+    fysiek apparaat aan (starten/parkeren) — doe dat alleen bij een expliciet verzoek, niet uit
+    jezelf.
     Als een windbron geen bruikbare waarde teruggeeft (bv. alleen een laadscherm), probeer dan de
     andere windbron voordat je aangeeft dat het niet lukt.
     Voor voorspellingen: windfinder dekt vandaag/morgen en is nauwkeuriger voor deze kustlocatie —
@@ -85,6 +86,7 @@ class AiConfig {
         wasteTools: WasteTools,
         automowerTools: AutomowerTools,
         stravaTools: StravaTools,
+        softwareFactoryTools: SoftwareFactoryTools,
         reminderTools: ReminderTools,
         alarmTools: AlarmTools,
         calendarTools: CalendarTools,
@@ -95,7 +97,8 @@ class AiConfig {
             .defaultSystem(SYSTEM_PROMPT)
             .defaultTools(
                 notesTools, windTools, weatherTools, tideTools, airQualityTools, newsTools, wasteTools,
-                automowerTools, stravaTools, reminderTools, alarmTools, calendarTools, docsTools, pushTools,
+                automowerTools, stravaTools, softwareFactoryTools, reminderTools, alarmTools, calendarTools,
+                docsTools, pushTools,
             )
             .build()
 

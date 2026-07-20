@@ -16,6 +16,8 @@ import nl.vdzon.robbertsassistent.news.StubNewsClient
 import nl.vdzon.robbertsassistent.notifier.TelegramCouplingProbe
 import nl.vdzon.robbertsassistent.push.FcmCouplingProbe
 import nl.vdzon.robbertsassistent.push.InMemoryFcmTokenStore
+import nl.vdzon.robbertsassistent.softwarefactory.SoftwareFactoryCouplingProbe
+import nl.vdzon.robbertsassistent.softwarefactory.StubSoftwareFactoryClient
 import nl.vdzon.robbertsassistent.strava.StravaCouplingProbe
 import nl.vdzon.robbertsassistent.strava.StubStravaClient
 import nl.vdzon.robbertsassistent.tides.StubTideClient
@@ -42,6 +44,7 @@ class CouplingsServiceTest {
                 FcmCouplingProbe(secrets, firebase, InMemoryFcmTokenStore()),
                 AutomowerCouplingProbe(secrets, StubAutomowerClient()),
                 StravaCouplingProbe(secrets, StubStravaClient()),
+                SoftwareFactoryCouplingProbe(secrets, StubSoftwareFactoryClient()),
                 WeatherCouplingProbe(StubWeatherClient()),
                 TideCouplingProbe(StubTideClient()),
                 AirQualityCouplingProbe(StubAirQualityClient()),
@@ -65,7 +68,10 @@ class CouplingsServiceTest {
         val byId = statuses.associateBy { it.id }
 
         assertEquals(
-            setOf("openai", "telegram", "firestore", "storage", "google", "fcm", "automower", "strava") + keylessIds,
+            setOf(
+                "openai", "telegram", "firestore", "storage", "google", "fcm", "automower", "strava",
+                "softwarefactory",
+            ) + keylessIds,
             statuses.map { it.id }.toSet(),
         )
         val secretBacked = byId.filterKeys { it !in keylessIds }.values
@@ -92,6 +98,8 @@ class CouplingsServiceTest {
             stravaClientId = "sid",
             stravaClientSecret = "ssecret",
             stravaRefreshToken = "srefresh",
+            softwareFactoryGoogleClientSecret = "sfsecret",
+            softwareFactoryGoogleRefreshToken = "sfrefresh",
         )
 
         val byId = service(configured).statuses().associateBy { it.id }
@@ -104,6 +112,7 @@ class CouplingsServiceTest {
         assertEquals("echt", byId.getValue("fcm").mode)
         assertEquals("echt", byId.getValue("automower").mode)
         assertEquals("echt", byId.getValue("strava").mode)
+        assertEquals("echt", byId.getValue("softwarefactory").mode)
         assertEquals(true, byId.values.all { it.configured })
     }
 

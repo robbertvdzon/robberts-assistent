@@ -57,7 +57,8 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu ni
 
 ## Werk / info
 - ✅ FCM push — meldingen naar de telefoon
-- 🔜 Software Factory — build/deploy-status, stories, worklogs
+- ✅ Software Factory — stories + actiepunten (die op Robberts actie wachten), via de bridge-API
+  van de software-factory-dashboard-backend (cluster-intern)
 - ✅ Nieuws / RSS — laatste NOS-koppen (keyless, standaard feed feeds.nos.nl/nosnieuwsalgemeen)
 
 ## Overig

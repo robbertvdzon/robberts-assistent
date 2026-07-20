@@ -156,3 +156,40 @@ en "zoek <iets> op in mijn google doc <doc-id>" → echte antwoorden i.p.v. de s
 
 Zodra ik 1–3 heb: ik seal ze via GitOps, wire de Firestore/Storage-impls, en we draaien
 per onderdeel de **[TEST]** hierboven.
+
+---
+
+## 6. Google OAuth — Software Factory-bridge (refresh-token)
+
+Zelfde Playground-recept als §4, maar met de **bestaande login-OAuth-client**
+(`RA_GOOGLE_CLIENT_ID`, dezelfde die de apps al voor inloggen gebruiken) in plaats van een
+nieuwe — de software-factory-backend verifieert Google ID-tokens tegen precies die client
+(`SF_GOOGLE_CLIENT_ID` staat daar op dezelfde waarde). Reden: alleen zo heeft het
+ID-token dat de backend zelf ververst de juiste audience.
+
+### 6a. Voorbereiden
+1. **Credentials** → open de bestaande client (Client ID eindigt op
+   `...b38lpk7pffin1jvqbtheleb587ghc0gi.apps.googleusercontent.com`).
+2. **Authorized redirect URIs → Add URI:** `https://developers.google.com/oauthplayground`
+3. **Client secrets** — Google toont een bestaand secret niet meer terug; klik **"+ Add
+   secret"** om een nieuwe te genereren (bestaande secrets blijven gewoon geldig, dit is
+   puur een extra, geen rotatie).
+
+### 6b. Refresh-token ophalen via de Playground
+1. **developers.google.com/oauthplayground** → tandwiel → **"Use your own OAuth
+   credentials"** → plak de Client ID (hierboven) + de nieuwe secret uit 6a.
+2. Scopes-veld:
+   ```
+   openid
+   email
+   ```
+3. **Authorize APIs** → inloggen met het account waarmee je overal inlogt
+   (`robbertvdzon@gmail.com` — staat op de allowlist van zowel robberts-assistent als de
+   software factory) → toestaan.
+4. **Step 2 → Exchange authorization code for tokens** → kopieer de **`refresh_token`**.
+
+Geef mij: de nieuwe **Client secret** + **refresh_token** (Client ID is al bekend).
+
+**[TEST]** via de assistent: "hoe staat het met mijn stories in de software factory?" of
+"wat moet ik nog goedkeuren in de software factory?" → echte antwoorden i.p.v. de
+stub-tekst.

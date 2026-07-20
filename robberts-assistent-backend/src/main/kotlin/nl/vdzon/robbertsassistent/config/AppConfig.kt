@@ -53,6 +53,12 @@ data class AppSecrets(
     val stravaClientId: String? = null,
     val stravaClientSecret: String? = null,
     val stravaRefreshToken: String? = null,
+    // Software Factory dashboard-bridge — hergebruikt dezelfde Google OAuth-client als de
+    // app-login (googleClientId hierboven, audience-check), maar met een eigen refresh-token
+    // (aangevraagd met scopes openid+email, zie docs/setup-guide-details.md). De backend wisselt
+    // dit zelf in voor een Google ID-token en daarna voor een software-factory-sessie-token.
+    val softwareFactoryGoogleClientSecret: String? = null,
+    val softwareFactoryGoogleRefreshToken: String? = null,
 ) {
     /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
     val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
@@ -106,6 +112,8 @@ class AppSecretsLoader(
             stravaClientId = optional("RA_STRAVA_CLIENT_ID"),
             stravaClientSecret = optional("RA_STRAVA_CLIENT_SECRET"),
             stravaRefreshToken = optional("RA_STRAVA_REFRESH_TOKEN"),
+            softwareFactoryGoogleClientSecret = optional("RA_SOFTWAREFACTORY_CLIENT_SECRET"),
+            softwareFactoryGoogleRefreshToken = optional("RA_SOFTWAREFACTORY_REFRESH_TOKEN"),
         )
     }
 
