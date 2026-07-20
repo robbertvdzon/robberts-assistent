@@ -61,6 +61,16 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu ni
   van de software-factory-dashboard-backend (cluster-intern)
 - ✅ Nieuws / RSS — laatste NOS-koppen (keyless, standaard feed feeds.nos.nl/nosnieuwsalgemeen)
 
+## Thuis-server / OpenShift (nightly checks)
+Zie [nightly-checks.md](nightly-checks.md) voor het generieke nightly-check-framework
+("Nachtchecks"-tab in de app, elke check eigen cron-schema, historie).
+- ✅ OpenShift-gezondheid — ClusterVersion/ClusterOperators (gedegradeerd? platform-update
+  beschikbaar?), via de in-cluster ServiceAccount van de pod. **RBAC nog niet gezet** (Robbert is
+  even weg) — zie nightly-checks.md voor de klaarstaande manifests; tot die tijd draait dit op de
+  stub (`RA_OPENSHIFT_HEALTH_ENABLED=false`).
+- 🔜 Geheugen-/SSD-/externe-HDD-gebruik — geen Prometheus/node-exporter op de cluster, dus (nog)
+  geen bron voor deze cijfers; zie nightly-checks.md voor de kleinste vervolgstap.
+
 ## Overig
 - 🔜 Spotify — nu spelend / afspelen
 - 🔜 Recepten & boodschappen → notitie/lijst
@@ -72,11 +82,13 @@ Alle keyless kandidaten uit deze lijst zijn gebouwd: ~~weer/regen~~ ✅, ~~getij
 ~~luchtkwaliteit/UV/pollen~~ ✅, ~~nieuws/RSS~~ ✅, ~~afvalkalender~~ ✅ (HVC Groep, Heemskerk).
 
 Volgende stappen (vereisen wel een secret/token of extra werk):
-1. **NS/9292** — key staat al in secrets.env en werkt; klaar om te bouwen.
-2. **Afvalkalender → auto-reminders** — upgrade: automatisch een reminder zetten de avond vóór
+1. **OpenShift-gezondheid RBAC toepassen** — code + app staan al klaar, alleen de RBAC-manifests
+   (`docs/nightly-checks.md`) moeten nog in `robberts-infrastructure` + hier toegepast worden.
+2. **NS/9292** — key staat al in secrets.env en werkt; klaar om te bouwen.
+3. **Afvalkalender → auto-reminders** — upgrade: automatisch een reminder zetten de avond vóór
    ophaaldag, gebruikt de bestaande reminders-koppeling.
-3. **Agenda-schrijven** (upgrade) — maakt de agent proactief
-4. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
+4. **Agenda-schrijven** (upgrade) — maakt de agent proactief
+5. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
 
 Bewust niet (nu): Google Maps, PostNL, DHL (Robberts keuze). Garmin: developer-program is dicht
 voor nieuwe (persoonlijke) aanvragen — voorlopig geen weg vooruit.

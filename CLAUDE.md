@@ -79,7 +79,7 @@ fallback (zie §5).
 | `health` | `/healthz` (open) + `/api/v1/ping` (auth, testendpoint). |
 | `notes` | Eén notitie-string in Firestore (document `notes/note`). |
 | `summary` | Dagelijkse samenvatting. |
-| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `WeatherTools`, `TideTools`, `AirQualityTools`, `NewsTools`, `WasteTools`, `AutomowerTools`, `StravaTools`, `SoftwareFactoryTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
+| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `WeatherTools`, `TideTools`, `AirQualityTools`, `NewsTools`, `WasteTools`, `AutomowerTools`, `StravaTools`, `SoftwareFactoryTools`, `OpenShiftTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
 | `reminders` | Reminder-model + repository-port (Firestore/in-memory), REST-controller, `@Scheduled ReminderScheduler` (due → `Notifier`). |
 | `gardenchat` | Moestuin-AI-chat: multipart (tekst + foto's) → vision-AI; conversaties in Firestore, foto's in Firebase Storage; multi-turn. |
 | `google` | `CalendarClient` + `DocsClient` (echt via OAuth refresh-token, of stubs) + `GoogleOAuthService`. |
@@ -91,9 +91,11 @@ fallback (zie §5).
 | `automower` | `AutomowerClient`: robotmaaier (Husqvarna Automower Connect API, `client_credentials`) — status + starten/parkeren; `RA_HUSQVARNA_APP_KEY`/`_APP_SECRET` bepalen echt vs. `StubAutomowerClient`. |
 | `strava` | `StravaClient`: Robberts trainingen via Strava API v3 (OAuth refresh-token, zelfde patroon als Google Agenda/Docs, `StravaOAuthService`); `RA_STRAVA_CLIENT_ID`/`_CLIENT_SECRET`/`_REFRESH_TOKEN` bepalen echt vs. `StubStravaClient`. |
 | `softwarefactory` | `SoftwareFactoryClient`: bridge naar de software-factory-dashboard-backend (cluster-intern, `http://softwarefactory-dashboard-backend.software-factory`) — stories + actiepunten, via dezelfde REST-API als de software-factory-frontend. Logt zelf in met een Google ID-token (zelfde OAuth-client als de app-login, `googleClientId`, maar een eigen refresh-token) → sessie-token, gecachet. `RA_SOFTWAREFACTORY_CLIENT_SECRET`/`_REFRESH_TOKEN` bepalen echt vs. `StubSoftwareFactoryClient`. |
+| `openshift` | `OpenShiftClient`: clustergezondheid (ClusterVersion/ClusterOperators) via de in-cluster ServiceAccount-token van de pod zelf (geen los secret — wel de expliciete vlag `RA_OPENSHIFT_HEALTH_ENABLED`, want de benodigde RBAC bestaat nog niet, zie `docs/nightly-checks.md`); `StubOpenShiftClient` anders. |
 | `firebase` | `FirebaseProvider`: gedeelde FirebaseApp → named Firestore-db + Storage-bucket. |
 | `notifier` | `Notifier`-port; `TelegramNotifier` (echt) of `LoggingNotifier` (fallback). |
 | `couplings` | `CouplingProbe`-SPI + `CouplingsService`: elke module registreert een `@Component` die `CouplingProbe` implementeert (id/naam/omschrijving/configured/mode/test); Spring injecteert automatisch `List<CouplingProbe>`. Voedt het "Koppelingen"-scherm in de app — een nieuwe koppeling toevoegen betekent alleen een nieuwe `CouplingProbe`-implementatie in de eigen module, geen wijziging hier of in de app. |
+| `nightlychecks` | `NightlyCheck`-SPI + `NightlyCheckScheduler`/`NightlyChecksService`: net als `couplings`, maar voor achtergrondchecks — elke module registreert een `@Component` met een eigen cron-schema; resultaten (met historie) in Firestore/in-memory. Voedt de "Nachtchecks"-tab in de app + de dagelijkse samenvatting. Zie `docs/nightly-checks.md`. |
 
 Twee `ChatClient`-beans: `assistantChatClient` (`@Primary`, met tools) en `gardenChatClient`
 (`@Qualifier`, vision, eigen system-prompt).
@@ -117,6 +119,7 @@ zodat 'ie automatisch op het "Koppelingen"-scherm verschijnt.
 | Automower (Husqvarna) | `RA_HUSQVARNA_APP_KEY` + `_APP_SECRET` | `StubAutomowerClient` |
 | Strava | `RA_STRAVA_CLIENT_ID` + `_CLIENT_SECRET` + `_REFRESH_TOKEN` | `StubStravaClient` |
 | Software Factory | `RA_SOFTWAREFACTORY_CLIENT_SECRET` + `_REFRESH_TOKEN` | `StubSoftwareFactoryClient` |
+| OpenShift-gezondheid | `RA_OPENSHIFT_HEALTH_ENABLED=true` (RBAC nog te zetten, zie `docs/nightly-checks.md`) | `StubOpenShiftClient` |
 
 Firebase-credentials: **`_JSON`** (inhoud, voor prod/sealed) of **`_FILE`** (pad, lokaal). De
 selector-configs vangen init-fouten af en vallen terug op in-memory (geen crashloop).
@@ -128,7 +131,8 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
 
 - **`robberts_assistent/`** — dagelijkse samenvatting + chat-assistent met persistente,
   benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij, net als
-  `groentetuin`). Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
+  `groentetuin`), plus Koppelingen- en Nachtchecks-schermen (status/historie/handmatig opnieuw
+  draaien). Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
   (`robberts-assistent.vdzonsoftware.nl`) + APK.
 - **`groentetuin/`** — moestuin-AI-chat: login → foto's maken/kiezen + tekst → vision-antwoord,
   multi-turn. `ApiClient.gardenChat` (multipart). Web op `moestuin.vdzonsoftware.nl` + APK.
@@ -216,5 +220,7 @@ trillen) toont een full-screen `AlarmActivity` over het lockscreen met **Sluit**
 - `docs/factory/development.md` — lokaal bouwen/testen; `deployment.md` — deploy-flow + config.
 - `docs/foundation-couplings.md` — ontwerp + gefaseerd implementatieplan van de koppelingen.
 - `docs/koppelingen-ideeen.md` — kandidaat-koppelingen (ideeën + status) voor uitbreiding.
+- `docs/nightly-checks.md` — nightly-check-framework, de OpenShift-gezondheidscheck (incl. nog
+  te zetten RBAC), en ideeën voor toekomstige checks (tuin-water, kiten, zonnepanelen, agenda).
 - `docs/setup-guide-details.md` — console-setup met concrete waarden (project `tuinbewatering`).
 - `PLAN.md` — oorspronkelijke visie (apps, "Hey Google"-aanpak).
