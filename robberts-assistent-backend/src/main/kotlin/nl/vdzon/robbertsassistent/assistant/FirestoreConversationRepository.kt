@@ -33,15 +33,21 @@ class FirestoreConversationRepository(private val firestore: Firestore) : Conver
         return conversation
     }
 
-    override fun listAll(): List<Conversation> =
+    override fun listAll(includeArchived: Boolean, limit: Int?, offset: Int): List<Conversation> =
         collection.orderBy(FIELD_UPDATED_AT, Query.Direction.DESCENDING).get().get()
             .documents.map { it.toConversation() }
+            .paginated(includeArchived, limit, offset)
+
+    override fun delete(id: String) {
+        collection.document(id).delete().get()
+    }
 
     private fun Conversation.toMap(): Map<String, Any> = mapOf(
         FIELD_TITLE to (title ?: ""),
         FIELD_CREATED_AT to createdAt.toEpochMilli(),
         FIELD_UPDATED_AT to updatedAt.toEpochMilli(),
         FIELD_MESSAGES to messages.map { it.toMap() },
+        FIELD_ARCHIVED to archived,
     )
 
     private fun ConversationMessage.toMap(): Map<String, Any> = mapOf(
@@ -73,6 +79,7 @@ class FirestoreConversationRepository(private val firestore: Firestore) : Conver
             messages = messages,
             createdAt = Instant.ofEpochMilli(createdAt),
             updatedAt = Instant.ofEpochMilli(updatedAt),
+            archived = getBoolean(FIELD_ARCHIVED) ?: false,
         )
     }
 
@@ -82,5 +89,6 @@ class FirestoreConversationRepository(private val firestore: Firestore) : Conver
         const val FIELD_CREATED_AT = "createdAt"
         const val FIELD_UPDATED_AT = "updatedAt"
         const val FIELD_MESSAGES = "messages"
+        const val FIELD_ARCHIVED = "archived"
     }
 }

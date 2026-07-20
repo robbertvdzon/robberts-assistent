@@ -16,7 +16,11 @@ class _FakeApiClient extends ApiClient {
   Future<Map<String, dynamic>> getJson(String path) async => {'items': []};
 
   @override
-  Future<List<AssistantConversationSummary>> assistantConversations() async => [];
+  Future<List<AssistantConversationSummary>> assistantConversations({
+    bool includeArchived = false,
+    int? limit,
+    int offset = 0,
+  }) async => [];
 
   @override
   Future<List<Reminder>> listReminders() async => [];

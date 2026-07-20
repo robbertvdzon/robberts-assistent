@@ -9,10 +9,12 @@ import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.context.annotation.Bean
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -78,5 +80,79 @@ class AssistantIntegrationTest {
         )
         assertEquals(HttpStatus.OK, listResponse.statusCode)
         assertTrue(listResponse.body!!.any { it.conversationId == chatBody.conversationId })
+    }
+
+    @Test
+    fun `archiveren sluit een gesprek uit van de standaardlijst maar includeArchived toont het weer`() {
+        val chatBody = startConversation("verberg dit gesprek")
+
+        val archiveResponse = restTemplate.exchange(
+            "/api/v1/assistant/conversations/${chatBody.conversationId}/archive",
+            HttpMethod.PATCH,
+            null,
+            ConversationSummaryDto::class.java,
+        )
+        assertEquals(HttpStatus.OK, archiveResponse.statusCode)
+        assertTrue(archiveResponse.body!!.archived)
+
+        val defaultList = restTemplate.getForEntity("/api/v1/assistant/conversations", Array<ConversationSummaryDto>::class.java)
+        assertFalse(defaultList.body!!.any { it.conversationId == chatBody.conversationId })
+
+        val includeArchivedList = restTemplate.getForEntity(
+            "/api/v1/assistant/conversations?includeArchived=true",
+            Array<ConversationSummaryDto>::class.java,
+        )
+        assertTrue(includeArchivedList.body!!.any { it.conversationId == chatBody.conversationId && it.archived })
+
+        val unarchiveResponse = restTemplate.exchange(
+            "/api/v1/assistant/conversations/${chatBody.conversationId}/unarchive",
+            HttpMethod.PATCH,
+            null,
+            ConversationSummaryDto::class.java,
+        )
+        assertEquals(HttpStatus.OK, unarchiveResponse.statusCode)
+        assertFalse(unarchiveResponse.body!!.archived)
+    }
+
+    @Test
+    fun `DELETE verwijdert een gesprek zodat het niet meer op te halen is`() {
+        val chatBody = startConversation("verwijder dit gesprek")
+
+        val deleteResponse = restTemplate.exchange(
+            "/api/v1/assistant/conversations/${chatBody.conversationId}",
+            HttpMethod.DELETE,
+            null,
+            Void::class.java,
+        )
+        assertEquals(HttpStatus.NO_CONTENT, deleteResponse.statusCode)
+
+        val getResponse = restTemplate.getForEntity(
+            "/api/v1/assistant/conversations/${chatBody.conversationId}",
+            String::class.java,
+        )
+        assertEquals(HttpStatus.NOT_FOUND, getResponse.statusCode)
+    }
+
+    @Test
+    fun `GET conversations respecteert limit en offset`() {
+        startConversation("een")
+        startConversation("twee")
+        startConversation("drie")
+
+        val firstPage = restTemplate.getForEntity(
+            "/api/v1/assistant/conversations?limit=2&offset=0",
+            Array<ConversationSummaryDto>::class.java,
+        )
+        assertEquals(2, firstPage.body!!.size)
+    }
+
+    private fun startConversation(message: String): AssistantChatResponse {
+        val body = LinkedMultiValueMap<String, Any>()
+        body.add("message", message)
+        val headers = HttpHeaders()
+        headers.contentType = MediaType.MULTIPART_FORM_DATA
+        val request = HttpEntity(body, headers)
+        val response = restTemplate.postForEntity("/api/v1/assistant/chat", request, AssistantChatResponse::class.java)
+        return response.body!!
     }
 }

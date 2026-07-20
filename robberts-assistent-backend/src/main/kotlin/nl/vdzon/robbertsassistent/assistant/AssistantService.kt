@@ -37,9 +37,34 @@ class AssistantService(
     @Qualifier("assistantConversationRepository") private val conversations: ConversationRepository,
     @Qualifier("assistantPhotoStorage") private val photos: PhotoStorage,
 ) {
-    fun listConversations(): List<Conversation> = conversations.listAll()
+    fun listConversations(includeArchived: Boolean = false, limit: Int? = null, offset: Int = 0): List<Conversation> =
+        conversations.listAll(includeArchived, limit, offset)
 
     fun conversation(id: String): Conversation? = conversations.findById(id)
+
+    /** Zet `archived=true`. `null` als het gesprek niet bestaat. */
+    fun archiveConversation(id: String): Conversation? = setArchived(id, true)
+
+    /** Zet `archived=false`. `null` als het gesprek niet bestaat. */
+    fun unarchiveConversation(id: String): Conversation? = setArchived(id, false)
+
+    private fun setArchived(id: String, archived: Boolean): Conversation? {
+        val conversation = conversations.findById(id) ?: return null
+        return conversations.save(conversation.copy(archived = archived))
+    }
+
+    /**
+     * Verwijdert een gesprek en, best-effort, de bijbehorende foto's (een foto-opruimfout
+     * blokkeert de delete niet). `false` als het gesprek niet bestaat.
+     */
+    fun deleteConversation(id: String): Boolean {
+        val conversation = conversations.findById(id) ?: return false
+        conversation.messages.flatMap { it.imageIds }.forEach { imageId ->
+            runCatching { photos.delete(imageId) }
+        }
+        conversations.delete(id)
+        return true
+    }
 
     fun chat(conversationId: String?, text: String, uploads: List<PhotoUpload>): ChatResult {
         val conversation = conversationId?.let { conversations.findById(it) } ?: conversations.create()

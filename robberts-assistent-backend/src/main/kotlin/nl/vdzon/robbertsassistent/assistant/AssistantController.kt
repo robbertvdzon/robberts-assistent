@@ -5,7 +5,9 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestHeader
@@ -52,9 +54,45 @@ class AssistantController(
     @GetMapping("/api/v1/assistant/conversations")
     fun conversations(
         @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestParam(required = false, defaultValue = "false") includeArchived: Boolean,
+        @RequestParam(required = false) limit: Int?,
+        @RequestParam(required = false, defaultValue = "0") offset: Int,
     ): List<ConversationSummaryDto> {
         authService.requireAuthorization(authorization)
-        return assistantService.listConversations().map { it.toSummaryDto() }
+        return assistantService.listConversations(includeArchived, limit, offset).map { it.toSummaryDto() }
+    }
+
+    @PatchMapping("/api/v1/assistant/conversations/{id}/archive")
+    fun archive(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+    ): ConversationSummaryDto {
+        authService.requireAuthorization(authorization)
+        val conversation = assistantService.archiveConversation(id)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Gesprek niet gevonden")
+        return conversation.toSummaryDto()
+    }
+
+    @PatchMapping("/api/v1/assistant/conversations/{id}/unarchive")
+    fun unarchive(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+    ): ConversationSummaryDto {
+        authService.requireAuthorization(authorization)
+        val conversation = assistantService.unarchiveConversation(id)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Gesprek niet gevonden")
+        return conversation.toSummaryDto()
+    }
+
+    @DeleteMapping("/api/v1/assistant/conversations/{id}")
+    fun delete(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+    ): ResponseEntity<Void> {
+        authService.requireAuthorization(authorization)
+        val deleted = assistantService.deleteConversation(id)
+        if (!deleted) throw ResponseStatusException(HttpStatus.NOT_FOUND, "Gesprek niet gevonden")
+        return ResponseEntity.noContent().build()
     }
 
     @GetMapping("/api/v1/assistant/conversations/{id}")

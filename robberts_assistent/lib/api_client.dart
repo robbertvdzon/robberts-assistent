@@ -83,6 +83,13 @@ class ApiClient {
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
+  Future<Map<String, dynamic>> patchJson(String path) async {
+    final response = await http.patch(Uri.parse('$baseUrl$path'), headers: authHeaders());
+    await _throwOnError(response);
+    if (response.body.isEmpty) return {};
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   /// Registreert het FCM-device-token bij de backend, zodat de agent er push naartoe kan sturen.
   Future<void> registerFcmToken(String token) async {
     await postJson('/api/v1/fcm/token', {'token': token});
@@ -125,9 +132,19 @@ class ApiClient {
   }
 
   /// Lijst van gesprekken (`GET /api/v1/assistant/conversations`), meest recent eerst.
-  Future<List<AssistantConversationSummary>> assistantConversations() async {
+  /// `includeArchived` toont ook gearchiveerde gesprekken; `limit`/`offset` pagineren.
+  Future<List<AssistantConversationSummary>> assistantConversations({
+    bool includeArchived = false,
+    int? limit,
+    int offset = 0,
+  }) async {
+    final query = {
+      'includeArchived': includeArchived.toString(),
+      'offset': offset.toString(),
+      if (limit != null) 'limit': limit.toString(),
+    };
     final response = await http.get(
-      Uri.parse('$baseUrl/api/v1/assistant/conversations'),
+      Uri.parse('$baseUrl/api/v1/assistant/conversations').replace(queryParameters: query),
       headers: authHeaders(),
     );
     await _throwOnError(response);
@@ -136,6 +153,15 @@ class ApiClient {
         .map((e) => AssistantConversationSummary.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  /// Archiveert een gesprek (`PATCH .../archive`) zodat het niet meer in de standaardlijst staat.
+  Future<void> archiveConversation(String id) => patchJson('/api/v1/assistant/conversations/$id/archive');
+
+  /// Haalt een gesprek terug uit het archief (`PATCH .../unarchive`).
+  Future<void> unarchiveConversation(String id) => patchJson('/api/v1/assistant/conversations/$id/unarchive');
+
+  /// Verwijdert een gesprek definitief (`DELETE /api/v1/assistant/conversations/{id}`).
+  Future<void> deleteConversation(String id) => _delete('/api/v1/assistant/conversations/$id');
 
   /// Volledig gesprek inclusief berichten (`GET /api/v1/assistant/conversations/{id}`).
   Future<AssistantConversationDetail> assistantConversation(String id) async {
@@ -327,12 +353,19 @@ class AssistantConversationSummary {
   final String conversationId;
   final String title;
   final DateTime updatedAt;
-  const AssistantConversationSummary({required this.conversationId, required this.title, required this.updatedAt});
+  final bool archived;
+  const AssistantConversationSummary({
+    required this.conversationId,
+    required this.title,
+    required this.updatedAt,
+    required this.archived,
+  });
 
   static AssistantConversationSummary fromJson(Map<String, dynamic> m) => AssistantConversationSummary(
         conversationId: m['conversationId'] as String,
         title: m['title'] as String,
         updatedAt: DateTime.parse(m['updatedAt'] as String).toLocal(),
+        archived: m['archived'] as bool? ?? false,
       );
 }
 

@@ -21,6 +21,10 @@ class FirebaseStoragePhotoStorage(private val bucket: Bucket) : PhotoStorage {
         return StoredPhoto(blob.getContent(), blob.contentType ?: "application/octet-stream")
     }
 
+    override fun delete(id: String) {
+        bucket.get("$PREFIX$id")?.delete()
+    }
+
     private companion object {
         const val PREFIX = "assistent-chat/"
     }

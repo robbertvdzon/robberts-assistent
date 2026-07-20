@@ -14,6 +14,8 @@ import kotlin.test.assertTrue
  * roept bewust geen tools aan (zie de class-doc van [MockChatModel]).
  */
 class AssistantServiceTest {
+    private val photos = InMemoryPhotoStorage()
+
     private fun newService(mockAi: Boolean = true): AssistantService {
         val client = ChatClient.builder(MockChatModel()).build()
         val secrets = AppSecrets(
@@ -22,7 +24,7 @@ class AssistantServiceTest {
             allowedEmails = setOf("robbert@vdzon.com"),
             mockAi = mockAi,
         )
-        return AssistantService(client, client, secrets, InMemoryConversationRepository(), InMemoryPhotoStorage())
+        return AssistantService(client, client, secrets, InMemoryConversationRepository(), photos)
     }
 
     @Test
@@ -98,5 +100,68 @@ class AssistantServiceTest {
         service.chat(null, "tweede", emptyList())
 
         assertEquals(2, service.listConversations().size)
+    }
+
+    @Test
+    fun `listConversations geeft limit en offset door aan de repository`() {
+        val service = newService()
+
+        service.chat(null, "eerste", emptyList())
+        service.chat(null, "tweede", emptyList())
+        service.chat(null, "derde", emptyList())
+
+        assertEquals(2, service.listConversations(limit = 2).size)
+        assertEquals(1, service.listConversations(limit = 2, offset = 2).size)
+    }
+
+    @Test
+    fun `archiveConversation zet archived op true en sluit het gesprek uit van listConversations`() {
+        val service = newService()
+        val conversation = service.chat(null, "verberg mij", emptyList())
+
+        val archived = service.archiveConversation(conversation.conversationId)
+
+        assertEquals(true, archived?.archived)
+        assertTrue(service.listConversations().none { it.id == conversation.conversationId })
+        assertTrue(service.listConversations(includeArchived = true).any { it.id == conversation.conversationId })
+    }
+
+    @Test
+    fun `unarchiveConversation zet archived terug op false`() {
+        val service = newService()
+        val conversation = service.chat(null, "verberg mij", emptyList())
+        service.archiveConversation(conversation.conversationId)
+
+        val unarchived = service.unarchiveConversation(conversation.conversationId)
+
+        assertEquals(false, unarchived?.archived)
+        assertTrue(service.listConversations().any { it.id == conversation.conversationId })
+    }
+
+    @Test
+    fun `archiveConversation geeft null terug voor een onbekend gesprek`() {
+        val service = newService()
+
+        assertEquals(null, service.archiveConversation("onbekend"))
+    }
+
+    @Test
+    fun `deleteConversation verwijdert het gesprek en zijn foto's`() {
+        val service = newService()
+        val conversation = service.chat(null, "kijk", listOf(PhotoUpload(byteArrayOf(1, 2, 3), "image/jpeg")))
+        val imageId = service.conversation(conversation.conversationId)!!.messages[0].imageIds.single()
+
+        val deleted = service.deleteConversation(conversation.conversationId)
+
+        assertTrue(deleted)
+        assertEquals(null, service.conversation(conversation.conversationId))
+        assertEquals(null, photos.load(imageId))
+    }
+
+    @Test
+    fun `deleteConversation geeft false terug voor een onbekend gesprek`() {
+        val service = newService()
+
+        assertEquals(false, service.deleteConversation("onbekend"))
     }
 }

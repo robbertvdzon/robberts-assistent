@@ -26,11 +26,17 @@ data class ConversationMessage(
     }
 }
 
-/** Een assistent-gesprek: een reeks berichten, oplopend in tijd, met een (zelf-verzonnen) titel. */
+/**
+ * Een assistent-gesprek: een reeks berichten, oplopend in tijd, met een (zelf-verzonnen) titel.
+ * [archived] gearchiveerde gesprekken staan standaard niet in de lijst (zie [ConversationRepository.listAll]),
+ * maar blijven bewaard en zijn reversibel; bestaande gesprekken zonder dit veld in Firestore worden
+ * gelezen als niet-gearchiveerd.
+ */
 data class Conversation(
     val id: String,
     val title: String? = null,
     val messages: List<ConversationMessage> = emptyList(),
     val createdAt: Instant,
     val updatedAt: Instant,
+    val archived: Boolean = false,
 )
