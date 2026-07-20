@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:robberts_assistent/api_client.dart';
+import 'package:robberts_assistent/conversations_screen.dart';
 import 'package:robberts_assistent/couplings_screen.dart';
 import 'package:robberts_assistent/home_screen.dart';
 import 'package:robberts_assistent/memory_screen.dart';
 import 'package:robberts_assistent/more_screen.dart';
 import 'package:robberts_assistent/nightly_checks_screen.dart';
+import 'package:robberts_assistent/summary_screen.dart';
 import 'package:robberts_assistent/updates_screen.dart';
 
 /// Stub-ApiClient die alleen de door de vier hoofdschermen aangeroepen methodes overschrijft
@@ -69,6 +71,20 @@ void main() {
     expect(find.text('Nachtchecks'), findsOneWidget);
     expect(find.text('Geheugen'), findsOneWidget);
     expect(find.text('Updates'), findsOneWidget);
+  });
+
+  testWidgets('start standaard op de tab Assistent (ConversationsScreen), niet Samenvatting', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
+    );
+    await tester.pump();
+
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 1);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
+    expect(find.byType(ConversationsScreen), findsOneWidget);
+    expect(find.byType(SummaryScreen), findsNothing);
   });
 
   testWidgets('lijst-items in Meer navigeren naar het bijbehorende scherm', (tester) async {
