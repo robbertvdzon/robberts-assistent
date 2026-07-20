@@ -43,3 +43,22 @@ dialoog, verwijderen via icoon-knop met bevestiging), `ApiClient`-methodes
 Geen afwijkingen van de scope. `RA_MOCK_AI` slaat de geheugen-update-AI-aanroep over (conform
 AC7); de context-injectie in de hoofd-chat-aanroep gebeurt wel altijd (ook onder `RA_MOCK_AI`),
 zodat het testbaar en zichtbaar is via het mock-model.
+
+## Review (reviewer, SF-1143)
+
+- Volledige `mvn test` lokaal gedraaid tegen de branch: groen (exit 0, geen failures), inclusief
+  `ModulithArchitectureTest`, `MemoryRepositoryTest`, uitgebreide `AssistantServiceTest` (context-
+  injectie, RA_MOCK_AI-skip, reconciliatie nieuw/behouden/verwijderd, falende AI-aanroep) en
+  `AssistantIntegrationTest` (memory-CRUD-endpoints + 404's).
+- `flutter analyze` en `flutter test` (robberts_assistent) lokaal gedraaid: beide groen (geen
+  issues, alle tests slagen) — `/opt/flutter/bin/flutter` was beschikbaar in deze sandbox, dus dit
+  is echt testbewijs i.p.v. blanco review.
+- Code doorgenomen: `MemoryItem`/`MemoryRepository` (in-memory + Firestore) volgt het bestaande
+  stub/fallback-patroon 1-op-1 (analoog `ConversationRepository`); `memoryChatClient` analoog
+  `titleChatClient`; geheugen-update faalt stil via `runCatching` en wordt overgeslagen onder
+  `RA_MOCK_AI`; geheugen-context wordt wél altijd (ook onder mock-AI) meegegeven aan de hoofd-
+  prompt, zodat AC8 aantoonbaar getest kan worden. Endpoints zijn auth-gated en consistent met de
+  rest van `AssistantController`. Frontend-scherm en `more_screen.dart`-entry kloppen met de
+  acceptatiecriteria.
+- Geen blockers gevonden. Alle 13 acceptatiecriteria uit de story-scope voor deze subtaak (SF-1143,
+  onderdeel 2 "Automatisch bewerkbaar geheugen") zijn gedekt.
