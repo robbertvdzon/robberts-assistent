@@ -63,7 +63,8 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu ni
 
 ## Thuis-server / OpenShift (nightly checks)
 Zie [nightly-checks.md](nightly-checks.md) voor het generieke nightly-check-framework
-("Nachtchecks"-tab in de app, elke check eigen cron-schema, historie).
+(scherm "Nachtchecks" in de app, bereikbaar via de 'Meer'-tab, elke check eigen cron-schema,
+historie).
 - ✅ OpenShift-gezondheid — ClusterVersion/ClusterOperators (gedegradeerd? platform-update
   beschikbaar?), via de in-cluster ServiceAccount van de pod. **RBAC nog niet gezet** (Robbert is
   even weg) — zie nightly-checks.md voor de klaarstaande manifests; tot die tijd draait dit op de

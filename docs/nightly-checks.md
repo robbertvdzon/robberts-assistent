@@ -2,8 +2,8 @@
 
 Generiek framework voor achtergrondchecks die 's nachts/'s ochtends (of vaker) draaien, hun
 resultaat bewaren (met historie, niet alleen het laatste resultaat), en zowel in de app
-(tab **Nachtchecks**) als in de dagelijkse samenvatting te zien zijn. Zie ook
-[CLAUDE.md](../CLAUDE.md) §4/§5 voor hoe dit in de modulestructuur past.
+(scherm **Nachtchecks**, bereikbaar via de 'Meer'-tab) als in de dagelijkse samenvatting te
+zien zijn. Zie ook [CLAUDE.md](../CLAUDE.md) §4/§5 voor hoe dit in de modulestructuur past.
 
 ## Architectuur
 
@@ -20,8 +20,9 @@ resultaat bewaren (met historie, niet alleen het laatste resultaat), en zowel in
 - **API**: `GET /api/v1/nightly-checks` (status + laatste resultaat per check),
   `GET /api/v1/nightly-checks/{id}/history` (historie), `POST /api/v1/nightly-checks/{id}/run`
   (handmatig opnieuw draaien — de "herstart deze check"-knop in de app).
-- **App**: tab **Nachtchecks** (`nightly_checks_screen.dart`) toont de lijst + status, met een
-  "nu draaien"-knop en tikken voor de volledige historie.
+- **App**: scherm **Nachtchecks** (`nightly_checks_screen.dart`), bereikbaar via de 'Meer'-tab
+  (`more_screen.dart`) in de bottom-nav, toont de lijst + status, met een "nu draaien"-knop en
+  tikken voor de volledige historie.
 - **Samenvatting**: `SummaryService` neemt de nightly-check-resultaten automatisch mee — een
   nieuwe check verschijnt daar vanzelf, geen wijziging in `SummaryService` nodig.
 
