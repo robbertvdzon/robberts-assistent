@@ -48,6 +48,11 @@ data class AppSecrets(
     // OAuth-consent nodig). Zonder deze waarden valt de robotmaaier-koppeling terug op de stub.
     val husqvarnaAppKey: String? = null,
     val husqvarnaAppSecret: String? = null,
+    // Strava API v3 — OAuth "offline access" refresh-token flow, zelfde patroon als Google
+    // Agenda/Docs. Zonder deze waarden valt de trainingen-koppeling terug op de stub.
+    val stravaClientId: String? = null,
+    val stravaClientSecret: String? = null,
+    val stravaRefreshToken: String? = null,
 ) {
     /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
     val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
@@ -98,6 +103,9 @@ class AppSecretsLoader(
             googleOAuthRefreshToken = optional("RA_GOOGLE_OAUTH_REFRESH_TOKEN"),
             husqvarnaAppKey = optional("RA_HUSQVARNA_APP_KEY"),
             husqvarnaAppSecret = optional("RA_HUSQVARNA_APP_SECRET"),
+            stravaClientId = optional("RA_STRAVA_CLIENT_ID"),
+            stravaClientSecret = optional("RA_STRAVA_CLIENT_SECRET"),
+            stravaRefreshToken = optional("RA_STRAVA_REFRESH_TOKEN"),
         )
     }
 

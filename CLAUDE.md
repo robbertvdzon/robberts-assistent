@@ -79,7 +79,7 @@ fallback (zie §5).
 | `health` | `/healthz` (open) + `/api/v1/ping` (auth, testendpoint). |
 | `notes` | Eén notitie-string in Firestore (document `notes/note`). |
 | `summary` | Dagelijkse samenvatting. |
-| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `WeatherTools`, `TideTools`, `AirQualityTools`, `NewsTools`, `WasteTools`, `AutomowerTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
+| `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze), tools (`NotesTools`, `WindTools`, `WeatherTools`, `TideTools`, `AirQualityTools`, `NewsTools`, `WasteTools`, `AutomowerTools`, `StravaTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
 | `reminders` | Reminder-model + repository-port (Firestore/in-memory), REST-controller, `@Scheduled ReminderScheduler` (due → `Notifier`). |
 | `gardenchat` | Moestuin-AI-chat: multipart (tekst + foto's) → vision-AI; conversaties in Firestore, foto's in Firebase Storage; multi-turn. |
 | `google` | `CalendarClient` + `DocsClient` (echt via OAuth refresh-token, of stubs) + `GoogleOAuthService`. |
@@ -89,6 +89,7 @@ fallback (zie §5).
 | `news` | `NewsClient`: laatste nieuwskoppen via RSS (standaard NOS Algemeen, keyless, altijd echt); `StubNewsClient` alleen voor tests. |
 | `waste` | `WasteClient`: afvalophaalkalender voor Robberts huisadres via de HVC Groep-API (keyless, altijd echt; postcode/huisnummer als constante, geen secret); `StubWasteClient` alleen voor tests. |
 | `automower` | `AutomowerClient`: robotmaaier (Husqvarna Automower Connect API, `client_credentials`) — status + starten/parkeren; `RA_HUSQVARNA_APP_KEY`/`_APP_SECRET` bepalen echt vs. `StubAutomowerClient`. |
+| `strava` | `StravaClient`: Robberts trainingen via Strava API v3 (OAuth refresh-token, zelfde patroon als Google Agenda/Docs, `StravaOAuthService`); `RA_STRAVA_CLIENT_ID`/`_CLIENT_SECRET`/`_REFRESH_TOKEN` bepalen echt vs. `StubStravaClient`. |
 | `firebase` | `FirebaseProvider`: gedeelde FirebaseApp → named Firestore-db + Storage-bucket. |
 | `notifier` | `Notifier`-port; `TelegramNotifier` (echt) of `LoggingNotifier` (fallback). |
 | `couplings` | `CouplingProbe`-SPI + `CouplingsService`: elke module registreert een `@Component` die `CouplingProbe` implementeert (id/naam/omschrijving/configured/mode/test); Spring injecteert automatisch `List<CouplingProbe>`. Voedt het "Koppelingen"-scherm in de app — een nieuwe koppeling toevoegen betekent alleen een nieuwe `CouplingProbe`-implementatie in de eigen module, geen wijziging hier of in de app. |
@@ -113,6 +114,7 @@ zodat 'ie automatisch op het "Koppelingen"-scherm verschijnt.
 | Google Agenda + Docs | `RA_GOOGLE_OAUTH_CLIENT_ID` + `_SECRET` + `_REFRESH_TOKEN` | `StubCalendarClient` / `StubDocsClient` |
 | Google-login | `RA_GOOGLE_CLIENT_ID` (audience) | n.v.t. (vereist) |
 | Automower (Husqvarna) | `RA_HUSQVARNA_APP_KEY` + `_APP_SECRET` | `StubAutomowerClient` |
+| Strava | `RA_STRAVA_CLIENT_ID` + `_CLIENT_SECRET` + `_REFRESH_TOKEN` | `StubStravaClient` |
 
 Firebase-credentials: **`_JSON`** (inhoud, voor prod/sealed) of **`_FILE`** (pad, lokaal). De
 selector-configs vangen init-fouten af en vallen terug op in-memory (geen crashloop).

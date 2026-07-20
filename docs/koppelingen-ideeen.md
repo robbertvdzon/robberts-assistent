@@ -35,8 +35,9 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu ni
 - 🔜 Google Contacts — namen ophalen voor "telegram naar X"
 
 ## Sport & gezondheid
-- ⏸️ Strava — activiteiten/training (OAuth refresh-token, net als Google); lukt de app-registratie
-  even niet, later opnieuw proberen
+- ✅ Strava — activiteiten/training (OAuth refresh-token, net als Google). Sinds 30 juni 2026
+  vereist Strava een actief betaald abonnement om als developer een app te mogen registreren
+  (Robbert heeft Premium, dus geen probleem)
 - ❌ Garmin — geen fatsoenlijke publieke API; developer-program staat sowieso gepauzeerd en is
   uberhaupt alleen voor bedrijven, niet voor persoonlijk gebruik
 
@@ -76,9 +77,8 @@ Volgende stappen (vereisen wel een secret/token of extra werk):
 3. **Agenda-schrijven** (upgrade) — maakt de agent proactief
 4. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
 
-Bewust niet (nu): Google Maps, PostNL, DHL (Robberts keuze). Later opnieuw proberen: Strava
-(app-registratie lukte niet meteen). Garmin: developer-program is dicht voor nieuwe (persoonlijke)
-aanvragen — voorlopig geen weg vooruit.
+Bewust niet (nu): Google Maps, PostNL, DHL (Robberts keuze). Garmin: developer-program is dicht
+voor nieuwe (persoonlijke) aanvragen — voorlopig geen weg vooruit.
 
 De actuele status van de al-gebouwde koppelingen is live te zien in de assistent-app onder
 **Koppelingen** (met een test-knop), gevoed door `GET /api/v1/couplings` +
