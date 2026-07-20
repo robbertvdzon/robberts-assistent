@@ -20,7 +20,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  var _tab = 0;
+  var _tab = 1;
 
   @override
   void initState() {
