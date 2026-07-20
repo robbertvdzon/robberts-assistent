@@ -12,6 +12,7 @@ data class ConversationSummaryDto(
     val conversationId: String,
     val title: String,
     val updatedAt: String,
+    val archived: Boolean,
 )
 
 data class AssistantChatResponse(
@@ -39,4 +40,15 @@ fun Conversation.toSummaryDto() = ConversationSummaryDto(
     conversationId = id,
     title = title?.takeIf { it.isNotBlank() } ?: "Nieuw gesprek",
     updatedAt = updatedAt.toString(),
+    archived = archived,
 )
+
+data class MemoryItemDto(
+    val id: String,
+    val text: String,
+    val updatedAt: String,
+)
+
+data class MemoryItemRequest(val text: String = "")
+
+fun MemoryItem.toDto() = MemoryItemDto(id = id, text = text, updatedAt = updatedAt.toString())

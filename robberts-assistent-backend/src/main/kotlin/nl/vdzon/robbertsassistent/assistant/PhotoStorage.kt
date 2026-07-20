@@ -16,6 +16,9 @@ interface PhotoStorage {
     fun store(bytes: ByteArray, contentType: String): String
 
     fun load(id: String): StoredPhoto?
+
+    /** Verwijdert een foto. Geen effect als 'ie al niet (meer) bestaat. */
+    fun delete(id: String)
 }
 
 class InMemoryPhotoStorage : PhotoStorage {
@@ -28,4 +31,8 @@ class InMemoryPhotoStorage : PhotoStorage {
     }
 
     override fun load(id: String): StoredPhoto? = store[id]
+
+    override fun delete(id: String) {
+        store.remove(id)
+    }
 }

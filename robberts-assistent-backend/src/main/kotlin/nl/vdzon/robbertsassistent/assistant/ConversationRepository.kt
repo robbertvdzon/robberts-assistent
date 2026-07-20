@@ -13,8 +13,23 @@ interface ConversationRepository {
     fun findById(id: String): Conversation?
     fun save(conversation: Conversation): Conversation
 
-    /** Alle gesprekken, meest recent bijgewerkt eerst. */
-    fun listAll(): List<Conversation>
+    /**
+     * Gesprekken, meest recent bijgewerkt eerst. Zonder [includeArchived] worden gearchiveerde
+     * gesprekken weggelaten. [limit]/[offset] pagineren over het (gefilterde) resultaat; zonder
+     * [limit] komt alles terug vanaf [offset].
+     */
+    fun listAll(includeArchived: Boolean = false, limit: Int? = null, offset: Int = 0): List<Conversation>
+
+    /** Verwijdert een gesprek. Geen effect als het al niet (meer) bestaat. */
+    fun delete(id: String)
+}
+
+/** Filtert/sorteert/pagineert een ruwe lijst gesprekken — gedeeld door alle [ConversationRepository]-implementaties. */
+fun List<Conversation>.paginated(includeArchived: Boolean, limit: Int?, offset: Int): List<Conversation> {
+    val filtered = if (includeArchived) this else filter { !it.archived }
+    val sorted = filtered.sortedByDescending { it.updatedAt }
+    val dropped = sorted.drop(offset.coerceAtLeast(0))
+    return if (limit != null) dropped.take(limit) else dropped
 }
 
 class InMemoryConversationRepository : ConversationRepository {
@@ -34,5 +49,10 @@ class InMemoryConversationRepository : ConversationRepository {
         return conversation
     }
 
-    override fun listAll(): List<Conversation> = store.values.sortedByDescending { it.updatedAt }
+    override fun listAll(includeArchived: Boolean, limit: Int?, offset: Int): List<Conversation> =
+        store.values.toList().paginated(includeArchived, limit, offset)
+
+    override fun delete(id: String) {
+        store.remove(id)
+    }
 }

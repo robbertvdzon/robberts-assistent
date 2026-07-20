@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:robberts_assistent/api_client.dart';
 import 'package:robberts_assistent/couplings_screen.dart';
 import 'package:robberts_assistent/home_screen.dart';
+import 'package:robberts_assistent/memory_screen.dart';
 import 'package:robberts_assistent/more_screen.dart';
 import 'package:robberts_assistent/nightly_checks_screen.dart';
 import 'package:robberts_assistent/updates_screen.dart';
@@ -16,7 +17,11 @@ class _FakeApiClient extends ApiClient {
   Future<Map<String, dynamic>> getJson(String path) async => {'items': []};
 
   @override
-  Future<List<AssistantConversationSummary>> assistantConversations() async => [];
+  Future<List<AssistantConversationSummary>> assistantConversations({
+    bool includeArchived = false,
+    int? limit,
+    int offset = 0,
+  }) async => [];
 
   @override
   Future<List<Reminder>> listReminders() async => [];
@@ -29,6 +34,9 @@ class _FakeApiClient extends ApiClient {
 
   @override
   Future<List<NightlyCheck>> listNightlyChecks() async => [];
+
+  @override
+  Future<List<MemoryItem>> listMemory() async => [];
 }
 
 void main() {
@@ -59,6 +67,7 @@ void main() {
     expect(find.byType(MoreScreen), findsOneWidget);
     expect(find.text('Koppelingen'), findsOneWidget);
     expect(find.text('Nachtchecks'), findsOneWidget);
+    expect(find.text('Geheugen'), findsOneWidget);
     expect(find.text('Updates'), findsOneWidget);
   });
 
@@ -77,6 +86,13 @@ void main() {
     await tester.tap(find.text('Nachtchecks'));
     await tester.pumpAndSettle();
     expect(find.byType(NightlyChecksScreen), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Geheugen'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MemoryScreen), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();

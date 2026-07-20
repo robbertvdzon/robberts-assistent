@@ -9,10 +9,16 @@ overgeslagen via `SKIP_GOOGLE_AUTH`, zie `docs/factory/deployment.md`).
 - **Samenvatting** — dagelijks overzicht uit de backend.
 - **Assistent** — gesprekkenlijst (titel + laatst bijgewerkt) met een knop voor een nieuw
   gesprek; een gesprek opent het chatscherm en blijft persistent in Firestore, inclusief een
-  door de assistent zelf verzonnen titel en verstuurde foto's (camera/galerij). Chat met de
-  backend's AI (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda,
-  Google Docs en windmetingen/-voorspellingen bij IJmuiden
-  (`robberts-assistent-backend/.../assistant/ai/`).
+  door de assistent zelf verzonnen titel en verstuurde foto's (camera/galerij). De lijst toont
+  eerst de 10 meest recente (niet-gearchiveerde) gesprekken, oudere onder een uitklapbare
+  "Ouder"-sectie; swipe-links (`flutter_slidable`) biedt archiveren en verwijderen (met
+  bevestiging), een AppBar-toggle toont ook gearchiveerde gesprekken. Chat met de backend's AI
+  (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda, Google Docs en
+  windmetingen/-voorspellingen bij IJmuiden (`robberts-assistent-backend/.../assistant/ai/`).
+- **Geheugen** (`lib/memory_screen.dart`, via "Meer") — lijst van geheugen-items (feiten/
+  voorkeuren over Robbert) die de assistent automatisch bijhoudt na elke chat-beurt en als
+  context gebruikt in latere gesprekken; hier zelf te bekijken, toevoegen, bewerken en
+  verwijderen.
 - **Updates** — toont voor alle drie de apps (wind, robberts_assistent, notities)
   de geïnstalleerde vs. laatste GitHub-Release-versie, met een bijwerk-knop per
   app (zie `lib/update_checker.dart`/`lib/updates_screen.dart`).

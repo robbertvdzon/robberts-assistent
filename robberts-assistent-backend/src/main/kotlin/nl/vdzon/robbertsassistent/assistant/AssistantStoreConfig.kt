@@ -43,4 +43,18 @@ class AssistantStoreConfig {
                 InMemoryPhotoStorage()
             }
     }
+
+    @Bean("assistantMemoryRepository")
+    fun memoryRepository(firebase: FirebaseProvider): MemoryRepository {
+        if (!firebase.isConfigured) {
+            logger.info("Assistent-geheugen opslag: in-memory (geen Firebase-config)")
+            return InMemoryMemoryRepository()
+        }
+        return runCatching { FirestoreMemoryRepository(firebase.firestore()) }
+            .onSuccess { logger.info("Assistent-geheugen opslag: Firestore") }
+            .getOrElse {
+                logger.error("Firestore-init (assistent-geheugen) faalde, val terug op in-memory", it)
+                InMemoryMemoryRepository()
+            }
+    }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'couplings_screen.dart';
+import 'memory_screen.dart';
 import 'nightly_checks_screen.dart';
 import 'updates_screen.dart';
 
@@ -30,6 +31,13 @@ class MoreScreen extends StatelessWidget {
             title: const Text('Nachtchecks'),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => NightlyChecksScreen(api: api)),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.psychology_outlined),
+            title: const Text('Geheugen'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => MemoryScreen(api: api)),
             ),
           ),
           ListTile(
