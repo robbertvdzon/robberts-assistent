@@ -61,3 +61,43 @@ Done / rationale (SF-1142):
 - Niet gedaan in deze subtaak: het "Automatisch bewerkbaar geheugen"-deel van de story
   (memory-endpoints, `memory_screen.dart`, "Geheugen" in `more_screen.dart`) is scope van de
   volgende subtaak SF-1143.
+
+## Test (tester, SF-1144 — story-brede test)
+
+- Backend `mvn test` (vanuit `robberts-assistent-backend/`) opnieuw gedraaid op de branch:
+  groen, 159 tests / 0 failures / 0 errors (start 2026-07-20T13:57:24Z, Maven "Total time:
+  21.982 s", eind 2026-07-20T13:57:47Z — consistent). `ModulithArchitectureTest` apart nogmaals
+  gedraaid: groen (1 test, 0 failures).
+- Frontend `robberts_assistent`: `flutter pub get` (geen ongewenste `pubspec.lock`-wijzigingen
+  achtergebleven), `flutter analyze` groen ("No issues found!"), `flutter test` groen (alle
+  bestanden, incl. `memory_screen_test.dart`, `conversations_screen_test.dart`, "All tests
+  passed!").
+- Handmatige/e2e-verificatie tegen de preview (`robberts-assistent-pr-11`, in-memory opslag,
+  `RA_MOCK_AI=true`), via directe API-calls (curl) en een Playwright-browserflow:
+  - Gesprekken aangemaakt via `POST /api/v1/assistant/chat`; `GET /api/v1/assistant/conversations`
+    zonder params geeft alle niet-gearchiveerde gesprekken (backward-compatible, AC2); met
+    `limit=10&offset=0` en `limit=10&offset=10` correcte paginering, gesorteerd op `updatedAt`
+    descending.
+  - `PATCH .../archive` en `.../unarchive`: 200 + correcte `archived`-flag; default-lijst sluit
+    gearchiveerd gesprek uit, `includeArchived=true` toont het weer; onbekend id → 404.
+  - `DELETE /api/v1/assistant/conversations/{id}`: 204, gesprek verdwijnt uit de lijst; onbekend
+    id → 404.
+  - Geheugen-CRUD (`GET/POST/PUT/DELETE /api/v1/assistant/memory(/{id})`): alle vier correct
+    (200/200/200/204), onbekend id bij DELETE → 404.
+  - AC8 (geheugen als context bij chat) expliciet aangetoond: geheugen-item aangemaakt, daarna
+    een nieuw chatbericht gestuurd — het mock-antwoord (dat de volledige prompt echoot) bevatte
+    `"Bekende context over Robbert (geheugen):\n- <item-tekst>\n\nVraag: ..."`, dus de
+    context-injectie werkt aantoonbaar, óók onder `RA_MOCK_AI` (conform de developer-toelichting
+    dat dit bewust altijd gebeurt, alleen de geheugen-*update*-AI-call wordt onder mock-AI
+    overgeslagen).
+  - Browser (Playwright/Chromium, preview-URL rechtstreeks, geen Google-login nodig): gesprekken-
+    lijst toont nieuwe gesprekken, archief-toggle-icoon in de AppBar toont/verbergt het
+    gearchiveerde gesprek (met archief-icoon-marker), "Meer" bevat "Geheugen", `memory_screen.dart`
+    toont het aangemaakte geheugen-item met verwijder-icoon en een toevoeg-FAB. Screenshots in
+    `screenshots/` (`02-conversations.png`, `03-conversations-archived-toggle.png`,
+    `04-more.png`, `05-memory.png`, plus `00-reload-home.png`).
+  - Alle tijdens het testen aangemaakte gesprekken/geheugen-items zijn na afloop weer via de API
+    verwijderd (opgeruimd, lijst leeg bevestigd).
+- Geen bugs gevonden. Alle 13 acceptatiecriteria uit de story zijn gedekt en gedragen zich zoals
+  gespecificeerd, zowel in geautomatiseerde tests als in handmatige/e2e-verificatie tegen de
+  preview.
