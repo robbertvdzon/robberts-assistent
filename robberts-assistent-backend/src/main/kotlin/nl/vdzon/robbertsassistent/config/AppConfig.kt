@@ -59,6 +59,12 @@ data class AppSecrets(
     // dit zelf in voor een Google ID-token en daarna voor een software-factory-sessie-token.
     val softwareFactoryGoogleClientSecret: String? = null,
     val softwareFactoryGoogleRefreshToken: String? = null,
+    // OpenShift-gezondheidscheck (nightly check + tool): leest de in-cluster ServiceAccount-token
+    // van de pod zelf (geen los secret nodig) om ClusterVersion/ClusterOperators te bevragen. Deze
+    // vlag is een expliciete "aan/uit"-schakelaar (in plaats van keyless-altijd-aan): de vereiste
+    // RBAC (ServiceAccount + ClusterRole) bestaat nog niet in de cluster (zie docs/nightly-checks.md)
+    // — zonder deze vlag blijft de koppeling op de stub staan i.p.v. steeds 403-fouten te loggen.
+    val openShiftHealthEnabled: Boolean = false,
 ) {
     /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
     val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
@@ -90,6 +96,7 @@ class AppSecretsLoader(
 
         val previewSkipGoogleAuth = optional("RA_PREVIEW_SKIP_GOOGLE_AUTH")?.lowercase() == "true"
         val mockAi = optional("RA_MOCK_AI")?.lowercase() == "true"
+        val openShiftHealthEnabled = optional("RA_OPENSHIFT_HEALTH_ENABLED")?.lowercase() == "true"
         return AppSecrets(
             rememberSecret = required("RA_REMEMBER_SECRET"),
             googleClientId = required("RA_GOOGLE_CLIENT_ID"),
@@ -114,6 +121,7 @@ class AppSecretsLoader(
             stravaRefreshToken = optional("RA_STRAVA_REFRESH_TOKEN"),
             softwareFactoryGoogleClientSecret = optional("RA_SOFTWAREFACTORY_CLIENT_SECRET"),
             softwareFactoryGoogleRefreshToken = optional("RA_SOFTWAREFACTORY_REFRESH_TOKEN"),
+            openShiftHealthEnabled = openShiftHealthEnabled,
         )
     }
 

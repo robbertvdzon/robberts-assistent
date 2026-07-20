@@ -14,6 +14,8 @@ import nl.vdzon.robbertsassistent.google.StubCalendarClient
 import nl.vdzon.robbertsassistent.news.NewsCouplingProbe
 import nl.vdzon.robbertsassistent.news.StubNewsClient
 import nl.vdzon.robbertsassistent.notifier.TelegramCouplingProbe
+import nl.vdzon.robbertsassistent.openshift.OpenShiftCouplingProbe
+import nl.vdzon.robbertsassistent.openshift.StubOpenShiftClient
 import nl.vdzon.robbertsassistent.push.FcmCouplingProbe
 import nl.vdzon.robbertsassistent.push.InMemoryFcmTokenStore
 import nl.vdzon.robbertsassistent.softwarefactory.SoftwareFactoryCouplingProbe
@@ -45,6 +47,7 @@ class CouplingsServiceTest {
                 AutomowerCouplingProbe(secrets, StubAutomowerClient()),
                 StravaCouplingProbe(secrets, StubStravaClient()),
                 SoftwareFactoryCouplingProbe(secrets, StubSoftwareFactoryClient()),
+                OpenShiftCouplingProbe(secrets, StubOpenShiftClient()),
                 WeatherCouplingProbe(StubWeatherClient()),
                 TideCouplingProbe(StubTideClient()),
                 AirQualityCouplingProbe(StubAirQualityClient()),
@@ -70,7 +73,7 @@ class CouplingsServiceTest {
         assertEquals(
             setOf(
                 "openai", "telegram", "firestore", "storage", "google", "fcm", "automower", "strava",
-                "softwarefactory",
+                "softwarefactory", "openshift",
             ) + keylessIds,
             statuses.map { it.id }.toSet(),
         )
@@ -100,6 +103,7 @@ class CouplingsServiceTest {
             stravaRefreshToken = "srefresh",
             softwareFactoryGoogleClientSecret = "sfsecret",
             softwareFactoryGoogleRefreshToken = "sfrefresh",
+            openShiftHealthEnabled = true,
         )
 
         val byId = service(configured).statuses().associateBy { it.id }
@@ -113,6 +117,7 @@ class CouplingsServiceTest {
         assertEquals("echt", byId.getValue("automower").mode)
         assertEquals("echt", byId.getValue("strava").mode)
         assertEquals("echt", byId.getValue("softwarefactory").mode)
+        assertEquals("echt", byId.getValue("openshift").mode)
         assertEquals(true, byId.values.all { it.configured })
     }
 

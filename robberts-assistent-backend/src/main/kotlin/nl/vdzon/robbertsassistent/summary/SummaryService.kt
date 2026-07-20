@@ -1,14 +1,18 @@
 package nl.vdzon.robbertsassistent.summary
 
+import nl.vdzon.robbertsassistent.nightlychecks.NightlyCheckStatus
+import nl.vdzon.robbertsassistent.nightlychecks.NightlyChecksService
 import org.springframework.stereotype.Service
 
 /**
- * Levert de dagelijkse samenvatting. Nu nog hardcoded dummy-data; wordt later per item
- * vervangen door een echte bron (windmeter-API, moestuin-checklist, backup-status, OpenShift-
- * health, zonnepanelen-monitoring).
+ * Levert de dagelijkse samenvatting. De "wind"/"moestuin"/"backups"/"zonnepanelen"-items zijn nog
+ * hardcoded dummy-data (worden later per stuk vervangen door een echte bron); de nightly-check-
+ * resultaten (zie [NightlyChecksService], bv. OpenShift-gezondheid) zijn al echt en verschijnen
+ * hier automatisch zodra er een nieuwe [nl.vdzon.robbertsassistent.nightlychecks.NightlyCheck]
+ * bijkomt — geen wijziging hier nodig.
  */
 @Service
-class SummaryService {
+class SummaryService(private val nightlyChecksService: NightlyChecksService) {
     fun current(): SummaryResponse = SummaryResponse(
         items = listOf(
             SummaryItem(
@@ -26,11 +30,7 @@ class SummaryService {
                 title = "Backups",
                 text = "Alle laptop-backups zijn gezond, laatste run vannacht geslaagd.",
             ),
-            SummaryItem(
-                key = "openshift",
-                title = "OpenShift",
-                text = "Cluster is gezond, alle deployments draaien.",
-            ),
+        ) + nightlyChecksService.list().map { it.toSummaryItem() } + listOf(
             SummaryItem(
                 key = "zonnepanelen",
                 title = "Zonnepanelen",
@@ -38,4 +38,10 @@ class SummaryService {
             ),
         ),
     )
+
+    private fun NightlyCheckStatus.toSummaryItem(): SummaryItem {
+        val text = lastRun?.let { run -> if (run.result.ok) run.result.summary else "⚠️ ${run.result.summary}" }
+            ?: "Nog niet gedraaid."
+        return SummaryItem(key = id, title = name, text = text)
+    }
 }
