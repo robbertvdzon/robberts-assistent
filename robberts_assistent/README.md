@@ -15,10 +15,10 @@ overgeslagen via `SKIP_GOOGLE_AUTH`, zie `docs/factory/deployment.md`).
   bevestiging), een AppBar-toggle toont ook gearchiveerde gesprekken. Chat met de backend's AI
   (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda, Google Docs en
   windmetingen/-voorspellingen bij IJmuiden (`robberts-assistent-backend/.../assistant/ai/`).
-- **Geheugen** (`lib/memory_screen.dart`, via "Meer") — lijst van geheugen-items (feiten/
-  voorkeuren over Robbert) die de assistent automatisch bijhoudt na elke chat-beurt en als
-  context gebruikt in latere gesprekken; hier zelf te bekijken, toevoegen, bewerken en
-  verwijderen.
+- **Geheugen** (`lib/memory_screen.dart`, via "Meer") — één groot bewerkbaar tekstveld met de
+  volledige geheugen-tekst (feiten/voorkeuren over Robbert) die de assistent automatisch
+  bijhoudt na elke chat-beurt en als context gebruikt in latere gesprekken; auto-save (zelfde
+  patroon als `notities/lib/notes_editor_screen.dart`).
 - **Updates** — toont voor alle drie de apps (wind, robberts_assistent, notities)
   de geïnstalleerde vs. laatste GitHub-Release-versie, met een bijwerk-knop per
   app (zie `lib/update_checker.dart`/`lib/updates_screen.dart`).
