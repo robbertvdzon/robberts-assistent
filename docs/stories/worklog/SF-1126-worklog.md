@@ -57,3 +57,32 @@ Done / rationale:
   nieuwe `test/home_screen_test.dart`), `flutter analyze` → geen issues. Bevestigt de
   testclaims uit het developer-worklog met echt bewijs.
 - Oordeel: akkoord, geen blockers.
+
+## Test-notities (SF-1128)
+
+- Flutter-SDK beschikbaar in de tester-sandbox (aarch64, `/opt/flutter/bin/flutter`, 3.44.6).
+  `flutter pub get` (geen wijziging in `pubspec.lock`), `flutter analyze` (geen issues) en
+  `flutter test` daadwerkelijk gedraaid: **11/11 tests groen**, incl. de nieuwe
+  `test/home_screen_test.dart` (2 tests: 4-tabs-telling + Meer-navigatie, en
+  lijst-items-in-Meer-navigeren) en de bestaande `test/widget_test.dart`. Ook los per bestand
+  bevestigd. Start/eind wall-clock gelogd via `date -u` rondom de runs (11:51:57–11:52:28 UTC).
+- Diff tegen acceptatiecriteria gecontroleerd: `home_screen.dart` heeft exact 4
+  `NavigationDestination`s (Samenvatting/Assistent/Herinneringen/Meer); nieuw `more_screen.dart`
+  met 3 `ListTile`s (Koppelingen/Nachtchecks/Updates) die via `Navigator.push` naar de
+  bestaande, ongewijzigde schermen gaan; `AppBar`-title heeft een `Row` met logo (28x28,
+  `assets/icon/icon.png`) + titeltekst; `pubspec.yaml` registreert het asset;
+  `web/manifest.json`-description bijgewerkt (was scaffold-placeholder).
+- Preview (`robberts-assistent-pr-10`, PR-10) live getest zonder Google-login
+  (`SKIP_GOOGLE_AUTH`): gedeployde `main.dart.js` bevat "Meer"/"Koppelingen" (curl-grep), en met
+  Playwright/Chromium (`ignoreHTTPSErrors: true`) screenshots gemaakt van: Samenvatting-tab
+  (4-tabs bottom-nav + header-logo zichtbaar), Meer-tab (3 lijst-items in juiste volgorde), en
+  Koppelingen geopend vanuit Meer (`Navigator.push`, terugknop werkt, bestaand scherm
+  ongewijzigd). Screenshots in `screenshots/` (home-4-tabs.png, more-screen.png,
+  koppelingen-from-meer.png, herinneringen-tab.png).
+- Opgemerkt: Meer-tab toont een dubbele AppBar (buitenste "Robbert's assistent" +
+  `MoreScreen`'s eigen "Meer"-balk, embedded in de `IndexedStack`, geen back-knop). Geverifieerd
+  dat dit een **bestaand patroon** is (o.a. `SchedulesScreen`/Herinneringen-tab toont ook al een
+  eigen geneste AppBar "Reminders & alarms" boven de hoofd-AppBar, ongewijzigd door deze story) —
+  dus geen regressie en geen bug, buiten scope van deze story.
+- Geen bugs gevonden. Alle acceptatiecriteria geverifieerd via code-review + groene testrun +
+  live preview-screenshots.
