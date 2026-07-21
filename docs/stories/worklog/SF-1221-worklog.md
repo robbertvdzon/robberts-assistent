@@ -35,3 +35,28 @@ Done / rationale:
 - `mvn test` in `robberts-assistent-backend/`: 241 tests, 0 failures, 0 errors, BUILD SUCCESS
   (incl. `ModulithArchitectureTest`).
 - Geen frontend-wijziging (`summary_screen.dart` rendert de sectie al generiek via `imageUrl`).
+
+---
+
+## Reviewronde (reviewer, SF-1221)
+
+- Volledige diff t.o.v. `main` bekeken (niet alleen deze subtaak): `BeachCycleSectionProvider.kt`,
+  `CoastMapImageBuilder.kt`, `WeatherMapSectionProvider.kt` + bijbehorende tests.
+- Bug uit de test-feedback (kader/tekst buiten het canvas bij 3+ getijmomenten) is correct
+  opgelost: `boxWidth` is nu begrensd op `width - 2*margin`, tekst wordt greedy over regels
+  verdeeld (`wrapTideLines`) i.p.v. het kader oneindig te verbreden. Nieuwe test dekt exact de
+  bug-repro (4 getijmomenten) via pixel-scans op de canvasranden.
+- Overige AC's (verticaal gestapelde pijlen links, Ochtend 07:00/Avond 19:00,
+  `BeachCycleSectionProvider.tideText()` zonder `laagwater om HH:MM`, stil-falende
+  `TideClient`-fout) waren al in SF-1220 correct geïmplementeerd en blijven ongewijzigd/correct.
+  `SlotAssessment.nearestLowTideAt` blijft bewust ongebruikt-maar-aanwezig, conform opdracht.
+- Alle call sites van `CoastMapImageBuilder.build(...)` (incl. `StubCoastMapImageBuilder`) zijn
+  consistent bijgewerkt naar de nieuwe signatuur; geen restanten van de oude 1-parameter-vorm.
+- Zelf gericht `mvn -o test` gedraaid op `CoastMapImageBuilderTest`, `WeatherMapSectionProviderTest`,
+  `BeachCycleSectionProviderTest` en `ModulithArchitectureTest` (via volledige testrun, surefire
+  filtert niet doorgezet): 241 tests, 0 failures, 0 errors, BUILD SUCCESS — bevestigt het
+  ontwikkelaarsbewijs.
+- Geen frontend-wijziging aangetroffen/nodig, conform scope.
+- Geen blokkerende bevindingen.
+
+{"phase":"reviewed"}
