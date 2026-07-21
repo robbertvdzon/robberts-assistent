@@ -5,7 +5,10 @@ import nl.vdzon.robbertsassistent.reminders.ReminderResponse
 import nl.vdzon.robbertsassistent.reminders.RemindersService
 import nl.vdzon.robbertsassistent.reminders.toResponse
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -20,11 +23,35 @@ class BriefingController(
     private val authService: AuthService,
     private val briefingService: BriefingService,
     private val remindersService: RemindersService,
+    private val weatherMapStorage: WeatherMapStorage,
 ) {
     @GetMapping("/api/v1/briefing")
     fun briefing(@RequestHeader("Authorization", required = false) authorization: String?): BriefingResponse {
         authService.requireAuthorization(authorization)
         return briefingService.current()
+    }
+
+    /**
+     * Bouwt de briefing live opnieuw op, overschrijft de cache (incl. de weerkaart-PNG's van
+     * [WeatherMapSectionProvider]) en geeft het verse resultaat terug. Zelfde auth als de gewone
+     * `GET /api/v1/briefing`.
+     */
+    @PostMapping("/api/v1/briefing/refresh")
+    fun refresh(@RequestHeader("Authorization", required = false) authorization: String?): BriefingResponse {
+        authService.requireAuthorization(authorization)
+        return briefingService.refresh()
+    }
+
+    /** Weerkaart-PNG voor het dagdeel `slot` (`ochtend`/`middag`), zie [WeatherMapSectionProvider]. */
+    @GetMapping("/api/v1/briefing/weather-map/{slot}")
+    fun weatherMap(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable slot: String,
+    ): ResponseEntity<ByteArray> {
+        authService.requireAuthorization(authorization)
+        val bytes = weatherMapStorage.load(slot)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Weerkaart niet gevonden")
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(bytes)
     }
 
     /**
