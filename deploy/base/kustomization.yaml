@@ -15,7 +15,7 @@ images:
   newTag: sha-3e951db
 - name: ghcr.io/robbertvdzon/robberts-assistent-backend
   newName: ghcr.io/robbertvdzon/robberts-assistent-backend
-  newTag: sha-2542df4
+  newTag: sha-156d926
 - name: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newName: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newTag: sha-2542df4
