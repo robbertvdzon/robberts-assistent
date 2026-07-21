@@ -191,13 +191,18 @@ class ApiClient {
   Future<void> saveMemoryText(String text) => putJson('/api/v1/assistant/memory', {'text': text});
 
   // -- Morgen-briefing ----------------------------------------------------------
-  /// De dagelijkse 'Morgen'-briefing (`GET /api/v1/briefing`): pluggable secties (kite/
-  /// strandfiets, agenda, weektaken, moestuin), zie backend `BriefingSectionProvider`.
-  Future<List<BriefingSection>> getBriefing() async {
+  /// De dagelijkse 'Morgen'-briefing (`GET /api/v1/briefing`): pluggable secties (weerkaart,
+  /// kite/strandfiets, agenda, weektaken, moestuin), zie backend `BriefingSectionProvider`. Levert
+  /// standaard de gecachete versie (zie `updatedAt`); zonder bestaande cache bouwt de backend live op.
+  Future<BriefingData> getBriefing() async {
     final body = await getJson('/api/v1/briefing');
-    return (body['sections'] as List? ?? [])
-        .map((e) => BriefingSection.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
+    return BriefingData.fromJson(body);
+  }
+
+  /// Bouwt de briefing live opnieuw op en overschrijft de cache (`POST /api/v1/briefing/refresh`).
+  Future<BriefingData> refreshBriefing() async {
+    final body = await postJson('/api/v1/briefing/refresh');
+    return BriefingData.fromJson(body);
   }
 
   /// Voert een generieke één-tap-actie uit die bij een briefing-item hoort (bv. "reminder
@@ -340,7 +345,22 @@ class Recurrence {
   }
 }
 
-/// Eén sectie van de 'Morgen'-briefing (kite/strandfiets, agenda, weektaken, moestuin, ...).
+/// De volledige 'Morgen'-briefing: de secties plus wanneer die data is opgehaald (gecachet of
+/// live), zodat het scherm "Bijgewerkt om ..." kan tonen.
+class BriefingData {
+  final List<BriefingSection> sections;
+  final DateTime updatedAt;
+  const BriefingData({required this.sections, required this.updatedAt});
+
+  static BriefingData fromJson(Map<String, dynamic> m) => BriefingData(
+        sections: (m['sections'] as List? ?? [])
+            .map((e) => BriefingSection.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+        updatedAt: DateTime.parse(m['updatedAt'] as String).toLocal(),
+      );
+}
+
+/// Eén sectie van de 'Morgen'-briefing (weerkaart, kite/strandfiets, agenda, weektaken, moestuin, ...).
 class BriefingSection {
   final String key;
   final String title;
@@ -358,15 +378,19 @@ class BriefingSection {
       );
 }
 
-/// Eén regel binnen een [BriefingSection] (bv. één afspraak), met een eventuele één-tap-actie.
+/// Eén regel binnen een [BriefingSection] (bv. één afspraak of een weerkaart-dagdeel), met een
+/// eventuele één-tap-actie en/of afbeelding (`imageUrl`, relatief pad — de app rendert dit als
+/// `Image.network` met auth-header i.p.v. platte tekst, zie `SummaryScreen`).
 class BriefingItem {
   final String text;
   final BriefingAction? action;
-  const BriefingItem({required this.text, this.action});
+  final String? imageUrl;
+  const BriefingItem({required this.text, this.action, this.imageUrl});
 
   static BriefingItem fromJson(Map<String, dynamic> m) => BriefingItem(
         text: m['text'] as String,
         action: m['action'] == null ? null : BriefingAction.fromJson(Map<String, dynamic>.from(m['action'] as Map)),
+        imageUrl: m['imageUrl'] as String?,
       );
 }
 

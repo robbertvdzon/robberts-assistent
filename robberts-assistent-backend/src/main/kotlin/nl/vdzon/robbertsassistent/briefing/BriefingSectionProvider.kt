@@ -14,6 +14,9 @@ data class BriefingSection(
 data class BriefingItem(
     val text: String,
     val action: BriefingAction? = null,
+    // Optionele afbeelding (bv. de weerkaart-sectie): de app rendert een item met imageUrl als
+    // afbeelding i.p.v. platte tekst. Bestaande secties zonder afbeelding blijven ongewijzigd.
+    val imageUrl: String? = null,
 )
 
 /**
@@ -26,7 +29,8 @@ data class BriefingAction(
     val payload: Map<String, String>,
 )
 
-data class BriefingResponse(val sections: List<BriefingSection>)
+/** [updatedAt] is een ISO-8601-tijdstip: wanneer deze data (gecachet of live) is opgebouwd. */
+data class BriefingResponse(val sections: List<BriefingSection>, val updatedAt: String)
 
 /**
  * SPI voor precies één briefingsectie (bv. kite/strandfiets, agenda, weektaken, moestuin). Elke
