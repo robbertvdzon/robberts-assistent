@@ -20,7 +20,7 @@ class BriefingScheduler(
     @Scheduled(cron = "0 0 18 * * *", zone = "Europe/Amsterdam")
     fun sendDailyPush() {
         val body = buildPushBody()
-        runCatching { pushService.sendToAll(TITLE, body) }
+        runCatching { pushService.sendToAll(TITLE, body, mapOf("type" to PUSH_TYPE)) }
             .onFailure { logger.warn("Morgen-briefing-push mislukt: {}", it.message) }
     }
 
@@ -33,7 +33,11 @@ class BriefingScheduler(
         return if (parts.isEmpty()) "Bekijk de briefing in de app." else "Morgen: " + parts.joinToString(", ")
     }
 
-    private companion object {
+    internal companion object {
         const val TITLE = "Morgen-briefing"
+
+        // Data-payload-waarde waarmee de app (FcmService) deze push herkent en bij het tikken
+        // ernaar toe naar het Samenvatting/Morgen-scherm navigeert i.p.v. alleen de melding te tonen.
+        const val PUSH_TYPE = "briefing"
     }
 }

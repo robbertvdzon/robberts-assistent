@@ -21,8 +21,13 @@ class PushService(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    /** Stuurt naar alle geregistreerde tokens; geeft terug naar hoeveel toestellen verstuurd is. */
-    fun sendToAll(title: String, body: String): Int {
+    /**
+     * Stuurt naar alle geregistreerde tokens; geeft terug naar hoeveel toestellen verstuurd is.
+     * [data] gaat als extra FCM-data-payload mee (naast `title`/`body`, bv. `"type" to "briefing"`)
+     * zodat de app bij het tikken op de melding kan bepalen welk scherm te openen (deep-link),
+     * zie `FcmService` in `robberts_assistent`.
+     */
+    fun sendToAll(title: String, body: String, data: Map<String, String> = emptyMap()): Int {
         if (!firebase.isConfigured) {
             logger.info("Push overgeslagen: Firebase niet geconfigureerd")
             return 0
@@ -54,6 +59,7 @@ class PushService(
                     )
                     .putData("title", title)
                     .putData("body", body)
+                    .putAllData(data)
                     .build()
                 messaging.send(message)
                 sent++

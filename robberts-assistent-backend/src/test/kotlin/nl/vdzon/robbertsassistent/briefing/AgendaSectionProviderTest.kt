@@ -61,6 +61,14 @@ class AgendaSectionProviderTest {
         val lines = section.text.lines()
         assertTrue(lines[0].contains("Tandarts") && lines[0].contains("✅"))
         assertTrue(lines[1].contains("Standup") && lines[1].contains("⚠️"))
+
+        assertEquals(2, section.items.size)
+        assertEquals(null, section.items[0].action) // Tandarts heeft al een reminder
+        val standupAction = section.items[1].action
+        assertTrue(standupAction != null)
+        assertEquals("/api/v1/briefing/agenda-reminder", standupAction!!.endpoint)
+        assertEquals("Standup", standupAction.payload["summary"])
+        assertEquals(eerder.start.toString(), standupAction.payload["startAt"])
     }
 
     @Test

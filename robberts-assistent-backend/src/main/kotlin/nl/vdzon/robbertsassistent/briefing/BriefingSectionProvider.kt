@@ -5,6 +5,25 @@ data class BriefingSection(
     val key: String,
     val title: String,
     val text: String,
+    // Optionele regel-items met een eventuele één-tap-actie (bv. per afspraak "reminder
+    // aanmaken"). Generiek gehouden (geen agenda-specifiek type) zodat elke sectie er gebruik van
+    // kan maken zonder wijziging in BriefingService/BriefingController.
+    val items: List<BriefingItem> = emptyList(),
+)
+
+data class BriefingItem(
+    val text: String,
+    val action: BriefingAction? = null,
+)
+
+/**
+ * Één-tap-actie bij een [BriefingItem] (bv. "reminder aanmaken"): de app doet een POST naar
+ * [endpoint] met [payload] als JSON-body — geen client-kennis van de betekenis nodig.
+ */
+data class BriefingAction(
+    val label: String,
+    val endpoint: String,
+    val payload: Map<String, String>,
 )
 
 data class BriefingResponse(val sections: List<BriefingSection>)

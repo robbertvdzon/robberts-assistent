@@ -122,3 +122,75 @@ Niet gedaan / aangepast:
   groen, bevestigd.
 - Frontend (Morgen-scherm/deep-link) terecht buiten scope: dat is SF-1166.
 - Geen bugs/regressies gevonden binnen deze subtaak-scope. Akkoord.
+
+## SF-1166 (developer) — Frontend: Morgen-scherm + FCM-deep-link
+
+Stappenplan:
+[x]: issue + relevante backend-code (briefing-module, SF-1165) lezen
+[x]: bestaande Samenvatting-tab ombouwen naar het Morgen-scherm (4 secties)
+[x]: FCM-tap-deep-link naar de Morgen-tab implementeren
+[x]: per-afspraak reminder-actie in de agenda-sectie werkend maken
+[x]: flutter test + flutter analyze draaien
+[x]: worklog bijwerken
+
+Gedaan / rationale:
+- **Backend (kleine, noodzakelijke uitbreiding op SF-1165)**: de bestaande `BriefingSection`
+  had alleen een platte `text`-string per sectie — onvoldoende om de AC "per afspraak zonder
+  reminder een werkende één-tap-actie" op te bouwen (de app kan geen betrouwbare `startAt`/
+  `summary` uit opgemaakte tekst parsen). `BriefingSectionProvider.kt` kreeg daarom een generieke,
+  niet-agenda-specifieke uitbreiding: `BriefingSection.items: List<BriefingItem>` (regel-tekst +
+  optionele `BriefingAction`), en `BriefingAction(label, endpoint, payload)` — de app kent de
+  betekenis van een actie niet, doet gewoon een POST naar `endpoint` met `payload`. Dit blijft
+  binnen het bestaande pluggable-SPI-patroon (geen wijziging in `BriefingService`/
+  `BriefingController` nodig) en is generiek genoeg voor toekomstige secties (story 2/2).
+  `AgendaSectionProvider.section()` vult nu `items` met per afspraak een `BriefingAction` naar
+  het al bestaande `POST /api/v1/briefing/agenda-reminder` (alleen als er nog geen reminder
+  staat) — geen nieuw endpoint nodig, wel een uitbreiding van `AgendaSectionProviderTest`.
+- **Backend**: `PushService.sendToAll` kreeg een optionele `data: Map<String, String>`-parameter
+  (default leeg, dus alle bestaande call-sites ongewijzigd) die als extra FCM-data-payload
+  meegaat. `BriefingScheduler` stuurt nu `"type" to "briefing"` mee zodat de app bij een tik op de
+  melding kan onderscheiden of het de Morgen-briefing-push is (i.p.v. bv. een reminder-push, die
+  geen `type` meestuurt) — zonder dit was er geen manier voor de app om deep-link-gedrag te
+  beperken tot precies deze pushsoort.
+- **Frontend — Morgen-scherm**: `summary_screen.dart` (klasse-naam `SummaryScreen` ongewijzigd
+  gelaten, vult nu de bestaande tab) haalt `GET /api/v1/briefing` op (`ApiClient.getBriefing()`,
+  nieuwe modellen `BriefingSection`/`BriefingItem`/`BriefingAction` in `api_client.dart`) en toont
+  per sectie een kaart met titel + óf de platte tekst (secties zonder `items`, bv. kite/weektaken/
+  moestuin) óf een regel per item met — indien aanwezig — een actieknop
+  (`ApiClient.runBriefingAction`, generieke `POST` naar `action.endpoint`/`action.payload`, geen
+  agenda-specifieke kennis in de app). Na een geslaagde actie wordt de briefing herladen (de
+  aangemaakte reminder verdwijnt daarmee direct uit "nog geen reminder"-status). Tab-label in
+  `home_screen.dart` hernoemd van "Samenvatting" naar "Morgen" (geen nieuwe/7e tab, zoals de
+  story vereist).
+- **Frontend — FCM-deep-link**: `fcm_service.dart` kreeg `FcmService.deepLinkTab`
+  (`ValueNotifier<int?>`), gezet op de Morgen-tab-index zodra een binnenkomende/geopende melding
+  `data['type'] == 'briefing'` heeft (`FirebaseMessaging.onMessageOpenedApp` voor een tik terwijl
+  de app op de achtergrond staat, `messaging.getInitialMessage()` voor een koude start via de
+  melding). `HomeScreen` luistert op deze notifier (`initState`/`dispose`) en schakelt de
+  zichtbare tab om zodra 'ie een waarde krijgt, en zet 'm meteen terug op `null` (idempotent, geen
+  dubbele navigatie bij een rebuild).
+- Tests: `test/summary_screen_test.dart` (nieuw) dekt sectie-rendering, de actieknop-flow
+  (tonen/niet-tonen, tikken roept `runBriefingAction` aan) en een foutmelding bij een mislukte
+  load. `test/home_screen_test.dart` uitgebreid met een test die `FcmService.deepLinkTab` zet en
+  verifieert dat de Morgen-tab (index 0, `SummaryScreen`) verschijnt; het label-`Samenvatting`-
+  assertion aangepast naar `Morgen`. Backend: `AgendaSectionProviderTest` uitgebreid met
+  assertions op `section.items`/`BriefingAction`-payload.
+- `flutter analyze` (robberts_assistent): geen issues. `flutter test` (robberts_assistent): alle
+  tests groen (23, 0 failures). Backend `mvn test`: 196 tests, 0 failures, 0 errors (ongewijzigd
+  aantal t.o.v. SF-1165 — de uitbreiding zit in bestaande testklassen, geen nieuwe testmethode
+  toegevoegd, wel nieuwe assertions).
+
+Niet gedaan / aangepast:
+- Geen nieuw REST-endpoint voor structured agenda-items: gekozen voor een generieke
+  `items`/`action`-uitbreiding op de bestaande `BriefingSection`-DTO (één `GET /api/v1/briefing`-
+  call blijft voldoende voor het hele scherm) i.p.v. een aparte
+  `GET /api/v1/briefing/agenda-items`. Functioneel gelijkwaardig, minder round-trips, en generiek
+  herbruikbaar voor toekomstige secties (story 2/2) i.p.v. agenda-specifiek.
+- `PushService.sendToAll`'s nieuwe `data`-parameter is niet apart met een dedicated
+  `PushServiceTest` gedekt (die klasse had nog geen test) — het no-op-gedrag zonder Firebase blijft
+  gedekt via `BriefingSchedulerTest`/`ReminderSchedulerTest`; de daadwerkelijke FCM-`Message`-
+  payload (incl. `data`) vereist een Firebase-mock die nergens anders in de repo bestaat, en is
+  buiten scope gehouden om geen nieuwe test-infrastructuur te introduceren voor één regel.
+  `Message.Builder.putAllData` is standaard Firebase-Admin-SDK-gedrag.
+- FCM-web (deep-link bij een tik in de webversie) blijft buiten scope: `FcmService.setup` doet nu
+  al niets op web (`kIsWeb`-check), zoals vóór deze story.

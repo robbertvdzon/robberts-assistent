@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:robberts_assistent/api_client.dart';
 import 'package:robberts_assistent/conversations_screen.dart';
 import 'package:robberts_assistent/couplings_screen.dart';
+import 'package:robberts_assistent/fcm_service.dart';
 import 'package:robberts_assistent/home_screen.dart';
 import 'package:robberts_assistent/memory_screen.dart';
 import 'package:robberts_assistent/more_screen.dart';
@@ -58,7 +59,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(NavigationDestination), findsNWidgets(4));
-    expect(find.text('Samenvatting'), findsOneWidget);
+    expect(find.text('Morgen'), findsOneWidget);
     expect(find.text('Assistent'), findsOneWidget);
     expect(find.text('Herinneringen'), findsOneWidget);
     expect(find.text('Meer'), findsOneWidget);
@@ -85,6 +86,24 @@ void main() {
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
     expect(find.byType(ConversationsScreen), findsOneWidget);
     expect(find.byType(SummaryScreen), findsNothing);
+  });
+
+  testWidgets('tik op de Morgen-briefing-push (FcmService.deepLinkTab) schakelt naar de Morgen-tab', (
+    tester,
+  ) async {
+    addTearDown(() => FcmService.deepLinkTab.value = null);
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
+    );
+    await tester.pump();
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 1);
+
+    FcmService.deepLinkTab.value = 0;
+    await tester.pump();
+
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 0);
+    expect(find.byType(SummaryScreen), findsOneWidget);
+    expect(FcmService.deepLinkTab.value, null);
   });
 
   testWidgets('lijst-items in Meer navigeren naar het bijbehorende scherm', (tester) async {

@@ -38,11 +38,24 @@ class AgendaSectionProvider(
         }
         val reminders = remindersService.list()
         val formatter = DateTimeFormatter.ofPattern("EEE d MMM HH:mm").withZone(ZONE)
-        val text = events.joinToString("\n") { event ->
-            val status = if (hasReminderFor(event, reminders)) "✅ reminder staat" else "⚠️ nog geen reminder"
-            "${formatter.format(event.start)} — ${event.summary} ($status)"
+        val items = events.map { event ->
+            val hasReminder = hasReminderFor(event, reminders)
+            val status = if (hasReminder) "✅ reminder staat" else "⚠️ nog geen reminder"
+            BriefingItem(
+                text = "${formatter.format(event.start)} — ${event.summary} ($status)",
+                action = if (hasReminder) {
+                    null
+                } else {
+                    BriefingAction(
+                        label = "Reminder 1 uur van tevoren aanmaken",
+                        endpoint = "/api/v1/briefing/agenda-reminder",
+                        payload = mapOf("summary" to event.summary, "startAt" to event.start.toString()),
+                    )
+                },
+            )
         }
-        return BriefingSection(key = "agenda", title = "Agenda (7 dagen)", text = text)
+        val text = items.joinToString("\n") { it.text }
+        return BriefingSection(key = "agenda", title = "Agenda (7 dagen)", text = text, items = items)
     }
 
     override fun shortSummary(): String {
