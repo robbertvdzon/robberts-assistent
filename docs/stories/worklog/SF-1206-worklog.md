@@ -41,3 +41,20 @@ Done / rationale:
 - Volledig vangnet gedraaid: `mvn test` vanuit `robberts-assistent-backend/` — exit code 0, alle
   tests (incl. `ModulithArchitectureTest`) groen. Geen frontend-wijziging nodig (app rendert
   `imageUrl` al generiek per `BriefingItem`, zoals in de story-aannames vermeld).
+
+## Testnotities (SF-1208, tester)
+
+- `mvn test` (start 2026-07-21T17:02:26Z, eind 2026-07-21T17:02:52Z, Maven "Total time: 23.855 s"):
+  237 tests, 0 failures, 0 errors, BUILD SUCCESS — incl. `ModulithArchitectureTest`,
+  `CoastMapImageBuilderTest`, `WeatherMapSectionProviderTest`, `WeatherMapStorageTest`.
+  `git status` bleef schoon (geen ongewenste wijzigingen door de testrun).
+- Preview `robberts-assistent-pr-19`: `GET /api/v1/briefing` (via de frontend-nginx-proxy, want de
+  backend-route zelf is niet publiek bereikbaar) levert exact één `BriefingItem` in de
+  `weather-map`-sectie, met `imageUrl = "/api/v1/briefing/weather-map/morgen"`.
+  `GET .../weather-map/morgen` → 200, PNG. `GET .../weather-map/ochtend` en `.../middag` → 404
+  (oude sleutels correct vervallen).
+  Screenshot van het PNG (`screenshots/weathermap-morgen.png`) toont: één kaartbeeld met een
+  oranje pijl (Ochtend, 10 kn) en een blauwe pijl (Middag, 13 kn), elk met een écht getekend
+  weer-icoon (bewolkt-icoon, geen emoji/tekst) erboven, en een legenda linksboven die
+  oranje/blauw aan Ochtend/Middag koppelt — voldoet aan alle acceptatiecriteria.
+- Conclusie: alle acceptatiecriteria uit de story geverifieerd, groen. `tested`.
