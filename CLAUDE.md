@@ -11,7 +11,7 @@ Taal in code-commentaar, docs, commits en UI: **Nederlands**.
 ## 1. Wat is dit?
 
 Een backend die via skills allerlei taken doet (notities, wind/kite-check, reminders met
-alarm, moestuin-foto-chat, dagelijkse samenvatting) en die door apps + een AI-agent
+alarm, moestuin-foto-chat, dagelijkse Morgen-briefing) en die door apps + een AI-agent
 aangesproken wordt. De AI-agent (OpenAI via Spring AI, met `@Tool`-functies) is tegelijk
 de belangrijkste **test-harness**: bijna elke skill is als tool aan de agent gehangen, dus
 je test een hele keten met één zin ("zet een reminder over 10 min", "wanneer moet ik naar
@@ -31,7 +31,7 @@ Mono-repo. GitHub Actions-workflows triggeren op hun eigen subfolder.
 ```
 robberts-assistent/
 ├── robberts-assistent-backend/   ← Kotlin/Spring Boot/Spring Modulith backend
-├── robberts_assistent/           ← Flutter app: dagelijkse samenvatting + chat-assistent (web + APK)
+├── robberts_assistent/           ← Flutter app: dagelijkse Morgen-briefing + chat-assistent (web + APK)
 ├── groentetuin/                  ← Flutter app: moestuin-AI-chat (web op moestuin.vdzonsoftware.nl + APK)
 ├── notities/                     ← Flutter app: één auto-opslaande notitie (APK)
 ├── wind/                         ← Flutter/native PoC: "Hey Google" App Actions → wind-antwoord (APK)
@@ -60,7 +60,8 @@ robberts-assistent/
   (moestuin-foto's in map `moestuin/`, assistent-gespreksfoto's in map `assistent-chat/`, bucket
   `tuinbewatering.firebasestorage.app`). Geen SQL-database meer (Neon opgezegd).
 - **Auth:** Google-login → eigen HMAC-sessie-token (allowlist `robbert@vdzon.com`).
-- **Push:** Telegram (uitgaand) + FCM (gepland, app-kant nog te bouwen).
+- **Push:** Telegram (uitgaand) + FCM (`push`-module + app-kant, beide gebouwd — reminders/alarms
+  en de dagelijkse Morgen-briefing gebruiken 'm).
 - **Deploy:** OpenShift single-node thuis, **GitOps via ArgoCD**, images op `ghcr.io`,
   externe toegang via **Cloudflare Tunnel**, secrets via **Sealed Secrets**.
 
@@ -78,12 +79,13 @@ fallback (zie §5).
 | `auth` | Google ID-token verifiëren → HMAC-sessie-token; `requireAuthorization()` gate. |
 | `health` | `/healthz` (open) + `/api/v1/ping` (auth, testendpoint). |
 | `notes` | Eén notitie-string in Firestore (document `notes/note`). |
-| `summary` | Dagelijkse samenvatting. |
+| `summary` | Oorspronkelijke dagelijkse samenvatting (`GET /api/v1/summary`, incl. nightly-check-resultaten). Sinds de Morgen-briefing (SF-1163, zie `briefing` hieronder) is dit endpoint niet meer aangesloten op een app-scherm — `robberts_assistent` haalt de "Morgen"-tab nu bij `briefing`. Nog niet opgeruimd/vervangen; behouden voor mogelijk hergebruik/opruiming in een latere story. |
+| `briefing` | Dagelijkse **Morgen-briefing**: `BriefingSectionProvider`-SPI (net als `CouplingProbe`/`NightlyCheck` injecteert Spring automatisch `List<BriefingSectionProvider>`; een nieuwe sectie toevoegen raakt `BriefingService` niet) en `BriefingController` (`GET /api/v1/briefing`, auth, plus `POST /api/v1/briefing/agenda-reminder` voor de één-tap-reminder-actie). Vier secties (oplopend `order`): `KiteSectionProvider` (kite-/strandfietskans voor morgen: aanlandige wind in kn/richting via `weather.WindForecastClient`, neerslag, laagwater via `tides`, werkdag/feestdag/vakantie-onderscheid, 🟢/🟡/🔴), `AgendaSectionProvider` (afspraken komende 7 dagen, alle agenda's via `CalendarClient.eventsInRange`, reminder-status per afspraak — deterministische tijd-heuristiek i.p.v. een AI-call, zie klasse-KDoc — met `BriefingAction` om een ontbrekende reminder ~1u vooraf aan te maken), `WeekTasksSectionProvider` (AI-samenvatting van reminders + notitie via een eigen `weekTasksChatClient`, `briefing.BriefingAiConfig`, stil-falende fallback), `GardenPlaceholderSectionProvider` (dummy-regel, zelfde stijl als `SummaryService`). `Holidays`: algoritmische NL-feestdagberekening (Meeus/Jones/Butcher-Paasformule + afgeleiden), geen externe koppeling of hardcoded jaarlijkse lijst. `BriefingScheduler`: `@Scheduled(cron = "0 0 18 * * *", zone = "Europe/Amsterdam")` bouwt een korte pushtekst uit elke sectie's optionele `shortSummary()` en verstuurt via `PushService.sendToAll` (`data["type"] = "briefing"` voor de app-deep-link). |
 | `assistant` | Chat-assistent met persistente **gesprekken**: multi-turn, foto's (vision), zelf-verzonnen titel; conversaties in Firestore (`assistant-conversations`, `Conversation`/`FirestoreConversationRepository`, in-memory fallback), foto's via `PhotoStorage`/`FirebaseStoragePhotoStorage` (zelfde patroon als `gardenchat`). Gesprekken zijn te **archiveren/de-archiveren** (`archived`-veld, reversibel) en te **verwijderen** (hard delete incl. best-effort foto-opruiming); `ConversationRepository.listAll()` filtert/pagineert (`includeArchived`, `limit`, `offset`, gesorteerd op `updatedAt` descending). Daarnaast een gebruiker-breed, automatisch bijgewerkt **geheugen**: `MemoryRepository` (`current()`/`update(text)`, Firestore-collectie `assistant-memory` met één tekst-document, in-memory fallback) — één vrije-tekst-string in plaats van losse items. Na elke chat-beurt herschrijft een losse, stil falende AI-aanroep (`memoryChatClient`) de volledige geheugen-tekst op basis van de huidige tekst + de laatste uitwisseling; die tekst gaat als contextprefix mee in elke volgende chat-aanroep. Onder `RA_MOCK_AI` wordt de geheugen-update overgeslagen (deterministisch). `assistant/ai/`: `AiConfig` (ChatClients + model-keuze, incl. `memoryChatClient`), tools (`NotesTools`, `WindTools`, `WeatherTools`, `TideTools`, `AirQualityTools`, `NewsTools`, `WasteTools`, `AutomowerTools`, `StravaTools`, `SoftwareFactoryTools`, `OpenShiftTools`, `ReminderTools`, `CalendarTools`, `DocsTools`), `MockChatModel`. |
 | `reminders` | Reminder-model + repository-port (Firestore/in-memory), REST-controller, `@Scheduled ReminderScheduler` (due → `Notifier`). |
 | `gardenchat` | Moestuin-AI-chat: multipart (tekst + foto's) → vision-AI; conversaties in Firestore, foto's in Firebase Storage; multi-turn. |
 | `google` | `CalendarClient` + `DocsClient` (echt via OAuth refresh-token, of stubs) + `GoogleOAuthService`. |
-| `weather` | `WeatherClient`: regen-/weersvoorspelling bij de moestuin (Luttik Cie 12, Heemskerk) via Open-Meteo (keyless, altijd echt); `StubWeatherClient` alleen voor tests. |
+| `weather` | `WeatherClient`: regen-/weersvoorspelling bij de moestuin (Luttik Cie 12, Heemskerk) via Open-Meteo (keyless, altijd echt); `StubWeatherClient` alleen voor tests. Plus `WindForecastClient`/`OpenMeteoWindForecastClient`: gestructureerde windvoorspelling (kn + graden) bij Wijk aan Zee voor de kite-sectie van `briefing` (i.p.v. de platte AI-tekst van `WindTools`); `StubWindForecastClient` voor tests, `WindForecastCouplingProbe` op het Koppelingen-scherm. |
 | `tides` | `TideClient`: getijvoorspelling (hoog-/laagwater, waterhoogte) bij IJmuiden buitenhaven via RWS WaterWebservices (keyless, altijd echt); `StubTideClient` alleen voor tests. |
 | `airquality` | `AirQualityClient`: luchtkwaliteit/UV-index/pollen bij de moestuin via Open-Meteo Air-Quality-API (keyless, altijd echt); `StubAirQualityClient` alleen voor tests. |
 | `news` | `NewsClient`: laatste nieuwskoppen via RSS (standaard NOS Algemeen, keyless, altijd echt); `StubNewsClient` alleen voor tests. |
@@ -94,8 +96,9 @@ fallback (zie §5).
 | `openshift` | `OpenShiftClient`: clustergezondheid (ClusterVersion/ClusterOperators) via de in-cluster ServiceAccount-token van de pod zelf (geen los secret — wel de expliciete vlag `RA_OPENSHIFT_HEALTH_ENABLED`, want de benodigde RBAC bestaat nog niet, zie `docs/nightly-checks.md`); `StubOpenShiftClient` anders. |
 | `firebase` | `FirebaseProvider`: gedeelde FirebaseApp → named Firestore-db + Storage-bucket. |
 | `notifier` | `Notifier`-port; `TelegramNotifier` (echt) of `LoggingNotifier` (fallback). |
+| `push` | `PushService.sendToAll(title, body, data)`: FCM-push naar alle geregistreerde tokens (`FcmTokenStore`), no-op zonder Firebase/tokens; `data` gaat als extra FCM-data-payload mee (bv. `"type" to "briefing"`) zodat de app op basis daarvan kan deep-linken. `PushController` (token-registratie), `FcmCouplingProbe`. |
 | `couplings` | `CouplingProbe`-SPI + `CouplingsService`: elke module registreert een `@Component` die `CouplingProbe` implementeert (id/naam/omschrijving/configured/mode/test); Spring injecteert automatisch `List<CouplingProbe>`. Voedt het "Koppelingen"-scherm in de app — een nieuwe koppeling toevoegen betekent alleen een nieuwe `CouplingProbe`-implementatie in de eigen module, geen wijziging hier of in de app. |
-| `nightlychecks` | `NightlyCheck`-SPI + `NightlyCheckScheduler`/`NightlyChecksService`: net als `couplings`, maar voor achtergrondchecks — elke module registreert een `@Component` met een eigen cron-schema; resultaten (met historie) in Firestore/in-memory. Voedt de "Nachtchecks"-tab in de app + de dagelijkse samenvatting. Zie `docs/nightly-checks.md`. |
+| `nightlychecks` | `NightlyCheck`-SPI + `NightlyCheckScheduler`/`NightlyChecksService`: net als `couplings`, maar voor achtergrondchecks — elke module registreert een `@Component` met een eigen cron-schema; resultaten (met historie) in Firestore/in-memory. Voedt de "Nachtchecks"-tab in de app + `summary.SummaryService` (dat endpoint heeft sinds de Morgen-briefing (SF-1163) geen app-consument meer, zie de `summary`-rij hieronder — een systeem-checkrapport-sectie in de Morgen-briefing is aangekondigd voor story 2/2). Zie `docs/nightly-checks.md`. |
 
 Twee `ChatClient`-beans: `assistantChatClient` (`@Primary`, met tools) en `gardenChatClient`
 (`@Qualifier`, vision, eigen system-prompt).
@@ -129,9 +132,14 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
 
 ## 6. Apps
 
-- **`robberts_assistent/`** — dagelijkse samenvatting + chat-assistent met persistente,
-  benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij, net als
-  `groentetuin`). In `conversations_screen.dart`: de eerste 10 (niet-gearchiveerde) gesprekken
+- **`robberts_assistent/`** — eerste tab is nu **"Morgen"** (`summary_screen.dart`, was
+  "Samenvatting"): dagelijkse briefing met de 4 secties van `briefing` (kite/strandfiets, agenda
+  komende 7 dagen met per-afspraak een reminder-aanmaak-actie waar nodig, AI-weektakensamenvatting,
+  moestuin-placeholder), opgehaald via `ApiClient.getBriefing()` (`GET /api/v1/briefing`). Een tik
+  op de dagelijkse 18:00-FCM-push (`data['type'] == 'briefing'`) opent deze tab automatisch
+  (`FcmService.deepLinkTab`, afgehandeld in `home_screen.dart`). Daarnaast: chat-assistent met
+  persistente, benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij, net
+  als `groentetuin`). In `conversations_screen.dart`: de eerste 10 (niet-gearchiveerde) gesprekken
   direct zichtbaar, oudere onder een uitklapbare "Ouder"-sectie; swipe-links (`flutter_slidable`)
   toont Archiveren/Verwijderen (verwijderen met bevestigingsdialoog); een AppBar-toggle laat
   gearchiveerde gesprekken alsnog zien. Plus Koppelingen-, Nachtchecks- en **Geheugen**-schermen
@@ -234,6 +242,23 @@ en een **native wekker** — een échte alarm-ervaring i.p.v. alleen een notific
 nodig, overleeft Doze), `AlarmReceiver` → `AlarmService` (foreground-service, loopende alarm-ringtoon +
 trillen) toont een full-screen `AlarmActivity` over het lockscreen met **Sluit** en **Snooze**;
 `BootReceiver` herplant na reboot (persistentie in SharedPreferences).
+
+Nieuw (SF-1163, story 1 van 2): dagelijkse **Morgen-briefing**. Nieuwe `briefing`-module met een
+pluggable `BriefingSectionProvider`-SPI (zelfde stijl als `CouplingProbe`/`NightlyCheck` — een
+nieuwe sectie toevoegen raakt `BriefingService` niet, klaar voor story 2/2's aangekondigde
+systeem-checkrapport-sectie), vier secties (kite-/strandfietskans voor morgen incl. wind in kn via
+een nieuwe gestructureerde windbron (`weather.WindForecastClient`, i.p.v. de AI-tekst van
+`WindTools`), agenda komende 7 dagen over alle agenda's met per-afspraak reminder-status en een
+één-tap-aanmaak-actie, AI-weektakensamenvatting, moestuin-placeholder), een algoritmische
+NL-feestdagenberekening (`Holidays`, geen externe koppeling/hardcoded lijst) en een dagelijkse
+18:00 (Europe/Amsterdam) `@Scheduled`-job die via de bestaande `PushService` een korte
+samenvattingspush stuurt. `CalendarClient` kreeg `eventsInRange` (7-dagen-tijdvenster,
+multi-agenda) en behoudt nu het "hele dag"-kenmerk van events (voorheen verloren in de parsing) —
+nodig voor vakantiedetectie. App-kant: de bestaande "Samenvatting"-tab in `robberts_assistent` is
+hernoemd/ingevuld tot **"Morgen"** (geen nieuwe/7e tab); een tik op de briefing-push opent 'm via
+een nieuwe deep-link (`FcmService.deepLinkTab`, FCM-`data['type'] == 'briefing'`) — hiervoor kreeg
+`PushService.sendToAll` een optionele `data`-parameter. Het oude `GET /api/v1/summary`-endpoint
+(`summary`-module) heeft hierdoor geen app-consument meer (zie §4).
 
 ---
 

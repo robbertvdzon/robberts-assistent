@@ -190,6 +190,21 @@ class ApiClient {
   /// Slaat de volledige geheugen-tekst op (`PUT /api/v1/assistant/memory`).
   Future<void> saveMemoryText(String text) => putJson('/api/v1/assistant/memory', {'text': text});
 
+  // -- Morgen-briefing ----------------------------------------------------------
+  /// De dagelijkse 'Morgen'-briefing (`GET /api/v1/briefing`): pluggable secties (kite/
+  /// strandfiets, agenda, weektaken, moestuin), zie backend `BriefingSectionProvider`.
+  Future<List<BriefingSection>> getBriefing() async {
+    final body = await getJson('/api/v1/briefing');
+    return (body['sections'] as List? ?? [])
+        .map((e) => BriefingSection.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  /// Voert een generieke één-tap-actie uit die bij een briefing-item hoort (bv. "reminder
+  /// aanmaken" bij een afspraak zonder reminder) — de app kent de betekenis van het endpoint niet,
+  /// stuurt gewoon de door de backend meegegeven `endpoint`/`payload` door.
+  Future<void> runBriefingAction(BriefingAction action) => postJson(action.endpoint, action.payload);
+
   // -- Reminders --------------------------------------------------------------
   Future<List<Reminder>> listReminders() async {
     final body = await getJson('/api/v1/reminders');
@@ -323,6 +338,51 @@ class Recurrence {
     const nl = {'DAYS': 'dag', 'WEEKS': 'week', 'MONTHS': 'maand', 'YEARS': 'jaar'};
     return 'elke $interval ${nl[unit] ?? unit.toLowerCase()}';
   }
+}
+
+/// Eén sectie van de 'Morgen'-briefing (kite/strandfiets, agenda, weektaken, moestuin, ...).
+class BriefingSection {
+  final String key;
+  final String title;
+  final String text;
+  final List<BriefingItem> items;
+  const BriefingSection({required this.key, required this.title, required this.text, required this.items});
+
+  static BriefingSection fromJson(Map<String, dynamic> m) => BriefingSection(
+        key: m['key'] as String,
+        title: m['title'] as String,
+        text: m['text'] as String,
+        items: (m['items'] as List? ?? [])
+            .map((e) => BriefingItem.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+      );
+}
+
+/// Eén regel binnen een [BriefingSection] (bv. één afspraak), met een eventuele één-tap-actie.
+class BriefingItem {
+  final String text;
+  final BriefingAction? action;
+  const BriefingItem({required this.text, this.action});
+
+  static BriefingItem fromJson(Map<String, dynamic> m) => BriefingItem(
+        text: m['text'] as String,
+        action: m['action'] == null ? null : BriefingAction.fromJson(Map<String, dynamic>.from(m['action'] as Map)),
+      );
+}
+
+/// Generieke één-tap-actie bij een briefing-item (bv. "reminder aanmaken"): de app kent de
+/// betekenis niet, stuurt gewoon een POST naar [endpoint] met [payload] (zie `ApiClient.runBriefingAction`).
+class BriefingAction {
+  final String label;
+  final String endpoint;
+  final Map<String, String> payload;
+  const BriefingAction({required this.label, required this.endpoint, required this.payload});
+
+  static BriefingAction fromJson(Map<String, dynamic> m) => BriefingAction(
+        label: m['label'] as String,
+        endpoint: m['endpoint'] as String,
+        payload: Map<String, String>.from(m['payload'] as Map? ?? {}),
+      );
 }
 
 class Reminder {

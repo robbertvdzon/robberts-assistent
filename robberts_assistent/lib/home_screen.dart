@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'conversations_screen.dart';
+import 'fcm_service.dart';
 import 'more_screen.dart';
 import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
@@ -32,6 +33,22 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) maybePromptSelfUpdate(context);
       });
     }
+    // Tik op de dagelijkse Morgen-briefing-push (of koude start via die push) → deze tab tonen.
+    FcmService.deepLinkTab.addListener(_onDeepLinkTab);
+    _onDeepLinkTab();
+  }
+
+  @override
+  void dispose() {
+    FcmService.deepLinkTab.removeListener(_onDeepLinkTab);
+    super.dispose();
+  }
+
+  void _onDeepLinkTab() {
+    final tab = FcmService.deepLinkTab.value;
+    if (tab == null) return;
+    FcmService.deepLinkTab.value = null;
+    if (mounted) setState(() => _tab = tab);
   }
 
   @override
@@ -67,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _tab,
         onDestinationSelected: (index) => setState(() => _tab = index),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Samenvatting'),
+          NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Morgen'),
           NavigationDestination(icon: Icon(Icons.assistant_outlined), selectedIcon: Icon(Icons.assistant), label: 'Assistent'),
           NavigationDestination(icon: Icon(Icons.alarm_outlined), selectedIcon: Icon(Icons.alarm), label: 'Herinneringen'),
           NavigationDestination(icon: Icon(Icons.more_horiz_outlined), selectedIcon: Icon(Icons.more_horiz), label: 'Meer'),

@@ -23,17 +23,32 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 - **Google Agenda** (read-only) — de agent leest Robberts agenda ("wanneer moet ik naar de
   tandarts", "vakanties dit jaar").
 - **Google Docs** (read-only) — de agent leest een doc op id en beantwoordt vragen eruit.
-- **Dagelijkse samenvatting** — samenvatting-skill.
+- **Dagelijkse samenvatting** — oorspronkelijke samenvatting-skill (`summary`); sinds de
+  Morgen-briefing (hieronder) niet meer aangesloten op een app-scherm.
+- **Morgen-briefing** — dagelijks (pluggable) overzicht met vier secties: kite-/strandfietskans
+  voor morgen (aanlandige wind in knopen bij Wijk aan Zee, neerslag, laagwater, werkdag/
+  feestdag/vakantie-onderscheid, weergave 🟢/🟡/🔴), afspraken komende 7 dagen (alle agenda's,
+  met per afspraak of er al een reminder ~1u vooraf staat en zo niet een één-tap-actie om er
+  één aan te maken), een AI-samenvatting "wat moet ik komende week echt doen?" (op basis van
+  reminders + de notitie), en een moestuin-placeholder. Nieuwe secties (bv. een
+  systeem-checkrapport, aangekondigd voor een vervolgstory) kunnen later worden toegevoegd
+  zonder de kernservice te wijzigen (SPI-patroon, zie `docs/factory/technical-spec.md`).
+  NL-feestdagen worden algoritmisch berekend; een vakantiedag wordt gedetecteerd als hele-dag
+  agenda-item. Dagelijks om 18:00 (Europe/Amsterdam) gaat er automatisch één FCM-push uit met
+  een korte samenvatting; een tik erop opent het "Morgen"-scherm (de app-tab die voorheen
+  "Samenvatting" heette).
 
 ## Push / meldingen
 
 - **Telegram** (uitgaand): reminders/alerts gaan naar Robberts Telegram-groep.
-- **FCM** (gepland): push naar de app; de app-kant (lokaal alarm, reminders-scherm,
-  FCM-ontvangst) is nog te bouwen.
+- **FCM**: push naar de app; gebruikt voor reminders/alarms én de dagelijkse
+  18:00-Morgen-briefingpush. App-kant (lokaal alarm, reminders-scherm, FCM-ontvangst,
+  deep-link naar de Morgen-tab) is gebouwd.
 
 ## Apps
 
-- **robberts_assistent** — dagelijkse samenvatting + chat met de assistent, in persistente,
+- **robberts_assistent** — dagelijkse Morgen-briefing (eerste tab, "Morgen") + chat met de
+  assistent, in persistente,
   benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij). Gesprekken zijn
   te archiveren (reversibel) en te verwijderen (met bevestiging); de lijst toont eerst de 10
   meest recente, oudere onder een uitklapbare "Ouder"-sectie. Een gebruiker-breed geheugen
