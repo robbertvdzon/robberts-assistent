@@ -90,3 +90,35 @@ Niet gedaan / aangepast:
 - `GoogleCalendarClient.eventsInRange` (Calendar List API + per-agenda-events) is, net als de rest
   van `GoogleCalendarClient`, nog niet end-to-end geverifieerd met een echte OAuth-token (zie de
   bestaande NB in die klasse) — alleen de pure parsing is unit-getest.
+
+## Review (SF-1165, reviewer)
+
+- Volledige diff t.o.v. `main` (`git diff main...HEAD`) bekeken: nieuwe `briefing`-module
+  (SPI `BriefingSectionProvider` + `BriefingService`/`BriefingController`/`BriefingScheduler`,
+  vier secties), `Holidays` (algoritmische NL-feestdagen), `CalendarEvent.allDay` +
+  `CalendarClient.eventsInRange` (Google-impl + stub), nieuwe `weather.WindForecastClient`
+  (Open-Meteo, structureel) + couplingprobe.
+- `mvn test` opnieuw gedraaid, gericht op de gewijzigde/nieuwe testklassen
+  (`briefing.**`, `GoogleCalendarClientTest`, `StubCalendarClientTest`,
+  `OpenMeteoWindForecastClientTest`, `ModulithArchitectureTest`); Maven draaide daarbij het
+  volledige surefire-vangnet mee — alle rapporten tonen `Failures: 0, Errors: 0` (incl.
+  `ModulithArchitectureTest`), consistent met de developer-claim van 196 groene tests.
+  Geen eigen volledige herrun buiten dit gerichte doel (conform reviewer-instructies).
+- Inhoudelijk tegen de story/AC's gelegd: SPI-patroon correct analoog aan
+  `CouplingProbe`/`NightlyCheck` (geen wijziging in `BriefingService` nodig voor een nieuwe
+  sectie — klaar voor story 2/2); kite/strandfiets-logica dekt werkdag/weekend/feestdag/
+  vakantie-tak en toont 🟢/🟡/🔴 + kn zoals gevraagd; feestdagen algoritmisch (Meeus/Jones/
+  Butcher + afgeleiden, Koningsdag-verschuiving) i.p.v. hardcoded lijst; vakantiedetectie via
+  hele-dag-agenda-items nu correct (allDay bewaard i.p.v. verloren in parsing); agenda-sectie
+  7 dagen/alle agenda's + reminder-status + één-tap-aanmaak-endpoint; weektaken-AI-samenvatting
+  met stil-falende fallback; moestuin-placeholder in bestaande stijl; 18:00-Europe/Amsterdam-
+  scheduler bouwt pushtekst uit een nieuwe optionele `shortSummary()`-SPI-methode en hergebruikt
+  bestaande `PushService` (no-op zonder Firebase, geen crash).
+- De in de worklog toegelichte bewuste afwijking (tijd-heuristiek i.p.v. een echte AI-call per
+  afspraak voor reminder-detectie) is functioneel gelijkwaardig en beter voor determinisme onder
+  `RA_MOCK_AI`/unit-testbaarheid — geaccepteerd, geen blocker.
+- Modulith-grenzen: `briefing` importeert alleen root-classes van `google`/`weather`/`tides`/
+  `reminders`/`notes`/`push` plus Spring AI-framework-types — `ModulithArchitectureTest` blijft
+  groen, bevestigd.
+- Frontend (Morgen-scherm/deep-link) terecht buiten scope: dat is SF-1166.
+- Geen bugs/regressies gevonden binnen deze subtaak-scope. Akkoord.
