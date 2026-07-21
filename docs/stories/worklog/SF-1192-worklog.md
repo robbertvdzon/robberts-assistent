@@ -34,3 +34,28 @@ Done / rationale:
 - Getest: `mvn test` (backend, root) — 214 tests, 0 failures/errors, BUILD SUCCESS.
   `flutter test` + `flutter analyze` in `robberts_assistent/` — alle tests groen, geen
   analyze-issues. `pubspec.lock` ongewijzigd gelaten (alleen `pub get`, geen upgrade nodig).
+
+## Review-notities (SF-1193, reviewer)
+
+- Diff t.o.v. `main` volledig bekeken (`git diff main...HEAD`): backend-split
+  (`SlotAssessmentProvider` + `KiteSectionProvider` + nieuwe `BeachCycleSectionProvider`),
+  bijgewerkte/nieuwe tests, en de twee frontend-bestanden.
+- Acceptatiecriteria geverifieerd: twee losse secties (`kite` order=0, `beach` order=5, dus vóór
+  Agenda order=10), kiten-regelformaat `<label>: <emoji> <wind> kn (<richting>)` ongewijzigd,
+  strandfiets-regel bevat onderbouwing (wind, regen mm/droog, laagwater-nabijheid+tijd),
+  `shortSummary()` kiten ongewijzigd van formaat / beach altijd `null`. Gedeelde
+  `SlotAssessmentProvider` voorkomt dubbele netwerkcalls en dupliceert geen
+  dagdeel-/werkdag-/vakantielogica — hergebruikt bestaande `assessKite`/`assessBeachCycle`/
+  `isNearLowTide`/`compassPoint` via de `KiteSectionProvider`-companion. Foutafhandeling per
+  sectie onafhankelijk (eigen `Error`-tekst per provider, geen crash).
+  `KiteSectionProviderTest`/nieuwe `BeachCycleSectionProviderTest` dekken normale opbouw,
+  regentekst, foutpad en `shortSummary`. Frontend: `_icons['beach']` toegevoegd,
+  `summary_screen_test.dart` verwacht nu de twee losse titels i.p.v. de oude combinatie.
+  Geen restverwijzingen naar de oude titel 'Kiten / strandfietsen' in code/tests.
+- Gericht herdraaid als bewijs (niet het hele vangnet): backend
+  `mvn test -Dtest='nl.vdzon.robbertsassistent.briefing.**'` → 52 tests, 0 failures/errors,
+  BUILD SUCCESS. Flutter was in deze sandbox wél beschikbaar (`/opt/flutter`, 3.44.7): gericht
+  `flutter test test/summary_screen_test.dart` (5 tests, alle groen) en
+  `flutter analyze lib/summary_screen.dart test/summary_screen_test.dart` (geen issues) gedraaid
+  als extra bewijs bovenop de code-review.
+- Geen blockers gevonden. Scope, ordering en testdekking komen overeen met de story-opdracht.
