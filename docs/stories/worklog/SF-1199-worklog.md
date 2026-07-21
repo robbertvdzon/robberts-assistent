@@ -51,3 +51,28 @@ Done / rationale:
   Scaffold) en imageUrl-rendering.
 - Backend: `mvn test` groen (235 tests, 0 failures/errors). App: `flutter analyze` (geen
   issues) en `flutter test` (alle tests, incl. bestaande) groen.
+
+## Test-notities (SF-1201, tester)
+
+- Backend `mvn test`: 235 tests, 0 failures/errors, BUILD SUCCESS (start 2026-07-21T15:34:01Z,
+  eind 2026-07-21T15:34:32Z, Maven "Total time: 30.008 s").
+- App `flutter pub get` + `flutter analyze` (geen issues) + `flutter test` (28 tests, alle groen)
+  op `/opt/flutter/bin/flutter` 3.44.7 — geen wijzigingen aan `pubspec.lock` achtergebleven.
+- Preview (`robberts-assistent-pr-18`, geen Firebase-config, in-memory fallback):
+  - `GET /api/v1/briefing`: HTTP 200, sectievolgorde `weather-map, kite, beach, agenda,
+    week-tasks, moestuin, system-status` (weerkaart bovenaan, order=-10 klopt), `updatedAt`
+    aanwezig (ISO-8601).
+  - `weather-map`-sectie levert twee items (`ochtend`/`middag`) met `imageUrl` naar
+    `/api/v1/briefing/weather-map/{slot}` en tekst met kn + windrichting + weeromschrijving.
+  - `GET /api/v1/briefing/weather-map/ochtend` en `.../middag`: HTTP 200, `content-type:
+    image/png`, geldige PNG-magic-bytes, ~170KB; visueel gecontroleerd (kust IJmuiden-Egmond,
+    windrichtingspijl, "10 kn"-label) — zie screenshots.
+  - `POST /api/v1/briefing/refresh`: HTTP 200, nieuwe `updatedAt`; navolgende `GET
+    /api/v1/briefing` retourneert exact diezelfde (ververste) `updatedAt` → cache-overschrijving
+    werkt.
+  - Browser (Playwright, viewport 480x900, Morgen-tab): "Bijgewerkt om HH:mm"-tijdstip zichtbaar
+    bovenin, reload-icoon met tooltip "Briefing verversen"; klik toont spinner tijdens het laden
+    en na afloop een bijgewerkt tijdstip (15:35 → 15:36). Bestaande secties (kite/agenda/
+    weektaken/moestuin/systeemstatus) bleven in de API-response intact en ongewijzigd van vorm.
+  - Geen bugs gevonden; alle 12 acceptatiecriteria geverifieerd (11 via tests/build, 6/7/8/9 via
+    live preview-API + browser-screenshots).
