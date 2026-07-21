@@ -25,23 +25,29 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 - **Google Docs** (read-only) — de agent leest een doc op id en beantwoordt vragen eruit.
 - **Dagelijkse samenvatting** — oorspronkelijke samenvatting-skill (`summary`); sinds de
   Morgen-briefing (hieronder) niet meer aangesloten op een app-scherm.
-- **Morgen-briefing** — dagelijks (pluggable) overzicht met zes secties: kite-kans voor morgen
-  (aanlandige wind in knopen + richting bij Wijk aan Zee, werkdag/feestdag/vakantie-onderscheid,
-  weergave 🟢/🟡/🔴 per dagdeel), strandfietskans voor morgen (eigen kaart, per dagdeel een
-  bolletje MET onderbouwing: wind, regen en getij, zodat het oordeel navolgbaar is — kiten en
-  strandfietsen waren tot SF-1192 één samengevoegde kaart), afspraken komende 7 dagen (alle
-  agenda's, met per afspraak of er al een reminder ~1u vooraf staat en zo niet een één-tap-actie
-  om er één aan te maken), een AI-samenvatting "wat moet ik komende week echt doen?" (op basis
-  van reminders + de notitie), een moestuin-placeholder, en een systeem-checkrapport
-  (zonnepanelen en backups: dummy-data; OpenShift-gezondheid, robotmaaier en Software Factory:
-  live via de bestaande koppelingen). Een AI-aanroep bepaalt per check of er "aandacht nodig" is
-  (geen hardcoded drempel); is dat zo, dan verschijnt er ook een korte vermelding in de
-  18:00-pushtekst, anders blijft die sectie buiten de push (strandfietsen draagt sowieso nooit
-  bij aan de push). Nieuwe secties kunnen later worden toegevoegd zonder de kernservice te
-  wijzigen (SPI-patroon, zie `docs/factory/technical-spec.md`). NL-feestdagen worden
-  algoritmisch berekend; een vakantiedag wordt gedetecteerd als hele-dag agenda-item. Dagelijks
-  om 18:00 (Europe/Amsterdam) gaat er automatisch één FCM-push uit met een korte samenvatting;
-  een tik erop opent het "Morgen"-scherm (de app-tab die voorheen "Samenvatting" heette).
+- **Morgen-briefing** — dagelijks (pluggable) overzicht met zeven secties: een weerkaart voor
+  morgen (twee kaartbeelden van de kust IJmuiden–Egmond, ochtend en middag, elk met
+  windrichtingspijl, windsnelheid in kn en een weer-icoon — géén betaalde kaarten-API, alleen
+  OpenStreetMap-tegels), kite-kans voor morgen (aanlandige wind in knopen + richting bij Wijk aan
+  Zee, werkdag/feestdag/vakantie-onderscheid, weergave 🟢/🟡/🔴 per dagdeel), strandfietskans voor
+  morgen (eigen kaart, per dagdeel een bolletje MET onderbouwing: wind, regen en getij, zodat het
+  oordeel navolgbaar is — kiten en strandfietsen waren tot SF-1192 één samengevoegde kaart),
+  afspraken komende 7 dagen (alle agenda's, met per afspraak of er al een reminder ~1u vooraf
+  staat en zo niet een één-tap-actie om er één aan te maken), een AI-samenvatting "wat moet ik
+  komende week echt doen?" (op basis van reminders + de notitie), een moestuin-placeholder, en een
+  systeem-checkrapport (zonnepanelen en backups: dummy-data; OpenShift-gezondheid, robotmaaier en
+  Software Factory: live via de bestaande koppelingen). Een AI-aanroep bepaalt per check of er
+  "aandacht nodig" is (geen hardcoded drempel); is dat zo, dan verschijnt er ook een korte
+  vermelding in de 18:00-pushtekst, anders blijft die sectie buiten de push (strandfietsen en de
+  weerkaart dragen sowieso nooit bij aan de push). Nieuwe secties kunnen later worden toegevoegd
+  zonder de kernservice te wijzigen (SPI-patroon, zie `docs/factory/technical-spec.md`).
+  NL-feestdagen worden algoritmisch berekend; een vakantiedag wordt gedetecteerd als hele-dag
+  agenda-item. Sinds SF-1200 wordt de briefing dagelijks om 17:30 (Europe/Amsterdam, een half uur
+  vóór de push) opgebouwd en gecachet (Firestore); het scherm toont die gecachete versie meteen
+  (incl. wanneer 'm is opgehaald) en heeft een reload-knop om 'm handmatig live te verversen.
+  Dagelijks om 18:00 (Europe/Amsterdam) gaat er automatisch één FCM-push uit met een korte
+  samenvatting; een tik erop opent het "Morgen"-scherm (de app-tab die voorheen "Samenvatting"
+  heette).
 
 ## Push / meldingen
 
