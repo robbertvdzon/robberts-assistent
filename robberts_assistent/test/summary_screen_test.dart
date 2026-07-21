@@ -82,6 +82,25 @@ void main() {
     expect(find.byType(TextButton), findsNothing);
   });
 
+  testWidgets('meerregelige kite-tekst wordt per regel apart weergegeven', (tester) async {
+    final api = _FakeApiClient()
+      ..sections = const [
+        BriefingSection(
+          key: 'kite',
+          title: 'Kiten / strandfietsen',
+          text: 'Morgen: 🟢 24kn NW\nOvermorgen: 🟡 12kn Z',
+          items: [],
+        ),
+      ];
+
+    await tester.pumpWidget(MaterialApp(home: SummaryScreen(api: api)));
+    await tester.pump();
+
+    expect(find.text('Morgen: 🟢 24kn NW'), findsOneWidget);
+    expect(find.text('Overmorgen: 🟡 12kn Z'), findsOneWidget);
+    expect(find.text('Morgen: 🟢 24kn NW\nOvermorgen: 🟡 12kn Z'), findsNothing);
+  });
+
   testWidgets('toont een foutmelding als het ophalen van de briefing faalt', (tester) async {
     final api = _FailingApiClient();
 
