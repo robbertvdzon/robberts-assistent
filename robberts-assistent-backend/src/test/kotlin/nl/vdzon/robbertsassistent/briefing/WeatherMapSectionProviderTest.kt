@@ -27,24 +27,21 @@ class WeatherMapSectionProviderTest {
     ) = WeatherMapSectionProvider(wind, weather, StubCoastMapImageBuilder(), storage)
 
     @Test
-    fun `section levert twee items met imageUrl bij succesvolle voorspellingen`() {
+    fun `section levert precies één item met imageUrl bij succesvolle voorspellingen`() {
         val section = provider().section()
 
         assertEquals("weather-map", section.key)
-        assertEquals(2, section.items.size)
-        assertTrue(section.items.all { it.imageUrl != null })
-        assertEquals("/api/v1/briefing/weather-map/ochtend", section.items[0].imageUrl)
-        assertEquals("/api/v1/briefing/weather-map/middag", section.items[1].imageUrl)
+        assertEquals(1, section.items.size)
+        assertEquals("/api/v1/briefing/weather-map/morgen", section.items[0].imageUrl)
     }
 
     @Test
-    fun `section slaat gegenereerde PNG's op onder vaste dagdeel-sleutels`() {
+    fun `section slaat de gegenereerde PNG op onder de vaste sleutel morgen`() {
         val storage = InMemoryWeatherMapStorage()
 
         provider(storage = storage).section()
 
-        assertTrue(storage.load("ochtend") != null)
-        assertTrue(storage.load("middag") != null)
+        assertTrue(storage.load("morgen") != null)
     }
 
     @Test

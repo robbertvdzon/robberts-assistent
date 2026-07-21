@@ -42,7 +42,7 @@ class BriefingController(
         return briefingService.refresh()
     }
 
-    /** Weerkaart-PNG voor het dagdeel `slot` (`ochtend`/`middag`), zie [WeatherMapSectionProvider]. */
+    /** Weerkaart-PNG onder sleutel `slot` (`morgen`), zie [WeatherMapSectionProvider]. */
     @GetMapping("/api/v1/briefing/weather-map/{slot}")
     fun weatherMap(
         @RequestHeader("Authorization", required = false) authorization: String?,
