@@ -5,8 +5,6 @@ import nl.vdzon.robbertsassistent.tides.TideClient
 import nl.vdzon.robbertsassistent.weather.WeatherClient
 import nl.vdzon.robbertsassistent.weather.WindForecastClient
 import org.springframework.stereotype.Component
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * Strandfiets-briefingsectie voor morgen: per dagdeel een bolletje (🟢/🟡/🔴) MET onderbouwing
@@ -40,11 +38,7 @@ class BeachCycleSectionProvider(
     private fun rainText(precipitationMm: Double): String =
         if (precipitationMm <= KiteSectionProvider.DRY_THRESHOLD_MM) "droog" else "${precipitationMm} mm nat"
 
-    private fun tideText(slot: SlotAssessment): String {
-        val at = slot.nearestLowTideAt
-        val nabijheid = if (slot.nearLowTide) "dichtbij laagwater" else "niet dichtbij laagwater"
-        if (at == null) return nabijheid
-        val time = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Europe/Amsterdam")).format(at)
-        return "$nabijheid, laagwater om $time"
-    }
+    /** Alleen de nabijheid, geen laagwatertijd meer — die staat sinds SF-1221 op de weerkaart. */
+    private fun tideText(slot: SlotAssessment): String =
+        if (slot.nearLowTide) "dichtbij laagwater" else "niet dichtbij laagwater"
 }

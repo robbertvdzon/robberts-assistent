@@ -53,6 +53,7 @@ class BeachCycleSectionProviderTest {
         assertTrue(section.text.contains("10 kn"))
         assertTrue(section.text.contains("droog"))
         assertTrue(section.text.contains("laagwater"))
+        assertTrue(!Regex("laagwater om \\d{2}:\\d{2}").containsMatchIn(section.text), "geen laagwatertijd meer in de tekst")
     }
 
     @Test

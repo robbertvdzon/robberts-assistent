@@ -1,5 +1,7 @@
 package nl.vdzon.robbertsassistent.briefing
 
+import nl.vdzon.robbertsassistent.tides.TideExtreme
+import nl.vdzon.robbertsassistent.tides.TideType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.awt.BasicStroke
@@ -13,6 +15,8 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.imageio.ImageIO
 import kotlin.math.PI
 import kotlin.math.cos
@@ -23,7 +27,7 @@ import kotlin.math.tan
 /**
  * Eén dagdeel zijn wind-/weerdata voor de weerkaart-overlay: [directionDeg] is de richting waar de
  * wind VANDAAN komt (0-360, meteorologische conventie), [color] onderscheidt het dagdeel visueel
- * (bv. oranje = ochtend, blauw = middag) en [weatherCode] is de Open-Meteo WMO-code voor het
+ * (bv. oranje = ochtend, blauw = avond) en [weatherCode] is de Open-Meteo WMO-code voor het
  * getekende weer-icoon (zie `drawWeatherIcon`).
  */
 data class WindMapSlot(
@@ -36,15 +40,16 @@ data class WindMapSlot(
 
 /**
  * Bouwt één kaartbeeld van de kust IJmuiden-Egmond met daarover, per opgegeven dagdeel, een
- * windrichtingspijl (in de eigen [WindMapSlot.color]), windsnelheid (kn) en een écht getekend
- * weer-icoon, plus een legenda die de kleur-dagdeel-koppeling toont — voor
+ * windrichtingspijl (in de eigen [WindMapSlot.color], verticaal gestapeld aan de linkerkant),
+ * windsnelheid (kn) en een écht getekend weer-icoon, plus een legenda die de kleur-dagdeel-
+ * koppeling toont, en onderin een dag-brede weersymbool + de hoog-/laagwatertijden — voor
  * [WeatherMapSectionProvider]. [OsmCoastMapImageBuilder] is de altijd-actieve, keyless
  * implementatie (OpenStreetMap-tegels, geen betaalde kaarten-API — zelfde "Fase 0"-stijl als
  * `weather.OpenMeteoWindForecastClient`); [StubCoastMapImageBuilder] bestaat alleen voor tests
  * (geen netwerk-call).
  */
 interface CoastMapImageBuilder {
-    fun build(slots: List<WindMapSlot>): ByteArray
+    fun build(slots: List<WindMapSlot>, dayWeatherCode: Int, tideExtremes: List<TideExtreme>): ByteArray
 }
 
 @Component
@@ -53,9 +58,9 @@ class OsmCoastMapImageBuilder : CoastMapImageBuilder {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val httpClient: HttpClient = HttpClient.newHttpClient()
 
-    override fun build(slots: List<WindMapSlot>): ByteArray {
+    override fun build(slots: List<WindMapSlot>, dayWeatherCode: Int, tideExtremes: List<TideExtreme>): ByteArray {
         val map = fetchMap()
-        drawOverlay(map, slots)
+        drawOverlay(map, slots, dayWeatherCode, tideExtremes)
         val out = ByteArrayOutputStream()
         ImageIO.write(map, "png", out)
         return out.toByteArray()
@@ -112,26 +117,29 @@ class OsmCoastMapImageBuilder : CoastMapImageBuilder {
 /**
  * Tekent, per opgegeven dagdeel, een windpijl (in de eigen kleur) met windsnelheidslabel en een
  * echt getekend weer-icoon over een reeds opgebouwd kaartbeeld, plus een legenda die de
- * kleur-dagdeel-koppeling toont — los testbaar zonder netwerk. De pijlen worden onder elkaar
- * geplaatst (één per dagdeel) zodat ze bij twee dagdelen niet overlappen.
+ * kleur-dagdeel-koppeling toont — los testbaar zonder netwerk. De pijlen worden verticaal
+ * gestapeld aan de linkerkant van de kaart geplaatst (één per dagdeel) zodat ze bij twee dagdelen
+ * niet overlappen en de rest van de kaart vrij blijft. Onderin komt een dag-breed weersymbool +
+ * de hoog-/laagwatertijden te staan (zie [drawDaySummary]).
  */
-internal fun drawOverlay(image: BufferedImage, slots: List<WindMapSlot>) {
+internal fun drawOverlay(image: BufferedImage, slots: List<WindMapSlot>, dayWeatherCode: Int, tideExtremes: List<TideExtreme>) {
     val g = image.createGraphics()
     g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
 
-    val centerX = image.width / 2.0
-    val spacing = image.width / (slots.size + 1.0)
-    val centerY = image.height / 2.0
+    val arrowX = image.width * 0.15
+    val topMargin = image.height * 0.15
+    val bottomMargin = image.height * 0.75
+    val spacing = (bottomMargin - topMargin) / (slots.size + 1.0)
     val halfLength = 30.0
     val headSize = 14
 
     slots.forEachIndexed { index, slot ->
-        val arrowX = spacing * (index + 1)
+        val arrowY = topMargin + spacing * (index + 1)
 
         // De pijl wijst de richting op waar de wind NAARTOE waait (tegenovergesteld aan
         // `directionDeg`, dat de richting is waar de wind vandaan komt).
         val transform = AffineTransform()
-        transform.translate(arrowX, centerY)
+        transform.translate(arrowX, arrowY)
         transform.rotate(Math.toRadians(slot.directionDeg + 180.0))
         g.transform = transform
         g.color = slot.color
@@ -145,18 +153,55 @@ internal fun drawOverlay(image: BufferedImage, slots: List<WindMapSlot>) {
         g.transform = AffineTransform()
 
         g.color = Color.WHITE
-        g.fillRoundRect((arrowX - 55).toInt(), (centerY + 40).toInt(), 110, 30, 10, 10)
+        g.fillRoundRect((arrowX - 55).toInt(), (arrowY + 40).toInt(), 110, 30, 10, 10)
         g.color = Color.BLACK
         g.font = Font("SansSerif", Font.BOLD, 18)
         val label = "${slot.speedKn.toInt()} kn"
         val metrics = g.fontMetrics
-        g.drawString(label, (arrowX - metrics.stringWidth(label) / 2.0).toInt(), (centerY + 62).toInt())
+        g.drawString(label, (arrowX - metrics.stringWidth(label) / 2.0).toInt(), (arrowY + 62).toInt())
 
-        drawWeatherIcon(g, slot.weatherCode, arrowX, centerY - halfLength - headSize - 24, 20.0)
+        drawWeatherIcon(g, slot.weatherCode, arrowX, arrowY - halfLength - headSize - 24, 20.0)
     }
 
     drawLegend(g, slots)
+    drawDaySummary(g, image.width, image.height, dayWeatherCode, tideExtremes)
     g.dispose()
+}
+
+/**
+ * Tekent onderin de kaart een dag-breed (niet per-dagdeel) weersymbool — in dezelfde
+ * `java.awt`-vormenstijl als [drawWeatherIcon] — plus de hoog-/laagwatertijden van die dag
+ * (IJmuiden) als tekst, in een halfdoorzichtig kader zodat het leesbaar blijft op de kaart.
+ */
+private fun drawDaySummary(g: java.awt.Graphics2D, width: Int, height: Int, dayWeatherCode: Int, tideExtremes: List<TideExtreme>) {
+    val formatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Europe/Amsterdam"))
+    val tideText = if (tideExtremes.isEmpty()) {
+        "Geen getijdata"
+    } else {
+        tideExtremes.sortedBy { it.time }.joinToString("   ") { extreme ->
+            val label = if (extreme.type == TideType.HOOGWATER) "Hoogwater" else "Laagwater"
+            "$label ${formatter.format(extreme.time)}"
+        }
+    }
+
+    g.font = Font("SansSerif", Font.BOLD, 18)
+    val metrics = g.fontMetrics
+    val iconRadius = 20.0
+    val boxHeight = 50
+    val boxWidth = (iconRadius * 2 + 24 + metrics.stringWidth(tideText) + 24).toInt()
+    val boxX = ((width - boxWidth) / 2.0).toInt()
+    val boxY = height - boxHeight - 16
+
+    g.color = Color(255, 255, 255, 220)
+    g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 12, 12)
+
+    val iconCenterX = boxX + 16 + iconRadius
+    val iconCenterY = boxY + boxHeight / 2.0
+    drawWeatherIcon(g, dayWeatherCode, iconCenterX, iconCenterY, iconRadius)
+
+    g.color = Color.BLACK
+    val textY = boxY + boxHeight / 2 + metrics.ascent / 2 - 2
+    g.drawString(tideText, (iconCenterX + iconRadius + 16).toInt(), textY)
 }
 
 /**
@@ -221,7 +266,7 @@ internal fun weatherCategory(code: Int): String = when {
 }
 
 class StubCoastMapImageBuilder : CoastMapImageBuilder {
-    override fun build(slots: List<WindMapSlot>): ByteArray {
+    override fun build(slots: List<WindMapSlot>, dayWeatherCode: Int, tideExtremes: List<TideExtreme>): ByteArray {
         val image = BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB)
         val out = ByteArrayOutputStream()
         ImageIO.write(image, "png", out)
