@@ -27,8 +27,11 @@ zien zijn. Zie ook [CLAUDE.md](../CLAUDE.md) §4/§5 voor hoe dit in de modulest
   automatisch mee — een nieuwe check verschijnt daar vanzelf, geen wijziging in `SummaryService`
   nodig. Sinds de Morgen-briefing (SF-1163, zie root `CLAUDE.md` §9) is dit endpoint niet meer
   aangesloten op een app-scherm — de "Samenvatting"-tab is de "Morgen"-tab geworden, gevoed door
-  de nieuwe `briefing`-module. Een systeem-checkrapport-sectie in de Morgen-briefing (met de
-  nightly-check-resultaten) staat aangekondigd voor een vervolgstory.
+  de nieuwe `briefing`-module. Sinds SF-1164 heeft de Morgen-briefing een eigen systeem-
+  checkrapport-sectie (`briefing.SystemStatusSectionProvider`); die gebruikt bewust een **live**
+  check (`OpenShiftClient.clusterHealth()` rechtstreeks) i.p.v. de hier bewaarde
+  `NightlyCheckRepository`-historie, omdat die historie t.o.v. het briefing-moment verouderd zou
+  kunnen zijn. Zie root `CLAUDE.md` §4 (`briefing`-rij) voor details.
 
 ## Eerste check: OpenShift-gezondheid
 
