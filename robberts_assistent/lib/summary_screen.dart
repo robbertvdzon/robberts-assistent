@@ -52,6 +52,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
   static const _icons = {
     'kite': Icons.air,
+    'beach': Icons.pedal_bike,
     'agenda': Icons.event_outlined,
     'week-tasks': Icons.checklist_outlined,
     'moestuin': Icons.grass,

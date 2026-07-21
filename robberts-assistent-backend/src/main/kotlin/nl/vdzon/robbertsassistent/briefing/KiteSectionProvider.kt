@@ -15,45 +15,26 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** Kleurbeoordeling voor de kite-/strandfiets-briefingsectie. */
+/** Kleurbeoordeling voor de kite-/strandfiets-briefingsecties. */
 enum class RatingColor(val emoji: String) { GREEN("🟢"), YELLOW("🟡"), RED("🔴") }
 
 /**
- * Kite-/strandfiets-briefingsectie voor morgen (de eerstvolgende dag). Combineert een
- * gestructureerde windvoorspelling ([WindForecastClient], Wijk aan Zee), neerslag ([WeatherClient])
- * en laagwatertijden ([TideClient], IJmuiden) tot een 🟢/🟡/🔴-inschatting, en beoordeelt ochtend
- * (07:00) en avond (19:00) apart op een werkdag (ma-do, geen feestdag/vakantie) — anders één
- * dagbeoordeling (12:00).
+ * Gedeelde dagdeel-beoordeling voor de kite- en strandfiets-briefingsecties ([KiteSectionProvider],
+ * [BeachCycleSectionProvider]): combineert een gestructureerde windvoorspelling
+ * ([WindForecastClient], Wijk aan Zee), neerslag ([WeatherClient]) en laagwatertijden
+ * ([TideClient], IJmuiden) tot per-dagdeel data voor morgen (de eerstvolgende dag), zodat beide
+ * secties dezelfde netwerkcalls en dagdeel-/werkdag-/vakantielogica hergebruiken i.p.v. dupliceren.
+ * Beoordeelt ochtend (07:00) en avond (19:00) apart op een werkdag (ma-do, geen feestdag/vakantie)
+ * — anders één dagbeoordeling (12:00).
  */
-@Component
-class KiteSectionProvider(
+internal class SlotAssessmentProvider(
     private val windForecastClient: WindForecastClient,
     private val weatherClient: WeatherClient,
     private val tideClient: TideClient,
     private val calendarClient: CalendarClient,
-) : BriefingSectionProvider {
+) {
 
-    override val order = 0
-
-    override fun section(): BriefingSection {
-        val result = buildAssessments()
-        val text = when (result) {
-            is AssessmentResult.Error -> "Kon de kite-/strandfietsinschatting voor morgen niet maken: ${result.message}"
-            is AssessmentResult.Ok -> result.slots.joinToString("\n") { slot ->
-                "${slot.label}: kiten ${slot.kite.emoji} ${slot.windText}, strandfietsen ${slot.beach.emoji}"
-            }
-        }
-        return BriefingSection(key = "kite", title = "Kiten / strandfietsen", text = text)
-    }
-
-    /** Compacte one-liner voor de 18:00-push, gebaseerd op de laatste beoordeelde tijdsslot (avond, of het enige slot). */
-    override fun shortSummary(): String? {
-        val result = buildAssessments() as? AssessmentResult.Ok ?: return null
-        val slot = result.slots.lastOrNull() ?: return null
-        return "kiten ${slot.kite.emoji} ${slot.label.lowercase()} ${slot.windKn}kn"
-    }
-
-    private fun buildAssessments(): AssessmentResult {
+    fun buildAssessments(): AssessmentResult {
         val zone = ZoneId.of("Europe/Amsterdam")
         val tomorrow = LocalDate.now(zone).plusDays(1)
         val vacation = isVacationDay(tomorrow, zone)
@@ -96,16 +77,21 @@ class KiteSectionProvider(
         if (windHour == null || weatherHour == null) return null
         val speedKn = windHour.speedKn
         val precipitationMm = weatherHour.precipitationMm
-        val nearLowTide = isNearLowTide(slot.at, tide)
+        val nearLowTide = KiteSectionProvider.isNearLowTide(slot.at, tide)
+        val nearestLowTideAt = tide.extremes.filter { it.type == TideType.LAAGWATER }
+            .minByOrNull { Duration.between(it.time, slot.at).abs() }?.time
 
-        val kiteColor = assessKite(speedKn, windHour.directionDeg, precipitationMm)
-        val beachColor = assessBeachCycle(speedKn, precipitationMm, nearLowTide)
-        val direction = compassPoint(windHour.directionDeg)
+        val kiteColor = KiteSectionProvider.assessKite(speedKn, windHour.directionDeg, precipitationMm)
+        val beachColor = KiteSectionProvider.assessBeachCycle(speedKn, precipitationMm, nearLowTide)
+        val direction = KiteSectionProvider.compassPoint(windHour.directionDeg)
 
         return SlotAssessment(
             label = slot.label,
             windKn = speedKn.toInt(),
             windText = "${speedKn.toInt()} kn ($direction)",
+            precipitationMm = precipitationMm,
+            nearLowTide = nearLowTide,
+            nearestLowTideAt = nearestLowTideAt,
             kite = kiteColor,
             beach = beachColor,
         )
@@ -113,26 +99,68 @@ class KiteSectionProvider(
 
     private data class Slot(val label: String, val at: Instant)
 
-    private data class SlotAssessment(
-        val label: String,
-        val windKn: Int,
-        val windText: String,
-        val kite: RatingColor,
-        val beach: RatingColor,
-    )
+    internal companion object {
+        private val WORKDAYS = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY)
+    }
+}
 
-    private sealed interface AssessmentResult {
-        data class Ok(val slots: List<SlotAssessment>) : AssessmentResult
-        data class Error(val message: String) : AssessmentResult
+internal data class SlotAssessment(
+    val label: String,
+    val windKn: Int,
+    val windText: String,
+    val precipitationMm: Double,
+    val nearLowTide: Boolean,
+    val nearestLowTideAt: Instant?,
+    val kite: RatingColor,
+    val beach: RatingColor,
+)
+
+internal sealed interface AssessmentResult {
+    data class Ok(val slots: List<SlotAssessment>) : AssessmentResult
+    data class Error(val message: String) : AssessmentResult
+}
+
+/**
+ * Kite-briefingsectie voor morgen: per dagdeel de kiten-inschatting op basis van de gedeelde
+ * [SlotAssessmentProvider]. Zie klasse-KDoc daar voor de onderliggende dataproviders en
+ * dagdeel-/werkdag-/vakantielogica.
+ */
+@Component
+class KiteSectionProvider(
+    windForecastClient: WindForecastClient,
+    weatherClient: WeatherClient,
+    tideClient: TideClient,
+    calendarClient: CalendarClient,
+) : BriefingSectionProvider {
+
+    private val assessmentProvider = SlotAssessmentProvider(windForecastClient, weatherClient, tideClient, calendarClient)
+
+    override val order = 0
+
+    override fun section(): BriefingSection {
+        val result = assessmentProvider.buildAssessments()
+        val text = when (result) {
+            is AssessmentResult.Error -> "Kon de kite-inschatting voor morgen niet maken: ${result.message}"
+            is AssessmentResult.Ok -> result.slots.joinToString("\n") { slot ->
+                "${slot.label}: ${slot.kite.emoji} ${slot.windText}"
+            }
+        }
+        return BriefingSection(key = "kite", title = "Kiten", text = text)
+    }
+
+    /** Compacte one-liner voor de 18:00-push, gebaseerd op de laatste beoordeelde tijdsslot (avond, of het enige slot). */
+    override fun shortSummary(): String? {
+        val result = assessmentProvider.buildAssessments() as? AssessmentResult.Ok ?: return null
+        val slot = result.slots.lastOrNull() ?: return null
+        return "kiten ${slot.kite.emoji} ${slot.label.lowercase()} ${slot.windKn}kn"
     }
 
     internal companion object {
-        private val WORKDAYS = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY)
 
         // Wijk aan Zee: kust loopt ~noord-zuid, zee ligt ten westen. "Aanlandig" = wind komt uit het
         // westelijke kwadrant (ZW t/m NW) — zee op naar het strand.
         private val ONSHORE_SECTOR = 225.0..315.0
-        private const val DRY_THRESHOLD_MM = 0.1
+        internal const val DRY_THRESHOLD_MM = 0.1
         private val KITE_IDEAL_RANGE = 20.0..35.0
         // Net buiten het ideale bereik, maar nog wel bruikbaar met het juiste materiaal (grotere/
         // kleinere kite) — vandaar geel i.p.v. rood.
