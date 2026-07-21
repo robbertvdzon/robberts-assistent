@@ -29,6 +29,7 @@ class StubCalendarClient : CalendarClient {
                 start = now.plus(Duration.ofDays(30)),
                 end = now.plus(Duration.ofDays(44)),
                 location = "Frankrijk",
+                allDay = true,
             ),
         ).sortedBy { it.start }.take(maxResults)
     }
@@ -38,4 +39,7 @@ class StubCalendarClient : CalendarClient {
             it.summary.contains(query, ignoreCase = true) ||
                 (it.location?.contains(query, ignoreCase = true) ?: false)
         }
+
+    override fun eventsInRange(from: Instant, to: Instant): List<CalendarEvent> =
+        upcoming(50).filter { !it.start.isBefore(from) && it.start.isBefore(to) }.sortedBy { it.start }
 }
