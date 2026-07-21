@@ -34,3 +34,31 @@ Done / rationale:
 - `flutter test` (24/24 groen) en `flutter analyze` (`No issues found!`)
   gedraaid in `robberts_assistent/`, beide groen. `pubspec.lock` ongewijzigd
   gebleven na `pub get`.
+
+## Review (SF-1186)
+
+- `flutter` was in deze sandbox beschikbaar (`/opt/flutter`, 3.44.7): zowel
+  `flutter test` (volledige suite, 24/24 groen, incl. de nieuwe
+  meerregelige-kite-test) als `flutter analyze` (`No issues found!`)
+  zelf herdraaid als echt bewijs, i.p.v. blanco code-review.
+- Diff beperkt tot precies de aangekondigde scope: `summary_screen.dart`,
+  `summary_screen_test.dart`, deze worklog. Geen wijzigingen aan backend,
+  `api_client.dart` of andere section-providers.
+- `_buildItemRow`: `Row` → `Column`, tekst vol breedte boven, knop/spinner
+  rechts uitgelijnd via `Align` eronder — knoplabel en tap-gedrag ongewijzigd
+  (bestaande test "afspraak zonder reminder toont een werkende actieknop"
+  bevestigt dit).
+- `_buildSectionCard`: tekst op `\n` gesplitst, per regel een eigen `Text` in
+  een `Column`. Let op: deze tak (`section.items.isEmpty`) is gedeeld tussen
+  kite, weektaken én moestuin — de wijziging raakt dus in theorie ook
+  weektaken/moestuin als hun tekst een `\n` bevat (extra verticale padding per
+  regel), ondanks de AC "overige secties blijven qua layout ongewijzigd". Dit
+  is een bewuste, kleine afwijking — de subtaak-instructie zelf beschrijft de
+  wijziging al generiek als "geval section.items.isEmpty, o.a. de
+  kite-sectie", en het effect is puur cosmetisch (~2-4px extra regelafstand,
+  geen tekst-/gedragswijziging). [suggestie] geen blocker, maar het is het
+  vermelden waard mocht een toekomstige story striktere isolatie per sectie
+  willen.
+- Geen backend-wijzigingen nodig/aanwezig; niet van toepassing hier.
+
+Oordeel: akkoord, geen blockers.
