@@ -1,12 +1,17 @@
 # robberts_assistent
 
-Flutter-app (APK + web) voor de dagelijkse samenvatting en de chat-assistent van
+Flutter-app (APK + web) voor de dagelijkse Morgen-briefing en de chat-assistent van
 `robberts-assistent-backend`. Google-login (echt op web/productie; op PR-previews
 overgeslagen via `SKIP_GOOGLE_AUTH`, zie `docs/factory/deployment.md`).
 
 ## Schermen
 
-- **Samenvatting** — dagelijks overzicht uit de backend.
+- **Morgen** — dagelijkse briefing uit de backend (`GET /api/v1/briefing`): kite-/
+  strandfietskans voor morgen (wind, neerslag, laagwater, werkdag/feestdag/vakantie), afspraken
+  komende 7 dagen met per afspraak een reminder-status en, indien nog geen reminder staat, een
+  één-tap-actie om er één ~1u vooraf aan te maken, een AI-weektakensamenvatting en een
+  moestuin-placeholder. Een tik op de dagelijkse 18:00-FCM-push opent dit scherm automatisch
+  (`lib/fcm_service.dart`, `FcmService.deepLinkTab`).
 - **Assistent** — gesprekkenlijst (titel + laatst bijgewerkt) met een knop voor een nieuw
   gesprek; een gesprek opent het chatscherm en blijft persistent in Firestore, inclusief een
   door de assistent zelf verzonnen titel en verstuurde foto's (camera/galerij). De lijst toont

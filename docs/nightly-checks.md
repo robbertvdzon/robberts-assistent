@@ -23,8 +23,12 @@ zien zijn. Zie ook [CLAUDE.md](../CLAUDE.md) §4/§5 voor hoe dit in de modulest
 - **App**: scherm **Nachtchecks** (`nightly_checks_screen.dart`), bereikbaar via de 'Meer'-tab
   (`more_screen.dart`) in de bottom-nav, toont de lijst + status, met een "nu draaien"-knop en
   tikken voor de volledige historie.
-- **Samenvatting**: `SummaryService` neemt de nightly-check-resultaten automatisch mee — een
-  nieuwe check verschijnt daar vanzelf, geen wijziging in `SummaryService` nodig.
+- **Samenvatting**: `SummaryService` (`GET /api/v1/summary`) neemt de nightly-check-resultaten
+  automatisch mee — een nieuwe check verschijnt daar vanzelf, geen wijziging in `SummaryService`
+  nodig. Sinds de Morgen-briefing (SF-1163, zie root `CLAUDE.md` §9) is dit endpoint niet meer
+  aangesloten op een app-scherm — de "Samenvatting"-tab is de "Morgen"-tab geworden, gevoed door
+  de nieuwe `briefing`-module. Een systeem-checkrapport-sectie in de Morgen-briefing (met de
+  nightly-check-resultaten) staat aangekondigd voor een vervolgstory.
 
 ## Eerste check: OpenShift-gezondheid
 

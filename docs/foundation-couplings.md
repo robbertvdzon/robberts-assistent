@@ -149,11 +149,10 @@ Elke ontbrekende groep → bijbehorende Notifier/Client valt terug op zijn stub.
 Deze veranderen niets aan het fundament — het zijn skills op dezelfde ports.
 
 ### Sterk voor de eerste versie (veel effect, weinig extra werk)
-- **Proactief kite-alarm** — scheduler checkt de windvoorspelling (tool bestaat al)
-  en pusht alleen bij een echt kite-window ("Do 14–17u: 18 kn ZW"). Kruis met de
-  agenda → alleen als je vrij bent.
-- **Ochtend-briefing via Telegram** — 07:00 één bericht: afspraken vandaag + wind +
-  openstaande reminders. Raakt alle koppelingen; bouwt voort op `SummaryService`.
+- ✅ **Kite-/strandfietskans + ochtend-briefing** — gebouwd als de dagelijkse "Morgen-briefing"
+  (SF-1163, 18:00 FCM-push + app-scherm i.p.v. 07:00-Telegram-bericht): windvoorspelling +
+  agenda (vakantie-/werkdagdetectie) voor de kite-/strandfietsbeoordeling, plus afspraken,
+  reminder-status en een AI-weektakensamenvatting. Zie `briefing`-module in root `CLAUDE.md` §4.
 - **Agenda → automatische reminders** — 's nachts de agenda scannen; voor
   (gemarkeerde) afspraken automatisch een alarm X min vooraf in Firestore zetten.
 - **Docs als kennisbank** — één Google Doc met wifi-code, router-reset, kite-
@@ -232,8 +231,12 @@ App:
 **Oplevering**: alle vier koppelingen live; volledige stack met natuurlijke taal testbaar.
 
 ### Fase 4 — De leuke laag (skills)
-- [ ] Kite-window proactieve agent (wind + agenda + push).
-- [ ] Ochtend-briefing agent (agenda + wind + reminders + `SummaryService`).
+- [x] Ochtend-briefing / kite-window (SF-1163, "Morgen-briefing"): dagelijkse 18:00-FCM-push +
+  scherm met kite-/strandfietskans (wind + agenda-vakantiedetectie), agenda komende 7 dagen +
+  reminder-acties, AI-weektakensamenvatting en moestuin-placeholder — zie `briefing`-module in
+  root `CLAUDE.md` §4. Andere vorm dan hier oorspronkelijk geschetst (pluggable app-scherm +
+  push i.p.v. één Telegram-bericht, en gebouwd bovenop een nieuwe `briefing`-module i.p.v.
+  uitsluitend `SummaryService`), functioneel dekt het dezelfde ideeën.
 - [ ] Agenda → automatische reminders.
 - [ ] Docs-kennisbank Q&A.
 - [ ] (Later: tweerichtings-Telegram, slimme wekker, monitoring-agents, moestuin, meeting-prep.)

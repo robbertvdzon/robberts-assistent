@@ -23,11 +23,19 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   Voorbeelden: `Notifier` (Telegram/Logging), `ReminderRepository` + `ConversationRepository`
   (Firestore/in-memory), `PhotoStorage` (Firebase Storage/in-memory), `CalendarClient` +
   `DocsClient` (Google/stub). Firebase-init-fouten worden afgevangen → fallback, geen crashloop.
+- **Pluggable SPI-patroon** voor uitbreidbare lijsten: een module definieert een interface
+  (`CouplingProbe`, `NightlyCheck`, `BriefingSectionProvider`), elke leverende module registreert
+  een `@Component`-implementatie ervan, en Spring injecteert automatisch de volledige
+  `List<...>` in de verzamelende service. Nieuwe leverancier toevoegen ⇒ nieuwe `@Component`,
+  geen wijziging in de verzamelende service.
 - **Config:** `AppSecrets` + `AppSecretsLoader` lezen `secrets.env` (lokaal) of env-vars (prod,
   uit de Sealed Secret via `envFrom`). Ontbrekende secret ⇒ fallback (zie `effectiveMockAi`).
 - **AI-agent:** twee `ChatClient`-beans in `assistant/ai/AiConfig` — `assistantChatClient`
   (`@Primary`, met alle `@Tool`-beans) en `gardenChatClient` (`@Qualifier`, vision, eigen
   system-prompt). `MockChatModel` in preview/tests (deterministisch, geen kosten/netwerk).
+  Andere modules kunnen een eigen lichte `ChatClient`-bean toevoegen die de gedeelde `ChatModel`
+  hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient`), zodat mock/echt automatisch
+  meeloopt met `AppSecrets.effectiveMockAi` zonder eigen schakelaar.
 - **Data:** notities in Postgres (JdbcTemplate + Flyway `V1`); reminders + chat-conversaties
   (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
   database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
