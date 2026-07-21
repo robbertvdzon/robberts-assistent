@@ -3,10 +3,11 @@ package nl.vdzon.robbertsassistent.briefing
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Opslag-poort voor de gegenereerde weerkaart-PNG's ([WeatherMapSectionProvider]), per vast
- * dagdeel-sleutel (`ochtend`/`middag`) — geen historie, elke cache-refresh overschrijft. Fallback
- * is [InMemoryWeatherMapStorage]; met Firebase geconfigureerd kiest [BriefingStoreConfig] de
- * [FirebaseStorageWeatherMapStorage]. Zelfde patroon als `assistant.PhotoStorage`.
+ * Opslag-poort voor het gegenereerde weerkaart-PNG ([WeatherMapSectionProvider]), onder één vaste
+ * sleutel (`morgen`, dekt beide dagdelen in één gecombineerd beeld) — geen historie, elke
+ * cache-refresh overschrijft. Fallback is [InMemoryWeatherMapStorage]; met Firebase geconfigureerd
+ * kiest [BriefingStoreConfig] de [FirebaseStorageWeatherMapStorage]. Zelfde patroon als
+ * `assistant.PhotoStorage`.
  */
 interface WeatherMapStorage {
     fun store(slot: String, bytes: ByteArray)

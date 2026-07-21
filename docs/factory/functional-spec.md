@@ -26,9 +26,10 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 - **Dagelijkse samenvatting** — oorspronkelijke samenvatting-skill (`summary`); sinds de
   Morgen-briefing (hieronder) niet meer aangesloten op een app-scherm.
 - **Morgen-briefing** — dagelijks (pluggable) overzicht met zeven secties: een weerkaart voor
-  morgen (twee kaartbeelden van de kust IJmuiden–Egmond, ochtend en middag, elk met
-  windrichtingspijl, windsnelheid in kn en een weer-icoon — géén betaalde kaarten-API, alleen
-  OpenStreetMap-tegels), kite-kans voor morgen (aanlandige wind in knopen + richting bij Wijk aan
+  morgen (één kaartbeeld van de kust IJmuiden–Egmond met daarop twee gekleurde windpijlen —
+  oranje = ochtend, blauw = middag — elk met windsnelheid in kn en een écht getekend weer-icoon
+  (java.awt-vormen: zon/wolk/regen, geen emoji), plus een legenda die kleur aan dagdeel koppelt —
+  géén betaalde kaarten-API, alleen OpenStreetMap-tegels), kite-kans voor morgen (aanlandige wind in knopen + richting bij Wijk aan
   Zee, werkdag/feestdag/vakantie-onderscheid, weergave 🟢/🟡/🔴 per dagdeel), strandfietskans voor
   morgen (eigen kaart, per dagdeel een bolletje MET onderbouwing: wind, regen en getij, zodat het
   oordeel navolgbaar is — kiten en strandfietsen waren tot SF-1192 één samengevoegde kaart),

@@ -4,19 +4,22 @@ import nl.vdzon.robbertsassistent.weather.WeatherClient
 import nl.vdzon.robbertsassistent.weather.WindForecastClient
 import nl.vdzon.robbertsassistent.weather.weatherCodeDescription
 import org.springframework.stereotype.Component
+import java.awt.Color
 import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Weerkaart-briefingsectie voor morgen: twee kaartbeelden van de kust IJmuiden-Egmond (09:00 en
- * 14:00), elk met windrichtingspijl, windsnelheid (kn) en weer-icoon — zie [CoastMapImageBuilder].
- * Staat bovenaan de briefing (`order = -10`, boven [KiteSectionProvider] en
- * [BeachCycleSectionProvider]), puur SPI dus geen wijziging aan [BriefingService]/
- * `BriefingController` nodig. De gegenereerde PNG's worden opgeslagen via [WeatherMapStorage] (vaste
- * sleutels `ochtend`/`middag`) en ontsloten via `GET /api/v1/briefing/weather-map/{slot}`; deze
- * sectie levert alleen de relatieve `imageUrl` (zie [BriefingItem]). Faalt de wind- of
- * weervoorspelling, dan levert de sectie een nette foutmelding (geen crash van de hele briefing).
+ * Weerkaart-briefingsectie voor morgen: één kaartbeeld van de kust IJmuiden-Egmond met daarover
+ * twee windpijlen (09:00 en 14:00) in verschillende kleuren, elk met windsnelheid (kn) en een
+ * echt getekend weer-icoon, plus een legenda — zie [CoastMapImageBuilder]. Staat bovenaan de
+ * briefing (`order = -10`, boven [KiteSectionProvider] en [BeachCycleSectionProvider]), puur SPI
+ * dus geen wijziging aan [BriefingService]/`BriefingController` nodig. Het gegenereerde PNG wordt
+ * opgeslagen via [WeatherMapStorage] (vaste sleutel `morgen`) en ontsloten via
+ * `GET /api/v1/briefing/weather-map/{slot}`; deze sectie levert precies één `BriefingItem` met de
+ * relatieve `imageUrl` (zie [BriefingItem]). Faalt de wind- of weervoorspelling, of ontbreekt data
+ * voor een van beide dagdelen, dan levert de sectie een nette foutmelding (geen crash van de hele
+ * briefing).
  */
 @Component
 class WeatherMapSectionProvider(
@@ -38,35 +41,46 @@ class WeatherMapSectionProvider(
 
         val zone = ZoneId.of("Europe/Amsterdam")
         val tomorrow = LocalDate.now(zone).plusDays(1)
-        val slots = listOf(
-            Slot(key = "ochtend", label = "Ochtend", at = tomorrow.atTime(9, 0)),
-            Slot(key = "middag", label = "Middag", at = tomorrow.atTime(14, 0)),
+        val daySlots = listOf(
+            DaySlot(label = "Ochtend", color = Color(0xF5, 0x7C, 0x00), at = tomorrow.atTime(9, 0)),
+            DaySlot(label = "Middag", color = Color(0x15, 0x65, 0xC0), at = tomorrow.atTime(14, 0)),
         )
 
-        val items = slots.mapNotNull { slot ->
+        val descriptions = mutableListOf<String>()
+        val mapSlots = daySlots.mapNotNull { slot ->
             val at = slot.at.atZone(zone).toInstant()
             val windHour = wind.hours.minByOrNull { Duration.between(it.time, at).abs() } ?: return@mapNotNull null
             val weatherHour = weather.hours.minByOrNull { Duration.between(it.time, at).abs() } ?: return@mapNotNull null
-            val png = coastMapImageBuilder.build(windHour.speedKn, windHour.directionDeg, weatherHour.weatherCode)
-            weatherMapStorage.store(slot.key, png)
             val direction = KiteSectionProvider.compassPoint(windHour.directionDeg)
-            BriefingItem(
-                text = "${slot.label}: ${windHour.speedKn.toInt()} kn ($direction), " +
-                    weatherCodeDescription(weatherHour.weatherCode),
-                imageUrl = "/api/v1/briefing/weather-map/${slot.key}",
+            descriptions += "${slot.label}: ${windHour.speedKn.toInt()} kn ($direction), " +
+                weatherCodeDescription(weatherHour.weatherCode)
+            WindMapSlot(
+                label = slot.label,
+                color = slot.color,
+                speedKn = windHour.speedKn,
+                directionDeg = windHour.directionDeg,
+                weatherCode = weatherHour.weatherCode,
             )
         }
 
-        if (items.isEmpty()) {
+        if (mapSlots.isEmpty()) {
             return BriefingSection(key = KEY, title = TITLE, text = "Geen voorspellingsdata beschikbaar voor de weerkaart.")
         }
-        return BriefingSection(key = KEY, title = TITLE, text = "", items = items)
+
+        val png = coastMapImageBuilder.build(mapSlots)
+        weatherMapStorage.store(STORAGE_KEY, png)
+        val item = BriefingItem(
+            text = descriptions.joinToString(" · "),
+            imageUrl = "/api/v1/briefing/weather-map/$STORAGE_KEY",
+        )
+        return BriefingSection(key = KEY, title = TITLE, text = "", items = listOf(item))
     }
 
-    private data class Slot(val key: String, val label: String, val at: java.time.LocalDateTime)
+    private data class DaySlot(val label: String, val color: Color, val at: java.time.LocalDateTime)
 
     private companion object {
         const val KEY = "weather-map"
         const val TITLE = "Weerkaart"
+        const val STORAGE_KEY = "morgen"
     }
 }

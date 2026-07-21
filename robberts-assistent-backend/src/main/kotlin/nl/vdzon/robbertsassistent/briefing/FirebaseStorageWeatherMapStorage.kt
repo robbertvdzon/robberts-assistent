@@ -3,10 +3,9 @@ package nl.vdzon.robbertsassistent.briefing
 import com.google.cloud.storage.Bucket
 
 /**
- * Bewaart de weerkaart-PNG's in Firebase Cloud Storage, onder de map `briefing-weather-map/` (los
- * van de bestaande foto-mappen `assistent-chat/`/`moestuin/`). Vaste bestandsnaam per dagdeel
- * (`ochtend.png`/`middag.png`), dus elke refresh overschrijft — geen historie, zie
- * [WeatherMapStorage].
+ * Bewaart het weerkaart-PNG in Firebase Cloud Storage, onder de map `briefing-weather-map/` (los
+ * van de bestaande foto-mappen `assistent-chat/`/`moestuin/`). Vaste bestandsnaam (`morgen.png`),
+ * dus elke refresh overschrijft — geen historie, zie [WeatherMapStorage].
  */
 class FirebaseStorageWeatherMapStorage(private val bucket: Bucket) : WeatherMapStorage {
 

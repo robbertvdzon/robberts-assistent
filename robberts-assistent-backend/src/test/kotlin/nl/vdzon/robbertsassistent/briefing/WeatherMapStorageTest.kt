@@ -7,29 +7,27 @@ import kotlin.test.assertNull
 class WeatherMapStorageTest {
 
     @Test
-    fun `load geeft null terug zonder eerdere store voor dat dagdeel`() {
+    fun `load geeft null terug zonder eerdere store voor die sleutel`() {
         val storage = InMemoryWeatherMapStorage()
 
-        assertNull(storage.load("ochtend"))
+        assertNull(storage.load("morgen"))
     }
 
     @Test
-    fun `store slaat bytes op per dagdeel-sleutel, load haalt ze terug`() {
+    fun `store slaat bytes op onder de sleutel morgen, load haalt ze terug`() {
         val storage = InMemoryWeatherMapStorage()
-        storage.store("ochtend", byteArrayOf(1, 2, 3))
-        storage.store("middag", byteArrayOf(4, 5, 6))
+        storage.store("morgen", byteArrayOf(1, 2, 3))
 
-        assertContentEquals(byteArrayOf(1, 2, 3), storage.load("ochtend"))
-        assertContentEquals(byteArrayOf(4, 5, 6), storage.load("middag"))
+        assertContentEquals(byteArrayOf(1, 2, 3), storage.load("morgen"))
     }
 
     @Test
-    fun `store overschrijft eerdere bytes voor hetzelfde dagdeel`() {
+    fun `store overschrijft eerdere bytes voor dezelfde sleutel`() {
         val storage = InMemoryWeatherMapStorage()
-        storage.store("ochtend", byteArrayOf(1))
+        storage.store("morgen", byteArrayOf(1))
 
-        storage.store("ochtend", byteArrayOf(9, 9))
+        storage.store("morgen", byteArrayOf(9, 9))
 
-        assertContentEquals(byteArrayOf(9, 9), storage.load("ochtend"))
+        assertContentEquals(byteArrayOf(9, 9), storage.load("morgen"))
     }
 }
