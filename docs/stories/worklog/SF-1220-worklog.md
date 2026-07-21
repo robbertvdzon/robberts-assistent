@@ -39,3 +39,38 @@ Done / rationale:
 - `mvn test` in `robberts-assistent-backend/`: 240 tests, 0 failures, 0 errors (incl.
   `ModulithArchitectureTest`, BUILD SUCCESS).
 - Geen frontend-wijziging (`summary_screen.dart` rendert de sectie al generiek via `imageUrl`/`text`).
+
+---
+
+## Testronde (tester, SF-1222)
+
+- `mvn test` in `robberts-assistent-backend/`: 240 tests, 0 failures, 0 errors, BUILD SUCCESS
+  (start 21:00:31Z, eind 21:00:56Z UTC). Gerichte hertest van
+  `WeatherMapSectionProviderTest`/`CoastMapImageBuilderTest`/`BeachCycleSectionProviderTest`
+  (19 tests) ook groen.
+- Preview `robberts-assistent-pr-20` (frontend-proxy-route,
+  `.../api/v1/briefing`): `POST /api/v1/briefing/refresh` → 200, tekst bevat
+  "Ochtend: 12 kn (NNW), bewolkt · Avond: 12 kn (NNW), bewolkt" (AC2 bevestigd: "Avond"
+  i.p.v. "Middag") en de strandfiets-tekst toont alleen nog "dichtbij laagwater" zonder
+  "laagwater om HH:MM" (AC5 bevestigd).
+- **Bug gevonden** in het gegenereerde weerkaart-PNG
+  (`GET /api/v1/briefing/weather-map/morgen`, opgeslagen als
+  `screenshots/SF-1220-weerkaart.png`): het kaartbeeld is 512×512 px. De twee windpijlen
+  staan correct verticaal gestapeld links (AC1 OK), legenda "Ochtend"/"Avond" OK, en
+  onderin staat een kader met weer-icoon + getijtekst — maar dat kader is **breder dan
+  het canvas**: de getijtekst ("Hoogwater 05:50   Laagwater 10:10   Hoogwater 18:20
+  Laagwater ...") is aan zowel de linker- als de rechterkant afgesneden en daardoor
+  onleesbaar/onvolledig. Oorzaak (code-inspectie `CoastMapImageBuilder.drawDaySummary`):
+  `boxWidth` wordt berekend als `iconRadius*2 + 24 + metrics.stringWidth(tideText) + 24`
+  zonder enige begrenzing op de beschikbare breedte; bij 3-4 getijmomenten (normale dag)
+  wordt de tekst met huidige font (SansSerif Bold 18) breder dan de 512px-kaart, en
+  `boxX = (width - boxWidth) / 2` wordt dan negatief, waardoor het kader (en dus de tekst)
+  aan beide kanten buiten beeld valt.
+  - Verwacht: alle hoog-/laagwatertijden leesbaar binnen het kaartbeeld (AC4).
+  - Werkelijk: tekst afgesneden aan beide randen, gedeeltelijk onleesbaar.
+  - Reproductie: `POST /api/v1/briefing/refresh` daarna `GET
+    /api/v1/briefing/weather-map/morgen` op een dag met 3+ getijmomenten (of lokaal
+    `CoastMapImageBuilderTest` uitbreiden met een tekstbreedte-assert — de bestaande tests
+    checken alleen pixelkleuren, niet of de tekst binnen de canvasbreedte past).
+  → Terug naar developer: tekst/kader laten passen binnen de kaartbreedte (bv. kleiner
+    lettertype, regel-afbreking, of de tijden compacter formatteren).
