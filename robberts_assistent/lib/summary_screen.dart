@@ -98,7 +98,16 @@ class _SummaryScreenState extends State<SummaryScreen> {
             ),
             const SizedBox(height: 8),
             if (section.items.isEmpty)
-              Text(section.text)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final line in section.text.split('\n'))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(line),
+                    ),
+                ],
+              )
             else
               ...section.items.map(_buildItemRow),
           ],
@@ -111,15 +120,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final action = item.action;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(item.text)),
+          Text(item.text),
           if (action != null)
-            TextButton(
-              onPressed: _runningActions.contains(action) ? null : () => _runAction(action),
-              child: _runningActions.contains(action)
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(action.label),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _runningActions.contains(action) ? null : () => _runAction(action),
+                child: _runningActions.contains(action)
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Text(action.label),
+              ),
             ),
         ],
       ),
