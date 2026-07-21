@@ -216,4 +216,46 @@ Niet gedaan / aangepast:
   functioneel noodzakelijk voor de agenda-actie-AC en raakt geen bestaand gedrag: `data`-param
   heeft een default, `items` heeft een default `emptyList()`).
 
-{"phase":"reviewed"}
+## Test (SF-1167, tester)
+
+- Backend volledig vangnet opnieuw gedraaid (`mvn test` vanuit `robberts-assistent-backend/`,
+  start `07:19:50Z`, eind `07:20:14Z`, "Total time: 23.413 s"): **196 tests, 0 failures, 0
+  errors, BUILD SUCCESS** — inclusief `ModulithArchitectureTest`, alle nieuwe `briefing.**`-tests,
+  `GoogleCalendarClientTest`, `StubCalendarClientTest`, `OpenMeteoWindForecastClientTest`,
+  `HolidaysTest`.
+- Preview `robberts-assistent-pr-14` end-to-end getest (geen Google-login nodig,
+  `RA_PREVIEW_SKIP_GOOGLE_AUTH`):
+  - `GET /api/v1/briefing` → HTTP 200, alle 4 secties aanwezig (kite/strandfiets met 🟢/🟡/🔴 + kn,
+    agenda 7 dagen met reminder-status + acties, weektaken met mock-AI-antwoord, moestuin-
+    placeholder). Preview draait blijkbaar met echte Google Calendar-koppeling (herkenbare
+    persoonlijke afspraken i.p.v. de vaste `StubCalendarClient`-namen "Standup"/"Tandarts
+    controle"), dus dit dekt ook de echte `GoogleCalendarClient.eventsInRange`/multi-agenda-code,
+    niet alleen de stub.
+  - Eén agendaregel ("Vakantie", 17 jul, meerdaags) toont een startdatum vóór "nu" — dit is
+    verwacht/correct gedrag van de Google Calendar `events.list`-tijdrange-filter (die events
+    retourneert die het venster *overlappen*, met hun oorspronkelijke starttijd, niet alleen
+    events die er strikt in beginnen); geen bug in de story-code.
+  - Browser-screenshot (Playwright/Chromium, `ignoreHTTPSErrors`) van de "Morgen"-tab gemaakt →
+    `/work/screenshots/morgen-tab.png`: bottom-nav toont "Morgen" (i.p.v. "Samenvatting") als
+    eerste tab, alle 4 sectiekaarten renderen correct met iconen, statussen en
+    "Reminder 1 uur van tevoren aanmaken"-acties.
+  - Eén-tap-actie end-to-end getest: `POST /api/v1/briefing/agenda-reminder` met een
+    tijdelijke testafspraak → reminder correct aangemaakt 1 uur van tevoren (`dueAt` = `startAt` -
+    1u), opgehaald via `GET /api/v1/reminders`, en weer opgeruimd via `DELETE
+    /api/v1/reminders/{id}` (bevestigd leeg na cleanup — geen resterende testdata).
+  - Gedeployde `main.dart.js` van de preview gecontroleerd (curl + grep) als aanvullend bewijs
+    naast de screenshot: bevat "Morgen" (geen "Samenvatting" meer) en de string
+    `/api/v1/briefing`, dus de frontend-wijziging (SF-1166) zit ook echt in de gedeployde build.
+- Acceptatiecriteria uit `.task.md` allemaal geverifieerd: SPI-pluggability (code-review + groene
+  `BriefingServiceTest`), kite/strandfiets-logica + werkdag/weekend/feestdag/vakantie-tak
+  (`KiteSectionProviderTest`, 12 tests), algoritmische feestdagen (`HolidaysTest`), vakantiedetectie
+  via all-day agenda-items (`allDay`-veld behouden, `GoogleCalendarClientTest`), agenda 7 dagen +
+  reminder-status + werkende aanmaak-actie (live geverifieerd, zie boven), weektaken-AI-samenvatting
+  (live, mock-antwoord onder `RA_MOCK_AI`), moestuin-placeholder (live), 18:00-scheduler → push
+  (`BriefingSchedulerTest`), tik-op-push-deep-link (code-review `fcm_service.dart`/`home_screen.dart`
+  — geen live FCM-tik te simuleren vanuit een webbrowser-preview, wel `deepLinkTab`-logica en
+  `home_screen_test.dart` gecontroleerd), geen nieuwe/7e tab (bevestigd, 4 tabs in screenshot).
+- Geen bugs gevonden. Alle acceptatiecriteria voldaan, backend-vangnet volledig groen, preview
+  end-to-end werkend geverifieerd inclusief de nieuwe reminder-actie.
+
+{"phase":"tested"}
