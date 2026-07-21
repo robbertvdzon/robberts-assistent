@@ -38,3 +38,25 @@ Done / rationale:
 - Getest: `mvn -o test` — 210/210 groen (volledige backend-testsuite), incl.
   `ModulithArchitectureTest` (geen module-grensschending) en de vier bestaande
   `briefing`-testklassen. Geen frontend-wijziging nodig (generieke sectie-rendering, zie scope).
+
+## Testronde (tester, SF-1174)
+
+- `mvn -o test` (robberts-assistent-backend/): start 2026-07-21T07:58:17Z, eind 2026-07-21T07:58:42Z,
+  Maven "Total time: 23.694 s" — 210/210 groen, 0 failures, 0 errors (incl. `ModulithArchitectureTest`
+  en de nieuwe `SystemStatusSectionProviderTest`).
+- Code-review diff (`SystemStatusSectionProvider.kt`, `BriefingAiConfig.kt`): geen wijziging aan
+  `BriefingService`/`BriefingController`/`BriefingScheduler` (grep bevestigt geen diff). `order = 40`
+  na kite(0)/agenda(10)/week-tasks(20)/moestuin(30).
+  `runCatching` per onderliggende client (OpenShift/Automower/Software Factory) + stille AI-fallback
+  (`FALLBACK_TEXT`, geen aandachtspunten) aanwezig zoals in de story vereist.
+- Live preview (`robberts-assistent-pr-15`, `RA_MOCK_AI`): `GET /api/v1/briefing` toont de sectie
+  `"key":"system-status","title":"Systeemstatus"` als vijfde/laatste sectie, met ruwe data van alle
+  vijf checks (zonnepanelen/backups dummy, OpenShift-stub, Automower-stub, Software Factory met
+  echte open stories) in de AI-prompt. `MockChatModel`'s echo-antwoord matcht niet het
+  `AANDACHT:`-formaat → `parseAiReply` valt terug op de volledige tekst als rapport zonder
+  aandachtspunten → `shortSummary()` = null (bevestigd deterministisch, geen crash zonder secrets).
+- Screenshot (`screenshots/sf1164-morgen-tab.png`, `sf1164-systeemstatus-section.png`): "Morgen"-tab
+  in `robberts_assistent`-webpreview toont de nieuwe "Systeemstatus"-sectie onderaan, na Kiten,
+  Agenda, Deze week en Moestuin — conform AC. Geen frontend-codewijziging nodig/aanwezig (generieke
+  sectie-rendering, zoals scope aangeeft).
+- Geen bugs gevonden; alle acceptatiecriteria geverifieerd.
