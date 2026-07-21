@@ -171,26 +171,35 @@ internal fun drawOverlay(image: BufferedImage, slots: List<WindMapSlot>, dayWeat
 /**
  * Tekent onderin de kaart een dag-breed (niet per-dagdeel) weersymbool — in dezelfde
  * `java.awt`-vormenstijl als [drawWeatherIcon] — plus de hoog-/laagwatertijden van die dag
- * (IJmuiden) als tekst, in een halfdoorzichtig kader zodat het leesbaar blijft op de kaart.
+ * (IJmuiden) als tekst, in een halfdoorzichtig kader zodat het leesbaar blijft op de kaart. Het
+ * kader (en de erin getekende tekst) wordt begrensd op de kaartbreedte: bij te veel getijmomenten
+ * om op één regel te passen wordt de tekst over meerdere regels verdeeld i.p.v. dat het kader
+ * buiten het canvas uitsteekt.
  */
 private fun drawDaySummary(g: java.awt.Graphics2D, width: Int, height: Int, dayWeatherCode: Int, tideExtremes: List<TideExtreme>) {
     val formatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Europe/Amsterdam"))
-    val tideText = if (tideExtremes.isEmpty()) {
-        "Geen getijdata"
-    } else {
-        tideExtremes.sortedBy { it.time }.joinToString("   ") { extreme ->
-            val label = if (extreme.type == TideType.HOOGWATER) "Hoogwater" else "Laagwater"
-            "$label ${formatter.format(extreme.time)}"
-        }
+    val entries = tideExtremes.sortedBy { it.time }.map { extreme ->
+        val label = if (extreme.type == TideType.HOOGWATER) "Hoogwater" else "Laagwater"
+        "$label ${formatter.format(extreme.time)}"
     }
 
     g.font = Font("SansSerif", Font.BOLD, 18)
     val metrics = g.fontMetrics
     val iconRadius = 20.0
-    val boxHeight = 50
-    val boxWidth = (iconRadius * 2 + 24 + metrics.stringWidth(tideText) + 24).toInt()
+    val margin = 16
+    val maxBoxWidth = width - margin * 2
+    val iconAreaWidth = (iconRadius * 2 + 24).toInt()
+    val textRightPadding = 24
+    val maxTextWidth = (maxBoxWidth - iconAreaWidth - textRightPadding).coerceAtLeast(60)
+
+    val lines = wrapTideLines(entries, metrics, maxTextWidth)
+    val lineHeight = metrics.height + 4
+    val textBlockHeight = lines.size * lineHeight
+    val boxHeight = maxOf((iconRadius * 2 + 16).toInt(), textBlockHeight + 16)
+    val textWidth = lines.maxOf { metrics.stringWidth(it) }
+    val boxWidth = (iconAreaWidth + textWidth + textRightPadding).coerceAtMost(maxBoxWidth)
     val boxX = ((width - boxWidth) / 2.0).toInt()
-    val boxY = height - boxHeight - 16
+    val boxY = height - boxHeight - margin
 
     g.color = Color(255, 255, 255, 220)
     g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 12, 12)
@@ -200,8 +209,34 @@ private fun drawDaySummary(g: java.awt.Graphics2D, width: Int, height: Int, dayW
     drawWeatherIcon(g, dayWeatherCode, iconCenterX, iconCenterY, iconRadius)
 
     g.color = Color.BLACK
-    val textY = boxY + boxHeight / 2 + metrics.ascent / 2 - 2
-    g.drawString(tideText, (iconCenterX + iconRadius + 16).toInt(), textY)
+    val textStartX = (iconCenterX + iconRadius + 16).toInt()
+    val blockTop = boxY + (boxHeight - textBlockHeight) / 2
+    lines.forEachIndexed { index, line ->
+        val textY = blockTop + index * lineHeight + metrics.ascent
+        g.drawString(line, textStartX, textY)
+    }
+}
+
+/**
+ * Verdeelt de getijmomenten-teksten greedy over zo min mogelijk regels die elk binnen
+ * [maxWidth] passen (een enkel te lang moment wordt niet verder afgebroken). Levert
+ * `["Geen getijdata"]` bij een lege lijst.
+ */
+private fun wrapTideLines(entries: List<String>, metrics: java.awt.FontMetrics, maxWidth: Int): List<String> {
+    if (entries.isEmpty()) return listOf("Geen getijdata")
+    val lines = mutableListOf<String>()
+    var current = StringBuilder()
+    for (entry in entries) {
+        val candidate = if (current.isEmpty()) entry else "$current   $entry"
+        if (current.isEmpty() || metrics.stringWidth(candidate) <= maxWidth) {
+            current = StringBuilder(candidate)
+        } else {
+            lines.add(current.toString())
+            current = StringBuilder(entry)
+        }
+    }
+    if (current.isNotEmpty()) lines.add(current.toString())
+    return lines
 }
 
 /**

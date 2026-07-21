@@ -70,6 +70,31 @@ class CoastMapImageBuilderTest {
     }
 
     @Test
+    fun `drawDaySummary kader blijft binnen de kaartbreedte bij veel getijmomenten`() {
+        val image = BufferedImage(512, 512, BufferedImage.TYPE_INT_ARGB)
+        val manyExtremes = listOf(
+            TideExtreme(Instant.parse("2026-07-22T02:00:00Z"), 95, TideType.HOOGWATER),
+            TideExtreme(Instant.parse("2026-07-22T08:00:00Z"), -70, TideType.LAAGWATER),
+            TideExtreme(Instant.parse("2026-07-22T14:00:00Z"), 100, TideType.HOOGWATER),
+            TideExtreme(Instant.parse("2026-07-22T20:00:00Z"), -65, TideType.LAAGWATER),
+        )
+
+        drawOverlay(image, slots(), dayWeatherCode = 0, tideExtremes = manyExtremes)
+
+        val boxArgb = Color(255, 255, 255, 220).rgb
+        val bottomRows = 0 until image.height
+        val leftEdgePixels = bottomRows.map { y -> image.getRGB(0, y) }
+        val rightEdgePixels = bottomRows.map { y -> image.getRGB(image.width - 1, y) }
+        val middleBottomPixels = (150 until 362).flatMap { x ->
+            (image.height - 90 until image.height).map { y -> image.getRGB(x, y) }
+        }
+
+        assertTrue(!leftEdgePixels.contains(boxArgb), "kader mag de linkerrand van het canvas niet raken")
+        assertTrue(!rightEdgePixels.contains(boxArgb), "kader mag de rechterrand van het canvas niet raken")
+        assertTrue(middleBottomPixels.contains(boxArgb), "kader moet ergens onderin het midden van het canvas getekend zijn")
+    }
+
+    @Test
     fun `weatherCategory geeft zon terug bij helder weer`() {
         assertEquals("zon", weatherCategory(0))
         assertEquals("zon", weatherCategory(1))
