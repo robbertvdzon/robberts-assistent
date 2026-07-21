@@ -26,12 +26,15 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 - **Dagelijkse samenvatting** — oorspronkelijke samenvatting-skill (`summary`); sinds de
   Morgen-briefing (hieronder) niet meer aangesloten op een app-scherm.
 - **Morgen-briefing** — dagelijks (pluggable) overzicht met zeven secties: een weerkaart voor
-  morgen (één kaartbeeld van de kust IJmuiden–Egmond met daarop twee gekleurde windpijlen —
-  oranje = ochtend, blauw = middag — elk met windsnelheid in kn en een écht getekend weer-icoon
-  (java.awt-vormen: zon/wolk/regen, geen emoji), plus een legenda die kleur aan dagdeel koppelt —
-  géén betaalde kaarten-API, alleen OpenStreetMap-tegels), kite-kans voor morgen (aanlandige wind in knopen + richting bij Wijk aan
+  morgen (één kaartbeeld van de kust IJmuiden–Egmond met daarop twee gekleurde windpijlen,
+  verticaal gestapeld aan de linkerkant — oranje = ochtend (07:00), blauw = avond (19:00) — elk
+  met windsnelheid in kn en een écht getekend weer-icoon (java.awt-vormen: zon/wolk/regen, geen
+  emoji), plus een legenda die kleur aan dagdeel koppelt en onderin een dag-breed weersymbool en de
+  hoog-/laagwatertijden van die dag (IJmuiden) als getekende tekst — géén betaalde kaarten-API,
+  alleen OpenStreetMap-tegels), kite-kans voor morgen (aanlandige wind in knopen + richting bij Wijk aan
   Zee, werkdag/feestdag/vakantie-onderscheid, weergave 🟢/🟡/🔴 per dagdeel), strandfietskans voor
-  morgen (eigen kaart, per dagdeel een bolletje MET onderbouwing: wind, regen en getij, zodat het
+  morgen (eigen kaart, per dagdeel een bolletje MET onderbouwing: wind, regen en getij-nabijheid
+  (de laagwatertijd zelf staat sinds SF-1220/1221 op de weerkaart, niet meer hier), zodat het
   oordeel navolgbaar is — kiten en strandfietsen waren tot SF-1192 één samengevoegde kaart),
   afspraken komende 7 dagen (alle agenda's, met per afspraak of er al een reminder ~1u vooraf
   staat en zo niet een één-tap-actie om er één aan te maken), een AI-samenvatting "wat moet ik
