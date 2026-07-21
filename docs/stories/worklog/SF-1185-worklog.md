@@ -62,3 +62,35 @@ Done / rationale:
 - Geen backend-wijzigingen nodig/aanwezig; niet van toepassing hier.
 
 Oordeel: akkoord, geen blockers.
+
+## Test (SF-1187)
+
+- `/opt/flutter/bin/flutter` (3.44.7) beschikbaar in de sandbox; `flutter pub get`
+  gedraaid (start `date -u`: 2026-07-21 11:28:18 UTC), `pubspec.lock` ongewijzigd
+  gebleven.
+- `flutter test` in `robberts_assistent/` (start 11:28:21 UTC, eind 11:28:25 UTC):
+  **24/24 groen**, incl. de nieuwe widget-test "meerregelige kite-tekst wordt per
+  regel apart weergegeven".
+- `flutter analyze` in `robberts_assistent/` (start 11:28:28 UTC, eind 11:28:35
+  UTC): `No issues found!`.
+- `git status` na beide runs: clean, geen ongewenste wijzigingen aan
+  `pubspec.lock` of elders.
+- Preview `robberts-assistent-pr-16` (SF_PREVIEW_URL) is bereikbaar (HTTP 200,
+  geen Google-login nodig dankzij `RA_PREVIEW_SKIP_GOOGLE_AUTH`). Screenshot
+  gemaakt met Playwright/Chromium van de "Morgen"-tab
+  (`screenshots/morgen-tab.png`), bevestigt beide acceptatiecriteria visueel:
+  - Kiten/strandfietsen-kaart: de twee `\n`-regels ("Ochtend: kiten 🔴 11 kn
+    (NW), strandfietsen 🟢" / "Avond: kiten 🔴 13 kn (NNW), strandfietsen 🟢")
+    staan elk als eigen, leesbare regel — geen orphan-bolletjesregel, geen
+    letter-voor-letter-afbreking, tekstinhoud/emoji-volgorde ongewijzigd.
+  - Agenda-kaart: de afspraaktekst (bv. "Fri 17 Jul 10:00 — Vakantie (⚠️ nog
+    geen reminder)") staat op volle kaartbreedte boven, de actieknop "Reminder
+    1 uur van tevoren aanmaken" staat er rechts uitgelijnd compact onder — géén
+    letter-voor-letter-afbreking meer door een te brede knop.
+  - Overige secties (Deze week/weektaken, Moestuin, Systeemstatus) ogen
+    ongewijzigd qua layout.
+- Geen bugs gevonden; alle acceptatiecriteria uit de story geverifieerd via
+  echte testrun + live preview-screenshot (geen vervangende code-review nodig
+  — Flutter-SDK was gewoon beschikbaar).
+
+Oordeel: `tested`, geen blockers.
