@@ -194,3 +194,26 @@ Niet gedaan / aangepast:
   `Message.Builder.putAllData` is standaard Firebase-Admin-SDK-gedrag.
 - FCM-web (deep-link bij een tik in de webversie) blijft buiten scope: `FcmService.setup` doet nu
   al niets op web (`kIsWeb`-check), zoals vóór deze story.
+
+## Review SF-1166 (frontend: Morgen-scherm + FCM-deep-link)
+
+- Volledige story-diff (`git diff main...HEAD`) bekeken; SF-1165 was al review-approved, dit
+  focust op de db532d0-commit (frontend + kleine backend-uitbreiding: `BriefingItem`/
+  `BriefingAction`, `PushService.sendToAll(data)`, `BriefingScheduler` push-type).
+- `flutter analyze` (robberts_assistent): geen issues. `flutter test`: 23/23 groen (flutter-SDK
+  is in deze sandbox-run wél aanwezig, zie agent-tip — dus dit is echt testbewijs, niet alleen
+  code-review).
+- Backend: gerichte `mvn test` op `AgendaSectionProviderTest`/`BriefingSchedulerTest`/
+  `BriefingServiceTest` (de door deze subtaak geraakte klassen): 11/11 groen. Volledige
+  backend-suite niet opnieuw gedraaid (developer-run al deterministisch geverifieerd door de
+  harness, zie reviewer-instructies).
+- End-to-end wiring geklopt: `AgendaSectionProvider`-payload (`summary`/`startAt`) komt overeen
+  met `CreateAgendaReminderRequest` in `BriefingController`; `ApiClient.runBriefingAction` post
+  generiek naar `action.endpoint`/`action.payload`; `FcmService.deepLinkTab` (`type == 'briefing'`,
+  moet matchen met `BriefingScheduler.PUSH_TYPE`) → `HomeScreen` schakelt naar tab-index 0
+  ("Morgen"), consistent met de nieuwe destinations-volgorde in `home_screen.dart`.
+- Geen bugs/regressies gevonden. Scope blijft binnen de story (kleine backend-uitbreiding is
+  functioneel noodzakelijk voor de agenda-actie-AC en raakt geen bestaand gedrag: `data`-param
+  heeft een default, `items` heeft een default `emptyList()`).
+
+{"phase":"reviewed"}
