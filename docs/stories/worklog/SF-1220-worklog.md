@@ -74,3 +74,32 @@ Done / rationale:
     checken alleen pixelkleuren, niet of de tekst binnen de canvasbreedte past).
   → Terug naar developer: tekst/kader laten passen binnen de kaartbreedte (bv. kleiner
     lettertype, regel-afbreking, of de tijden compacter formatteren).
+
+---
+
+## Testronde 2 (tester, SF-1222 — na developer-fix)
+
+- Developer heeft `drawDaySummary()`/`wrapTideLines()` toegevoegd: `boxWidth` wordt nu
+  begrensd op `maxBoxWidth = width - margin*2` en de getijtekst wraps greedy over meerdere
+  regels i.p.v. één regel die buiten het canvas kan steken (commit `90b7240`).
+- `mvn test` in `robberts-assistent-backend/`: **241 tests, 0 failures, 0 errors, BUILD
+  SUCCESS** (start 21:09:29Z, eind 21:09:54Z UTC, `Total time: 23.811 s`). Inclusief
+  `ModulithArchitectureTest` (1 test), `CoastMapImageBuilderTest` (10 tests),
+  `WeatherMapSectionProviderTest` (6 tests), `BeachCycleSectionProviderTest` (4 tests) — alle
+  groen.
+- Preview `robberts-assistent-pr-20` (frontend-proxy-route): `POST
+  /api/v1/briefing/refresh` → 200 (eerste poging faalde met "Kon Open-Meteo-wind niet
+  ophalen (HTTP 503)" — transiënte externe-API-hik, tweede poging direct daarna slaagde).
+  Resultaat: weerkaart-tekst "Ochtend: 12 kn (NNW), bewolkt · Avond: 12 kn (NNW), bewolkt"
+  (AC2 bevestigd), strandfiets-tekst "Ochtend: 🟢 (12 kn (NNW), droog, dichtbij
+  laagwater)" — geen "laagwater om HH:MM" meer (AC5 bevestigd).
+- **Bug uit testronde 1 bevestigd opgelost**: `GET /api/v1/briefing/weather-map/morgen`
+  gedownload en visueel geïnspecteerd (`screenshots/SF-1220-weerkaart-retest.png`, 512×512
+  px). Windpijlen staan verticaal gestapeld links met eigen kleur/label/icoon (AC1), onderin
+  staat het kader nu volledig binnen het canvas met een leesbaar dag-weersymbool en de
+  hoog-/laagwatertijden netjes over twee regels ("Laagwater 05:50   Hoogwater 10:10" /
+  "Laagwater 18:20   Hoogwater 22:40"), niet meer afgesneden (AC3/AC4 bevestigd).
+- Geen frontend-wijziging aangetroffen in de diff (`git diff --stat` over de story-branch
+  raakt alleen `briefing`-backendbestanden + worklogs) — conform AC.
+- Conclusie: alle acceptatiecriteria van SF-1220 geverifieerd, vangnet groen, gerapporteerde
+  bug uit vorige ronde bevestigd verholpen. → `tested`.
