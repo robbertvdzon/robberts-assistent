@@ -21,15 +21,18 @@ void main() {
   testWidgets('toont de titel en tekst van elke briefingsectie', (tester) async {
     final api = _FakeApiClient()
       ..sections = const [
-        BriefingSection(key: 'kite', title: 'Kiten / strandfietsen', text: 'Morgen: 🟢 24kn', items: []),
+        BriefingSection(key: 'kite', title: 'Kiten', text: 'Morgen: 🟢 24kn', items: []),
+        BriefingSection(key: 'beach', title: 'Strandfietsen', text: 'Morgen: 🟢 (10 kn, droog, laagwater om 08:00)', items: []),
         BriefingSection(key: 'moestuin', title: 'Moestuin', text: 'Alles goed.', items: []),
       ];
 
     await tester.pumpWidget(MaterialApp(home: SummaryScreen(api: api)));
     await tester.pump();
 
-    expect(find.text('Kiten / strandfietsen'), findsOneWidget);
+    expect(find.text('Kiten'), findsOneWidget);
     expect(find.text('Morgen: 🟢 24kn'), findsOneWidget);
+    expect(find.text('Strandfietsen'), findsOneWidget);
+    expect(find.text('Morgen: 🟢 (10 kn, droog, laagwater om 08:00)'), findsOneWidget);
     expect(find.text('Moestuin'), findsOneWidget);
     expect(find.text('Alles goed.'), findsOneWidget);
   });
@@ -87,7 +90,7 @@ void main() {
       ..sections = const [
         BriefingSection(
           key: 'kite',
-          title: 'Kiten / strandfietsen',
+          title: 'Kiten',
           text: 'Morgen: 🟢 24kn NW\nOvermorgen: 🟡 12kn Z',
           items: [],
         ),

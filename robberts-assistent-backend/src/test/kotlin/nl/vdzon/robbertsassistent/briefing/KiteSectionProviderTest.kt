@@ -111,7 +111,7 @@ class KiteSectionProviderTest {
         val section = provider.section()
 
         assertEquals("kite", section.key)
-        assertTrue(section.text.contains("kiten"))
+        assertEquals("Kiten", section.title)
         assertTrue(section.text.contains("24 kn"))
     }
 
