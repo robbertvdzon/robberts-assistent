@@ -347,6 +347,17 @@ laagwater") — de tijd staat nu op de weerkaart. De rating/beoordelingslogica (
 is ongewijzigd; `KiteSectionProvider` toonde al geen getij-tekst. Geen frontend-wijziging
 (`summary_screen.dart` rendert de sectie al generiek).
 
+Nieuw (SF-1227): cache-bust voor de weerkaart-afbeelding op de "Morgen"-tab. Na een refresh
+(reload-knop → `POST /api/v1/briefing/refresh`, of de dagelijkse 17:30-cache gevolgd door een
+gewone `GET /api/v1/briefing`) toonde `summary_screen.dart` soms nog de oude PNG, omdat
+`imageUrl` een vaste URL is en Flutter's `Image.network`-`ImageCache` daarop keyed. Elk
+`BriefingItem.imageUrl` krijgt nu client-side een `?v=<epoch-seconden>`-query-param aangehangen
+op basis van `BriefingData.updatedAt` (`_cacheBustedImageUrl()` in `summary_screen.dart`) —
+generiek voor elk item met een `imageUrl`, niet hardcoded op de weerkaart-sectie. Backend-kant,
+ter versteviging: `GET /api/v1/briefing/weather-map/{slot}` (`BriefingController.kt`) geeft nu een
+`Cache-Control: no-cache`-header mee. Geen wijziging aan `BriefingItem`/`BriefingResponse`-
+datamodel.
+
 ---
 
 ## 10. Meer detail
