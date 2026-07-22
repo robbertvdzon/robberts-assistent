@@ -57,3 +57,29 @@ Done / rationale:
   no-cache` header correct toegevoegd. Geen scope-overschrijding; alle acceptatiecriteria uit
   `.task.md` gedekt.
 - Akkoord, geen blockers.
+
+### Test (SF-1229 - story-brede test)
+
+- Backend: `mvn -o test` (robberts-assistent-backend, start/eind wall-clock
+  2026-07-22T08:25:17Z – 08:25:41Z) → 242/242 groen, incl. nieuwe
+  `BriefingControllerTest` (Cache-Control: no-cache).
+- Frontend: `flutter test` (volledige suite, robberts_assistent) → 29/29 groen;
+  losse run van `test/summary_screen_test.dart` → 11/11 groen, incl. de
+  aangepaste imageUrl-test (verwacht `?v=<epoch>` suffix) en de nieuwe
+  refresh-test (andere `updatedAt` → andere URL). `flutter analyze` schoon.
+  Geen `pubspec.lock`-wijziging achtergebleven.
+- Preview (`robberts-assistent-pr-22`, frontend-proxy): `GET /api/v1/briefing`
+  gevolgd door twee keer `POST /api/v1/briefing/refresh` gaf drie verschillende
+  `updatedAt`-waarden (08:26:39 → 08:26:41 → 08:26:47Z). `GET
+  /api/v1/briefing/weather-map/morgen` retourneert `Cache-Control: no-cache`.
+  Alleen de `weather-map`-sectie heeft een `imageUrl`; kite/beach/agenda/
+  week-tasks/moestuin/system-status hebben `imageUrl: null` — cache-bust raakt
+  dus alleen items met een afbeelding, zoals vereist.
+- Browser-E2E (Playwright/Chromium tegen de preview-URL, 480x900): Morgen-tab
+  geopend, weerkaart-afbeelding rendert; netwerkrequests onderschept vóór en na
+  een klik op de reload-knop lieten de querystring veranderen van
+  `?v=1784708807` naar `?v=1784708870` — bevestigt het acceptatiecriterium
+  "andere query-param-waarde na refresh" end-to-end. Screenshots in
+  `screenshots/sf1229-morgen-tab.png` en
+  `screenshots/sf1229-morgen-tab-after-refresh.png`.
+- Alle acceptatiecriteria uit `.task.md` (SF-1229) gedekt; geen bugs gevonden.
