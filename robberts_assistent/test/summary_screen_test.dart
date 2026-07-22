@@ -126,6 +126,55 @@ void main() {
     expect(find.byType(Image), findsOneWidget);
   });
 
+  testWidgets('de weerkaart-afbeelding bevat een cache-buster op basis van updatedAt', (tester) async {
+    final api = _FakeApiClient()
+      ..updatedAt = DateTime(2026, 7, 22, 8, 0)
+      ..sections = const [
+        BriefingSection(
+          key: 'weather-map',
+          title: 'Weerkaart',
+          text: '',
+          items: [
+            BriefingItem(text: 'Ochtend: 24 kn (ZW), regen', imageUrl: '/api/v1/briefing/weather-map/morgen'),
+          ],
+        ),
+      ];
+
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+
+    final image = tester.widget<Image>(find.byType(Image));
+    final url = (image.image as NetworkImage).url;
+    expect(url, contains('/api/v1/briefing/weather-map/morgen'));
+    expect(url, endsWith('?v=${api.updatedAt.millisecondsSinceEpoch}'));
+  });
+
+  testWidgets('een nieuwe refresh-timestamp verandert de afbeelding-URL (cache-bust werkt)', (tester) async {
+    final section = const BriefingSection(
+      key: 'weather-map',
+      title: 'Weerkaart',
+      text: '',
+      items: [
+        BriefingItem(text: 'Ochtend: 24 kn (ZW), regen', imageUrl: '/api/v1/briefing/weather-map/morgen'),
+      ],
+    );
+    final api = _FakeApiClient()
+      ..updatedAt = DateTime(2026, 7, 22, 8, 0)
+      ..sections = [section];
+
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+    final urlBefore = (tester.widget<Image>(find.byType(Image)).image as NetworkImage).url;
+
+    api.updatedAt = DateTime(2026, 7, 22, 8, 10);
+    await tester.tap(find.byIcon(Icons.refresh));
+    await tester.pumpAndSettle();
+    final urlAfter = (tester.widget<Image>(find.byType(Image)).image as NetworkImage).url;
+
+    expect(urlAfter, isNot(equals(urlBefore)));
+    expect(urlAfter, endsWith('?v=${api.updatedAt.millisecondsSinceEpoch}'));
+  });
+
   testWidgets('afspraak zonder reminder toont een werkende actieknop', (tester) async {
     final action = const BriefingAction(
       label: 'Reminder 1 uur van tevoren aanmaken',

@@ -131,6 +131,16 @@ class _SummaryScreenState extends State<SummaryScreen> {
   String _formatTime(DateTime at) =>
       '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
 
+  /// `Image.network` cachet op basis van de URL-string, los van HTTP-cache-headers — een vaste
+  /// weerkaart-URL (bv. `.../weather-map/morgen`) blijft daardoor de eerste ooit geladen bytes tonen,
+  /// ook nadat een refresh de PNG server-side heeft overschreven. De briefing's eigen `updatedAt`
+  /// (al zichtbaar als "Bijgewerkt om ...") verandert bij elke echte refresh, dus die als
+  /// cache-buster-query-param meegeven forceert een verse fetch zodra de data ook echt vers is.
+  String _cacheBustedImageUrl(String path) {
+    final separator = path.contains('?') ? '&' : '?';
+    return '${ApiClient.baseUrl}$path${separator}v=${_data!.updatedAt.millisecondsSinceEpoch}';
+  }
+
   Widget _buildSectionCard(BriefingSection section) {
     return Card(
       child: Padding(
@@ -176,7 +186,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                '${ApiClient.baseUrl}${item.imageUrl}',
+                _cacheBustedImageUrl(item.imageUrl!),
                 headers: widget.api.authHeaders(),
                 errorBuilder: (context, error, stackTrace) => const Padding(
                   padding: EdgeInsets.all(24),
