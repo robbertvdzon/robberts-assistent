@@ -4,6 +4,7 @@ import nl.vdzon.robbertsassistent.auth.AuthService
 import nl.vdzon.robbertsassistent.reminders.ReminderResponse
 import nl.vdzon.robbertsassistent.reminders.RemindersService
 import nl.vdzon.robbertsassistent.reminders.toResponse
+import org.springframework.http.CacheControl
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -51,7 +52,10 @@ class BriefingController(
         authService.requireAuthorization(authorization)
         val bytes = weatherMapStorage.load(slot)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Weerkaart niet gevonden")
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(bytes)
+        return ResponseEntity.ok()
+            .cacheControl(CacheControl.noCache())
+            .contentType(MediaType.IMAGE_PNG)
+            .body(bytes)
     }
 
     /**

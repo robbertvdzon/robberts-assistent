@@ -123,7 +123,40 @@ void main() {
 
     expect(find.text('Weerkaart'), findsOneWidget);
     expect(find.text('Ochtend: 24 kn (ZW), regen'), findsOneWidget);
-    expect(find.byType(Image), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image));
+    final provider = image.image as NetworkImage;
+    expect(provider.url, endsWith('/api/v1/briefing/weather-map/ochtend?v=${_fixedUpdatedAt.millisecondsSinceEpoch ~/ 1000}'));
+  });
+
+  testWidgets('een andere updatedAt na refresh geeft een andere cache-bust-query-param', (tester) async {
+    final refreshedAt = _fixedUpdatedAt.add(const Duration(minutes: 5));
+    final api = _FakeApiClient()
+      ..sections = const [
+        BriefingSection(
+          key: 'weather-map',
+          title: 'Weerkaart',
+          text: '',
+          items: [
+            BriefingItem(text: 'Ochtend: 24 kn (ZW), regen', imageUrl: '/api/v1/briefing/weather-map/morgen'),
+          ],
+        ),
+      ]
+      ..refreshCompleter = null;
+    api.updatedAt = _fixedUpdatedAt;
+
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+
+    final beforeUrl = (tester.widget<Image>(find.byType(Image)).image as NetworkImage).url;
+
+    api.updatedAt = refreshedAt;
+    await tester.tap(find.byIcon(Icons.refresh));
+    await tester.pumpAndSettle();
+
+    final afterUrl = (tester.widget<Image>(find.byType(Image)).image as NetworkImage).url;
+
+    expect(beforeUrl, isNot(equals(afterUrl)));
+    expect(afterUrl, endsWith('?v=${refreshedAt.millisecondsSinceEpoch ~/ 1000}'));
   });
 
   testWidgets('afspraak zonder reminder toont een werkende actieknop', (tester) async {

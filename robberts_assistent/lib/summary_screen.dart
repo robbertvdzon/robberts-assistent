@@ -158,14 +158,22 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 ],
               )
             else
-              ...section.items.map(_buildItemRow),
+              ...section.items.map((item) => _buildItemRow(item, _data!.updatedAt)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildItemRow(BriefingItem item) {
+  /// Hangt een cache-bust-query-param aan een relatief `imageUrl` op basis van [updatedAt], zodat
+  /// Flutter's `ImageCache` (keyed op URL) na elke nieuwe cache-refresh de afbeelding opnieuw
+  /// ophaalt i.p.v. de eerder getoonde versie te hergebruiken.
+  String _cacheBustedImageUrl(String imageUrl, DateTime updatedAt) {
+    final separator = imageUrl.contains('?') ? '&' : '?';
+    return '$imageUrl${separator}v=${updatedAt.millisecondsSinceEpoch ~/ 1000}';
+  }
+
+  Widget _buildItemRow(BriefingItem item, DateTime updatedAt) {
     final action = item.action;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -176,7 +184,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                '${ApiClient.baseUrl}${item.imageUrl}',
+                '${ApiClient.baseUrl}${_cacheBustedImageUrl(item.imageUrl!, updatedAt)}',
                 headers: widget.api.authHeaders(),
                 errorBuilder: (context, error, stackTrace) => const Padding(
                   padding: EdgeInsets.all(24),

@@ -1,0 +1,85 @@
+# SF-1227 - Worklog
+
+Story-context bij eerste pickup:
+Cache-bust voor weerkaart-afbeelding op Morgen-tab
+
+Frontend-fix in robberts_assistent/lib/summary_screen.dart: voeg in _buildItemRow een cache-bust-query-param (bv. ?v=<epoch-seconden van _data!.updatedAt>) toe aan de Image.network-URL van elk BriefingItem met een imageUrl (helperfunctie, generiek toepasbaar, niet weerkaart-specifiek hardcoded). Geef updatedAt door aan _buildItemRow (huidige signature/aanroep via section.items.map(_buildItemRow) aanpassen). Pas summary_screen_test.dart aan/breid uit zodat de query-param-toevoeging correct verdisconteerd wordt en een test bevestigt dat verschillende updatedAt-waarden tot verschillende URLs leiden. Optioneel: voeg Cache-Control: no-cache response-header toe aan GET /api/v1/briefing/weather-map/{slot} in BriefingController.kt (backend, module briefing), met bijbehorende test-aanpassing indien nodig.
+
+Stappenplan:
+[x]: read issue and target docs
+[x]: implement requested changes
+[x]: run relevant tests
+[x]: update story-log with results
+
+Done / rationale:
+- Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
+
+## SF-1228 - Cache-bust voor weerkaart-afbeelding op Morgen-tab
+
+- `robberts_assistent/lib/summary_screen.dart`: `_buildItemRow` krijgt nu `updatedAt`
+  (uit `_data!.updatedAt`) als tweede parameter; een nieuwe helper
+  `_cacheBustedImageUrl(imageUrl, updatedAt)` hangt `?v=<epoch-seconden>` (of `&v=...` als de URL
+  al een query-string heeft) aan elk `BriefingItem.imageUrl`, generiek voor alle secties met een
+  afbeelding (niet weerkaart-specifiek). Zo verandert de `Image.network`-URL bij elke nieuwe
+  cache (reload-knop → `/refresh`, of de dagelijkse 17:30-cache + een gewone `GET`), waardoor
+  Flutter's `ImageCache` (keyed op URL) de afbeelding opnieuw ophaalt i.p.v. de oude versie te
+  hergebruiken.
+- `robberts-assistent-backend/.../briefing/BriefingController.kt`: `GET
+  /api/v1/briefing/weather-map/{slot}` stuurt nu ook een `Cache-Control: no-cache`-header mee
+  (`CacheControl.noCache()`), als extra versteviging tegen browser-/HTTP-caching (bv. de
+  web-variant van de app).
+- Tests:
+  - `robberts_assistent/test/summary_screen_test.dart`: bestaande imageUrl-test aangepast om de
+    cache-bust-query-param te verdisconteren (asserteert de volledige URL incl. `?v=...` i.p.v.
+    alleen `findsOneWidget` op `Image`); nieuwe test bevestigt dat een refresh met een andere
+    `updatedAt` tot een andere (niet-gelijke) `Image.network`-URL leidt.
+  - Nieuw `robberts-assistent-backend/.../briefing/BriefingControllerTest.kt` (Spring-Boot-test,
+    zelfde patroon als `assistant.AssistantIntegrationTest`): verifieert dat de
+    weather-map-response een `Cache-Control: no-cache`-header bevat.
+- Getest: `flutter test` (volledige suite, robberts_assistent) groen, `flutter analyze` schoon,
+  `mvn test` (robberts-assistent-backend) groen — 242 tests, 0 failures/errors.
+- Niet gedaan: geen wijziging aan `BriefingItem`/`BriefingResponse`-datamodel of
+  `WeatherMapSectionProvider.kt` nodig (zoals aangenomen in de story); de cache-bust is puur
+  client-side.
+
+### Review (SF-1228)
+
+- Volledige story-diff t.o.v. `main` bekeken (5 bestanden: `summary_screen.dart`,
+  `summary_screen_test.dart`, `BriefingController.kt`, nieuwe `BriefingControllerTest.kt`, dit
+  worklog).
+- `flutter` bleek in deze sandbox gewoon beschikbaar (3.44.7, aarch64) — zelf gedraaid i.p.v. op
+  de "structureel niet uitvoerbaar"-uitzondering te vertrouwen: `flutter test` (volledige suite,
+  29/29 groen, incl. de 2 nieuwe/aangepaste tests in `summary_screen_test.dart`) en
+  `flutter analyze` (schoon).
+- `mvn -o test` (backend): 242/242 groen, incl. de nieuwe `BriefingControllerTest`.
+- Code-review: `_cacheBustedImageUrl` generiek (niet weerkaart-specifiek), correct achter
+  `if (item.imageUrl != null)` gebruikt, `?`/`&`-separator-logica correct. `Cache-Control:
+  no-cache` header correct toegevoegd. Geen scope-overschrijding; alle acceptatiecriteria uit
+  `.task.md` gedekt.
+- Akkoord, geen blockers.
+
+### Test (SF-1229 - story-brede test)
+
+- Backend: `mvn -o test` (robberts-assistent-backend, start/eind wall-clock
+  2026-07-22T08:25:17Z – 08:25:41Z) → 242/242 groen, incl. nieuwe
+  `BriefingControllerTest` (Cache-Control: no-cache).
+- Frontend: `flutter test` (volledige suite, robberts_assistent) → 29/29 groen;
+  losse run van `test/summary_screen_test.dart` → 11/11 groen, incl. de
+  aangepaste imageUrl-test (verwacht `?v=<epoch>` suffix) en de nieuwe
+  refresh-test (andere `updatedAt` → andere URL). `flutter analyze` schoon.
+  Geen `pubspec.lock`-wijziging achtergebleven.
+- Preview (`robberts-assistent-pr-22`, frontend-proxy): `GET /api/v1/briefing`
+  gevolgd door twee keer `POST /api/v1/briefing/refresh` gaf drie verschillende
+  `updatedAt`-waarden (08:26:39 → 08:26:41 → 08:26:47Z). `GET
+  /api/v1/briefing/weather-map/morgen` retourneert `Cache-Control: no-cache`.
+  Alleen de `weather-map`-sectie heeft een `imageUrl`; kite/beach/agenda/
+  week-tasks/moestuin/system-status hebben `imageUrl: null` — cache-bust raakt
+  dus alleen items met een afbeelding, zoals vereist.
+- Browser-E2E (Playwright/Chromium tegen de preview-URL, 480x900): Morgen-tab
+  geopend, weerkaart-afbeelding rendert; netwerkrequests onderschept vóór en na
+  een klik op de reload-knop lieten de querystring veranderen van
+  `?v=1784708807` naar `?v=1784708870` — bevestigt het acceptatiecriterium
+  "andere query-param-waarde na refresh" end-to-end. Screenshots in
+  `screenshots/sf1229-morgen-tab.png` en
+  `screenshots/sf1229-morgen-tab-after-refresh.png`.
+- Alle acceptatiecriteria uit `.task.md` (SF-1229) gedekt; geen bugs gevonden.
