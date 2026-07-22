@@ -41,3 +41,19 @@ Done / rationale:
 - Niet gedaan: geen wijziging aan `BriefingItem`/`BriefingResponse`-datamodel of
   `WeatherMapSectionProvider.kt` nodig (zoals aangenomen in de story); de cache-bust is puur
   client-side.
+
+### Review (SF-1228)
+
+- Volledige story-diff t.o.v. `main` bekeken (5 bestanden: `summary_screen.dart`,
+  `summary_screen_test.dart`, `BriefingController.kt`, nieuwe `BriefingControllerTest.kt`, dit
+  worklog).
+- `flutter` bleek in deze sandbox gewoon beschikbaar (3.44.7, aarch64) — zelf gedraaid i.p.v. op
+  de "structureel niet uitvoerbaar"-uitzondering te vertrouwen: `flutter test` (volledige suite,
+  29/29 groen, incl. de 2 nieuwe/aangepaste tests in `summary_screen_test.dart`) en
+  `flutter analyze` (schoon).
+- `mvn -o test` (backend): 242/242 groen, incl. de nieuwe `BriefingControllerTest`.
+- Code-review: `_cacheBustedImageUrl` generiek (niet weerkaart-specifiek), correct achter
+  `if (item.imageUrl != null)` gebruikt, `?`/`&`-separator-logica correct. `Cache-Control:
+  no-cache` header correct toegevoegd. Geen scope-overschrijding; alle acceptatiecriteria uit
+  `.task.md` gedekt.
+- Akkoord, geen blockers.
