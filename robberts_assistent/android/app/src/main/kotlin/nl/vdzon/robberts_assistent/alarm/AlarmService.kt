@@ -12,7 +12,9 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -22,9 +24,10 @@ import nl.vdzon.robberts_assistent.R
 
 /**
  * Foreground-service die een afgegaan alarm "laat bellen": speelt eenmalig een 2 minuten durend,
- * oplopend piepgeluid ([R.raw.alarm_beep]), trilt, en toont een high-importance full-screen
- * notificatie waarvan de full-screen-intent de [AlarmActivity] over het lockscreen opent. Blijft
- * draaien tot de gebruiker Sluit of Snooze kiest, ook nadat het geluid vanzelf is afgelopen.
+ * oplopend piepgeluid ([R.raw.alarm_beep]), trilt (pas na [VIBRATION_DELAY_MS], zodat het geluid
+ * eerst even de kans krijgt om te wekken), en toont een high-importance full-screen notificatie
+ * waarvan de full-screen-intent de [AlarmActivity] over het lockscreen opent. Blijft draaien tot
+ * de gebruiker Sluit of Snooze kiest, ook nadat het geluid vanzelf is afgelopen.
  */
 class AlarmService : Service() {
 
@@ -33,6 +36,8 @@ class AlarmService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var currentId: Int = 0
     private var currentMessage: String = "Alarm"
+    private val vibrationHandler = Handler(Looper.getMainLooper())
+    private val startVibrationRunnable = Runnable { startVibration() }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -44,7 +49,7 @@ class AlarmService : Service() {
                 startForegroundWithNotification()
                 acquireWakeLock()
                 startAlarmSound()
-                startVibration()
+                vibrationHandler.postDelayed(startVibrationRunnable, VIBRATION_DELAY_MS)
                 launchAlarmActivity()
             }
             ACTION_DISMISS -> stopEverything()
@@ -162,6 +167,7 @@ class AlarmService : Service() {
     }
 
     private fun stopEverything() {
+        vibrationHandler.removeCallbacks(startVibrationRunnable)
         runCatching { player?.stop() }
         runCatching { player?.release() }
         player = null
@@ -199,5 +205,6 @@ class AlarmService : Service() {
         const val ACTION_SNOOZE = AlarmScheduling.ACTION_SNOOZE
         private const val CHANNEL_ID = "assistent_wekker"
         private const val NOTIF_ID = 424242
+        private const val VIBRATION_DELAY_MS = 30_000L
     }
 }

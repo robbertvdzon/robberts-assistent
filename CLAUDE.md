@@ -241,9 +241,9 @@ en een **native wekker** — een échte alarm-ervaring i.p.v. alleen een notific
 `AlarmScheduling` plant ze in met `AlarmManager.setAlarmClock` (altijd exact, geen SCHEDULE_EXACT_ALARM
 nodig, overleeft Doze), `AlarmReceiver` → `AlarmService` (foreground-service, speelt eenmalig een
 2 minuten durend, oplopend piepgeluid (`res/raw/alarm_beep.wav`, sinds SF-1247 — was voorheen een
-oneindig lussende systeem-ringtoon via `RingtoneManager`) + trillen) toont een full-screen
-`AlarmActivity` over het lockscreen met **Sluit** en **Snooze**; `BootReceiver` herplant na reboot
-(persistentie in SharedPreferences).
+oneindig lussende systeem-ringtoon via `RingtoneManager`) + trillen, sinds SF-1254 pas 30 seconden
+ná het geluid (voorheen gelijktijdig)) toont een full-screen `AlarmActivity` over het lockscreen
+met **Sluit** en **Snooze**; `BootReceiver` herplant na reboot (persistentie in SharedPreferences).
 
 Nieuw (SF-1163, story 1 van 2): dagelijkse **Morgen-briefing**. Nieuwe `briefing`-module met een
 pluggable `BriefingSectionProvider`-SPI (zelfde stijl als `CouplingProbe`/`NightlyCheck` — een
@@ -375,6 +375,22 @@ sandbox waarin het is gegenereerd geen compressie-tooling (ffmpeg/lame/oggenc/so
 `docs/stories/worklog/SF-1247-worklog.md` voor hoe het is gegenereerd (Python-stdlib-script). Rest
 van `AlarmService.kt` (dismiss/snooze-flow, wakelock, resource-vrijgave in
 `stopEverything()`/`onDestroy()`) ongewijzigd.
+
+Nieuw (SF-1254): het trillen bij een afgaand alarm (`AlarmService.kt`) start niet langer
+gelijktijdig met het geluid, maar pas **30 seconden** na `ACTION_START` — zodat het geluid
+eerst de kans krijgt om te wekken. `ACTION_START` plant `startVibration()` nu in via een
+instance-`Handler(Looper.getMainLooper())` + `Runnable` (`vibrationHandler.postDelayed
+(startVibrationRunnable, VIBRATION_DELAY_MS)`, vaste companion-constante `VIBRATION_DELAY_MS
+= 30_000L`) i.p.v. het direct aan te roepen; geluid (`startAlarmSound()`) en het full-screen
+`AlarmActivity`-scherm starten ongewijzigd direct. `stopEverything()` (gebruikt door
+`ACTION_DISMISS`, `ACTION_SNOOZE` en `onDestroy()`) roept eerst `vibrationHandler
+.removeCallbacks(startVibrationRunnable)` aan, naast de bestaande `vibrator?.cancel()`, zodat
+een nog niet afgevuurde vertraagde trilling niet alsnog start nadat het alarm al gestopt is.
+Trillingspatroon (`VibrationEffect.createWaveform` met `longArrayOf(0, 800, 600)`, repeat=0) en
+overige service-logica (notificatie, wakelock, dismiss/snooze) ongewijzigd. Geen wijziging aan
+`AlarmReceiver`, `AlarmScheduling`, `BootReceiver`, `AlarmActivity` of de Flutter-laag
+(`alarm_scheduler.dart`); geen instrumentatietest toegevoegd, handmatige verificatie op
+toestel/emulator volstaat (zelfde aanpak als SF-1247).
 
 ---
 
