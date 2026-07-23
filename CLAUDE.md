@@ -239,9 +239,11 @@ en een **native wekker** — een échte alarm-ervaring i.p.v. alleen een notific
 (`lib/alarm_scheduler.dart`) rekent de eerstvolgende voorkomens uit en geeft ze via een MethodChannel
 (`nl.vdzon.robberts_assistent/alarm`) door aan native Kotlin (`android/app/src/main/kotlin/.../alarm/`):
 `AlarmScheduling` plant ze in met `AlarmManager.setAlarmClock` (altijd exact, geen SCHEDULE_EXACT_ALARM
-nodig, overleeft Doze), `AlarmReceiver` → `AlarmService` (foreground-service, loopende alarm-ringtoon +
-trillen) toont een full-screen `AlarmActivity` over het lockscreen met **Sluit** en **Snooze**;
-`BootReceiver` herplant na reboot (persistentie in SharedPreferences).
+nodig, overleeft Doze), `AlarmReceiver` → `AlarmService` (foreground-service, speelt eenmalig een
+2 minuten durend, oplopend piepgeluid (`res/raw/alarm_beep.wav`, sinds SF-1247 — was voorheen een
+oneindig lussende systeem-ringtoon via `RingtoneManager`) + trillen) toont een full-screen
+`AlarmActivity` over het lockscreen met **Sluit** en **Snooze**; `BootReceiver` herplant na reboot
+(persistentie in SharedPreferences).
 
 Nieuw (SF-1163, story 1 van 2): dagelijkse **Morgen-briefing**. Nieuwe `briefing`-module met een
 pluggable `BriefingSectionProvider`-SPI (zelfde stijl als `CouplingProbe`/`NightlyCheck` — een
@@ -357,6 +359,22 @@ generiek voor elk item met een `imageUrl`, niet hardcoded op de weerkaart-sectie
 ter versteviging: `GET /api/v1/briefing/weather-map/{slot}` (`BriefingController.kt`) geeft nu een
 `Cache-Control: no-cache`-header mee. Geen wijziging aan `BriefingItem`/`BriefingResponse`-
 datamodel.
+
+Nieuw (SF-1247): het alarmgeluid van de native Android-wekker (`AlarmService.kt` in
+`robberts_assistent/`) speelt niet langer de oneindig lussende systeem-alarmringtoon
+(`RingtoneManager`) af, maar eenmalig een vast, gebundeld audiobestand van 2 minuten
+(`res/raw/alarm_beep.wav`): een zachte piep op t=0, stilte tot t=10, en daarna elke 10 seconden
+een steeds luidere piep tot het einde (t=120). `startAlarmSound()` gebruikt nu
+`MediaPlayer.create(this, R.raw.alarm_beep, audioAttributes, AudioManager.AUDIO_SESSION_ID_GENERATE)`
+met `isLooping = false`, binnen dezelfde `runCatching`-foutafhandeling als voorheen; er is bewust
+géén `OnCompletionListener` toegevoegd, dus als het geluid na 2 minuten vanzelf stopt, blijven
+trilling, foreground-notificatie en de full-screen `AlarmActivity` gewoon actief totdat de
+gebruiker Sluit of Snooze kiest — ongewijzigd t.o.v. voorheen. Het audiobestand is
+**ongecomprimeerd `.wav`** i.p.v. `.ogg`/`.mp3` (mono 16-bit PCM, 11025 Hz, ±2,5 MB), omdat de
+sandbox waarin het is gegenereerd geen compressie-tooling (ffmpeg/lame/oggenc/sox) had; zie
+`docs/stories/worklog/SF-1247-worklog.md` voor hoe het is gegenereerd (Python-stdlib-script). Rest
+van `AlarmService.kt` (dismiss/snooze-flow, wakelock, resource-vrijgave in
+`stopEverything()`/`onDestroy()`) ongewijzigd.
 
 ---
 
