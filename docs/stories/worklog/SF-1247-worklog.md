@@ -68,3 +68,32 @@ Done / rationale:
     overload bestaat sinds API 21; `minSdk` van deze app ligt daarboven).
   - Backend (`robberts-assistent-backend/`) niet geraakt door deze story; `mvn
     test` niet opnieuw gedraaid.
+
+## Review (SF-1248)
+
+- Diff tegen `main` bekeken (`git diff main...HEAD`): alleen `AlarmService.kt`,
+  nieuw `res/raw/alarm_beep.wav` en dit worklog. Geen scope-overschrijding.
+- `AlarmService.kt`: `RingtoneManager`/`Uri`-imports weg, `startAlarmSound()`
+  gebruikt nu `MediaPlayer.create(this, R.raw.alarm_beep, audioAttributes,
+  AudioManager.AUDIO_SESSION_ID_GENERATE)` met `isLooping = false`, binnen
+  `runCatching` (geen `OnCompletionListener`, dus geen auto-stop na afloop).
+  Rest van de service (notificatie, `AlarmActivity`, dismiss/snooze,
+  trilling, wakelock, resource-vrijgave in `stopEverything()`/`onDestroy()`)
+  ongewijzigd. Geen `RingtoneManager`-referenties meer in de repo
+  (`grep -rl RingtoneManager robberts_assistent/` levert niets op).
+- Audiobestand geverifieerd met Python's `wave`-module: mono 16-bit PCM,
+  11025 Hz, exact 120,0s; piek-amplitude per seconde bevestigt piepen op
+  t=0,10,20,...,110 met oplopend volume (3276 → 28894) en stilte ertussen —
+  komt overeen met de gespecificeerde opbouw. `.wav` i.p.v. `.ogg`/`.mp3` is
+  toegestaan mits vermeld; worklog beschrijft duidelijk waarom compressie niet
+  haalbaar was in de sandbox.
+- Zelf gedraaid (deze reviewer-sandbox heeft `flutter` wel beschikbaar, geen
+  Gradle-wrapper/Android-SDK voor de Kotlin-kant): `flutter analyze` → geen
+  issues; `flutter test` → alle 29 tests groen. Kotlin-compilatie kon ook in
+  deze sandbox niet geverifieerd worden (geen `gradlew`/Android-SDK) — de
+  wijziging is beperkt tot een bekende, sinds API 21 beschikbare
+  `MediaPlayer.create`-overload en is verder puur een audiobron-swap; dit is
+  in lijn met de vermelde sandbox-beperking, geen blocker.
+- Geen backend-wijzigingen in deze story; `mvn test` niet relevant.
+- Conclusie: implementatie dekt scope en acceptatiecriteria volledig, geen
+  bugs/regressies gevonden. Akkoord.
