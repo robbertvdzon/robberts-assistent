@@ -9,9 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
-import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -22,9 +21,10 @@ import androidx.core.app.NotificationCompat
 import nl.vdzon.robberts_assistent.R
 
 /**
- * Foreground-service die een afgegaan alarm "laat bellen": speelt de alarm-ringtoon in een lus,
- * trilt, en toont een high-importance full-screen notificatie waarvan de full-screen-intent de
- * [AlarmActivity] over het lockscreen opent. Blijft draaien tot de gebruiker Sluit of Snooze kiest.
+ * Foreground-service die een afgegaan alarm "laat bellen": speelt eenmalig een 2 minuten durend,
+ * oplopend piepgeluid ([R.raw.alarm_beep]), trilt, en toont een high-importance full-screen
+ * notificatie waarvan de full-screen-intent de [AlarmActivity] over het lockscreen opent. Blijft
+ * draaien tot de gebruiker Sluit of Snooze kiest, ook nadat het geluid vanzelf is afgelopen.
  */
 class AlarmService : Service() {
 
@@ -118,20 +118,18 @@ class AlarmService : Service() {
     }
 
     private fun startAlarmSound() {
-        val uri: Uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        player = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build(),
-            )
-            runCatching {
-                setDataSource(this@AlarmService, uri)
-                isLooping = true
-                prepare()
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        runCatching {
+            player = MediaPlayer.create(
+                this,
+                R.raw.alarm_beep,
+                audioAttributes,
+                AudioManager.AUDIO_SESSION_ID_GENERATE,
+            ).apply {
+                isLooping = false
                 start()
             }
         }
@@ -185,7 +183,7 @@ class AlarmService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
-        // Geen kanaal-geluid: wij spelen zelf de loopende ringtoon via MediaPlayer.
+        // Geen kanaal-geluid: wij spelen zelf het alarmgeluid via MediaPlayer.
         val channel = NotificationChannel(CHANNEL_ID, "Wekker", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "Wekkers/alarms van je assistent"
             setSound(null, null)
