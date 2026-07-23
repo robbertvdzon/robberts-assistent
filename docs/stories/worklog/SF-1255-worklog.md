@@ -43,3 +43,25 @@ Done / rationale:
   ongewijzigd).
 - Geen instrumentatietest voor de 30-seconden-vertraging toegevoegd, conform de
   aanname in de story (handmatige verificatie op toestel/emulator volstaat).
+
+## Review
+
+- Diff (`AlarmService.kt`) komt exact overeen met de story: `vibrationHandler`/
+  `startVibrationRunnable` als instance-properties, `ACTION_START` plant
+  `startVibration()` nu via `postDelayed(..., VIBRATION_DELAY_MS = 30_000L)`,
+  geluid (`startAlarmSound()`) en full-screen-activiteit (`launchAlarmActivity()`)
+  starten ongewijzigd direct. `stopEverything()` (gebruikt door `ACTION_DISMISS`,
+  `ACTION_SNOOZE` en `onDestroy()`) annuleert de pending callback via
+  `removeCallbacks` vóórdat de rest van de opruiming loopt, naast de bestaande
+  `vibrator?.cancel()` — dus geen enkel pad kan na het stoppen alsnog trillen.
+  Trillingspatroon en overige service-logica (notificatie, wakelock, dismiss/
+  snooze) ongewijzigd. Alle acceptatiecriteria voldaan.
+- `robberts_assistent/android` heeft geen `gradlew`/Gradle-wrapper (alleen
+  `wind/android/gradlew` bestaat in deze repo) — Kotlin-compilatie kon dus ook
+  in de reviewer-sandbox niet gedraaid worden, consistent met de developer-
+  bevinding. Alleen standaard Android-API's (`Handler`/`Looper`/`postDelayed`/
+  `removeCallbacks`) gebruikt, geen aanleiding tot twijfel.
+- `flutter test` (29/29) en `flutter analyze` (geen issues) opnieuw gedraaid
+  in de reviewer-sandbox: groen, zoals verwacht want geen Dart-wijzigingen.
+- Scope is beperkt tot `AlarmService.kt` + worklogs, geen ongerelateerde diffs.
+- Akkoord.
