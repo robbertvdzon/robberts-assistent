@@ -97,3 +97,42 @@ Done / rationale:
 - Geen backend-wijzigingen in deze story; `mvn test` niet relevant.
 - Conclusie: implementatie dekt scope en acceptatiecriteria volledig, geen
   bugs/regressies gevonden. Akkoord.
+
+## Test (SF-1249)
+
+- Diff tegen `main` bekeken: alleen `AlarmService.kt`, nieuw
+  `res/raw/alarm_beep.wav` en dit worklog. Geen scope-overschrijding.
+- `grep -rl RingtoneManager robberts_assistent/` → geen treffers; `startAlarmSound()`
+  gebruikt `MediaPlayer.create(this, R.raw.alarm_beep, audioAttributes,
+  AudioManager.AUDIO_SESSION_ID_GENERATE)` met `isLooping = false`, binnen
+  `runCatching`, geen `OnCompletionListener` → geen auto-stop bij natuurlijk
+  aflopen. `stopEverything()`/`onDestroy()` (stop/release player, cancel
+  vibrator, wakelock-release, stopForeground/stopSelf) ongewijzigd t.o.v.
+  `main`.
+- Audiobestand onafhankelijk geverifieerd met Python's `wave`-module (los van
+  de reviewer-check): mono 16-bit PCM, 11025 Hz, exact 1.323.000 frames =
+  120,0s. Piek-amplitude per seconde bevestigt: piep op t=0 (amplitude 3276,
+  duidelijk zachter dan de rest), stilte t=1..9, daarna piepen op t=10, 20,
+  ..., 110 met monotoon oplopende amplitude (6553 → 28894) en stilte
+  ertussen — komt overeen met de gespecificeerde opbouw uit de story
+  ("elke 10s luider tot het einde"; een piep exact op t=120 zou samenvallen
+  met het bestandseinde en is dus niet apart aanwezig — geen probleem, de
+  opbouw t=0/stilte/12×-oplopende-piep-om-de-10s/totale-lengte-120s klopt).
+  `.wav` i.p.v. `.ogg`/`.mp3` conform acceptatiecriteria toegestaan mits
+  vermeld — worklog vermeldt dit duidelijk.
+- `flutter analyze` (`robberts_assistent/`, 2026-07-23 08:52 UTC): "No issues
+  found!".
+- `flutter test` (`robberts_assistent/`, 2026-07-23 08:52 UTC): alle 29 tests
+  groen (`All tests passed!`), geen regressie.
+- `git status` na de testrun: geen wijzigingen (o.a. `pubspec.lock`
+  ongewijzigd).
+- Kotlin-compilatie kon ook in deze sandbox niet geverifieerd worden (geen
+  `gradlew`/Android-SDK in `robberts_assistent/android/`, zelfde bekende
+  sandbox-beperking als bij development/review). Wijziging is beperkt tot een
+  bekende, sinds API 21 beschikbare `MediaPlayer.create`-overload; handmatige
+  code-review geeft geen aanleiding tot twijfel.
+- Geen screenshot: deze story raakt uitsluitend Android-native alarmgeluid
+  (`AlarmService.kt` + `res/raw`), geen zichtbare Flutter-UI-wijziging in
+  `robberts_assistent` — screenshot-vereiste is dus niet van toepassing.
+  Backend niet geraakt; `mvn test` niet relevant.
+- Conclusie: alle acceptatiecriteria geverifieerd en akkoord. **tested**.
