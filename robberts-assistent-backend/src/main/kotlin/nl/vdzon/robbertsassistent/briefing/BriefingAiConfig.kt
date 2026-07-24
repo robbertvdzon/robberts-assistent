@@ -21,7 +21,10 @@ private val SYSTEM_STATUS_SYSTEM_PROMPT = """
     Antwoord in exact dit formaat, in het Nederlands:
     - Regel 1: "AANDACHT: <korte, kommagescheiden lijst van checks die aandacht nodig hebben>",
       of "AANDACHT: geen" als geen enkele check aandacht nodig heeft.
-    - Daarna een kort rapport (maximaal 5 regels, één per check), zonder inleidende zin.
+    - Daarna een helder rapport, één alinea per check, zonder inleidende zin. Geen lengtelimiet —
+      neem concrete cijfers uit de ruwe data over (percentages, versienummers, foutcodes e.d.)
+      i.p.v. ze weg te laten voor de beknoptheid: een volledig, leesbaar rapport weegt zwaarder
+      dan kort zijn.
 """.trimIndent()
 
 /**
