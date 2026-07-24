@@ -66,4 +66,55 @@ class KubernetesApiOpenShiftClientTest {
         assertTrue(result.updateAvailable)
         assertTrue(result.healthy)
     }
+
+    @Test
+    fun `parseNodeMetrics zet alle drie de secties correct om`() {
+        val root = objectMapper.readTree(
+            """
+            {
+              "memory": {"totalMb": 16000, "usedMb": 8000, "availableMb": 8000, "usedPercent": 50.0},
+              "ssd": {"totalGb": 240.0, "usedGb": 120.0, "freeGb": 120.0, "usedPercent": 50.0},
+              "externalHdd": {"totalGb": 4000.0, "usedGb": 1000.0, "freeGb": 3000.0, "usedPercent": 25.0}
+            }
+            """.trimIndent(),
+        )
+
+        val result = KubernetesApiOpenShiftClient.parseNodeMetrics(root)
+
+        assertEquals(16000L, result.memory?.totalMb)
+        assertEquals(50.0, result.memory?.usedPercent)
+        assertEquals(240.0, result.ssd?.totalGb)
+        assertEquals(1000.0, result.externalHdd?.usedGb)
+    }
+
+    @Test
+    fun `parseNodeMetrics geeft een error per sectie door zonder de andere secties te breken`() {
+        val root = objectMapper.readTree(
+            """
+            {
+              "memory": {"totalMb": 16000, "usedMb": 8000, "availableMb": 8000, "usedPercent": 50.0},
+              "ssd": {"totalGb": 240.0, "usedGb": 120.0, "freeGb": 120.0, "usedPercent": 50.0},
+              "externalHdd": {"error": "statvfs failed: [Errno 2] No such file or directory: '/host-external-hdd'"}
+            }
+            """.trimIndent(),
+        )
+
+        val result = KubernetesApiOpenShiftClient.parseNodeMetrics(root)
+
+        assertEquals(50.0, result.memory?.usedPercent)
+        assertEquals(240.0, result.ssd?.totalGb)
+        assertTrue(result.externalHdd?.error?.contains("No such file") == true)
+        assertEquals(null, result.externalHdd?.totalGb)
+    }
+
+    @Test
+    fun `parseNodeMetrics tolereert ontbrekende secties`() {
+        val root = objectMapper.readTree("""{"memory": {"totalMb": 16000, "usedMb": 8000, "availableMb": 8000}}""")
+
+        val result = KubernetesApiOpenShiftClient.parseNodeMetrics(root)
+
+        assertEquals(16000L, result.memory?.totalMb)
+        assertEquals(null, result.ssd)
+        assertEquals(null, result.externalHdd)
+    }
 }

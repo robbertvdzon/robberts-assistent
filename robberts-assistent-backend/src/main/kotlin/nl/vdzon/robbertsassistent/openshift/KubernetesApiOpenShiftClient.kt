@@ -29,6 +29,7 @@ class KubernetesApiOpenShiftClient(
     private val tokenFile: Path = Path.of(TOKEN_PATH),
     private val caCertFile: Path = Path.of(CA_CERT_PATH),
     private val apiServerUrl: String = defaultApiServerUrl(),
+    private val nodeMetricsUrl: String = NODE_METRICS_URL,
 ) : OpenShiftClient {
 
     private val objectMapper = jacksonObjectMapper()
@@ -40,8 +41,24 @@ class KubernetesApiOpenShiftClient(
         runCatching {
             val clusterVersion = get("/apis/config.openshift.io/v1/clusterversions/version")
             val clusterOperators = get("/apis/config.openshift.io/v1/clusteroperators")
-            parseClusterHealth(clusterVersion, clusterOperators)
+            parseClusterHealth(clusterVersion, clusterOperators).copy(nodeMetrics = fetchNodeMetrics())
         }.getOrElse { ClusterHealthResult(false, null, false, emptyList(), it.message ?: "Onbekende fout") }
+
+    /**
+     * Best-effort: dit endpoint (`node-metrics`, apart van de Kubernetes-API zelf) kan nog niet
+     * bestaan of tijdelijk onbereikbaar zijn — een mislukking hier mag [clusterHealth] nooit laten
+     * falen, alleen dit ene veld leeg laten.
+     */
+    private fun fetchNodeMetrics(): NodeMetrics? = runCatching {
+        val request = HttpRequest.newBuilder(URI.create(nodeMetricsUrl))
+            .header("Accept", "application/json")
+            .timeout(Duration.ofSeconds(5))
+            .GET()
+            .build()
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() !in 200..299) return@runCatching null
+        parseNodeMetrics(objectMapper.readTree(response.body()))
+    }.getOrNull()
 
     private fun get(path: String): JsonNode {
         val token = Files.readString(tokenFile).trim()
@@ -74,6 +91,13 @@ class KubernetesApiOpenShiftClient(
         const val TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
         const val CA_CERT_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
+        /**
+         * Vaste in-cluster DNS-naam van het `node-metrics`-Deployment/-Service
+         * (`robberts-infrastructure/manifests/node-metrics`) — geen secret, dus geen AppSecrets-veld
+         * nodig; gewoon een interne ClusterIP-Service in een eigen namespace.
+         */
+        const val NODE_METRICS_URL = "http://node-metrics.node-metrics.svc.cluster.local:8080/metrics.json"
+
         /** Kubernetes zet deze env-vars automatisch op elke pod. */
         fun defaultApiServerUrl(): String {
             val host = System.getenv("KUBERNETES_SERVICE_HOST") ?: "kubernetes.default.svc"
@@ -98,6 +122,22 @@ class KubernetesApiOpenShiftClient(
                 clusterVersion = version,
                 updateAvailable = updateAvailable,
                 degradedOperators = degraded,
+            )
+        }
+
+        /**
+         * Zet de ruwe node-metrics-JSON (`node-metrics.node-metrics.svc.cluster.local:8080/metrics.json`,
+         * zie `robberts-infrastructure/manifests/node-metrics/configmap-server.yaml`) om naar
+         * [NodeMetrics]. Elke sectie is er ofwel als de echte velden, ofwel als `{"error": "..."}`
+         * (de node-metrics-server vangt een mislukte uitlezing zelf al per sectie af) — beide vormen
+         * passen in [MemoryUsage]/[DiskUsage] omdat daar alle velden nullable zijn.
+         */
+        internal fun parseNodeMetrics(root: JsonNode): NodeMetrics {
+            val mapper = jacksonObjectMapper()
+            return NodeMetrics(
+                memory = root.get("memory")?.let { mapper.treeToValue(it, MemoryUsage::class.java) },
+                ssd = root.get("ssd")?.let { mapper.treeToValue(it, DiskUsage::class.java) },
+                externalHdd = root.get("externalHdd")?.let { mapper.treeToValue(it, DiskUsage::class.java) },
             )
         }
     }

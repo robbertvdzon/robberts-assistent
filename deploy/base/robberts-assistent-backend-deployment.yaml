@@ -14,6 +14,7 @@ spec:
       labels:
         app: robberts-assistent-backend
     spec:
+      serviceAccountName: robberts-assistent-backend
       containers:
         - name: app
           image: ghcr.io/robbertvdzon/robberts-assistent-backend:main
