@@ -23,7 +23,7 @@ class OpenShiftHealthNightlyCheck(private val client: OpenShiftClient) : Nightly
         val summary = buildString {
             append(if (health.healthy) "Cluster gezond" else "Cluster gedegradeerd")
             health.clusterVersion?.let { append(" (versie $it)") }
-            if (health.updateAvailable) append(" — update beschikbaar")
+            if (health.updateAvailable) append(" — update beschikbaar naar ${health.availableUpdateVersions.joinToString(" of ")}")
         }
         val degradedDetail = health.degradedOperators.takeIf { it.isNotEmpty() }
             ?.joinToString(", ", prefix = "Gedegradeerde operators: ")

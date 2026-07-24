@@ -4,6 +4,7 @@ import nl.vdzon.robbertsassistent.automower.AutomowerClient
 import nl.vdzon.robbertsassistent.automower.activityDescription
 import nl.vdzon.robbertsassistent.automower.stateDescription
 import nl.vdzon.robbertsassistent.openshift.OpenShiftClient
+import nl.vdzon.robbertsassistent.openshift.describe
 import nl.vdzon.robbertsassistent.softwarefactory.SoftwareFactoryClient
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
@@ -69,8 +70,10 @@ class SystemStatusSectionProvider(
         val health = openShiftClient.clusterHealth()
         health.error?.let { return "OpenShift: kon status niet ophalen ($it)." }
         val degraded = health.degradedOperators.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "geen"
+        val updates = if (health.updateAvailable) health.availableUpdateVersions.joinToString(" of ") else "geen"
+        val metrics = health.nodeMetrics?.let { ", ${it.describe()}" }.orEmpty()
         return "OpenShift: gezond=${health.healthy}, versie=${health.clusterVersion ?: "onbekend"}, " +
-            "update beschikbaar=${health.updateAvailable}, gedegradeerde operators=$degraded."
+            "beschikbare update=$updates, gedegradeerde operators=$degraded$metrics."
     }
 
     private fun buildAutomowerText(): String {

@@ -23,7 +23,11 @@ class OpenShiftTools(private val client: OpenShiftClient) {
         val health = client.clusterHealth()
         health.error?.let { return it }
         val status = if (health.healthy) "gezond" else "gedegradeerd"
-        val updates = if (health.updateAvailable) "er is een update beschikbaar" else "geen update beschikbaar"
+        val updates = if (health.updateAvailable) {
+            "er is een update beschikbaar naar ${health.availableUpdateVersions.joinToString(" of ")}"
+        } else {
+            "geen update beschikbaar"
+        }
         val degraded = health.degradedOperators.takeIf { it.isNotEmpty() }
             ?.joinToString(", ", prefix = "; gedegradeerde operators: ")
             ?: ""

@@ -110,6 +110,11 @@ class KubernetesApiOpenShiftClient(
             val version = clusterVersion.path("status").path("desired").path("version").asText(null)
             val availableUpdates = clusterVersion.path("status").path("availableUpdates")
             val updateAvailable = availableUpdates.isArray && availableUpdates.size() > 0
+            val updateVersions = if (availableUpdates.isArray) {
+                availableUpdates.mapNotNull { it.path("version").asText().takeIf(String::isNotBlank) }
+            } else {
+                emptyList()
+            }
 
             val degraded = clusterOperators.path("items").mapNotNull { operator ->
                 val isDegraded = operator.path("status").path("conditions")
@@ -122,6 +127,7 @@ class KubernetesApiOpenShiftClient(
                 clusterVersion = version,
                 updateAvailable = updateAvailable,
                 degradedOperators = degraded,
+                availableUpdateVersions = updateVersions,
             )
         }
 
