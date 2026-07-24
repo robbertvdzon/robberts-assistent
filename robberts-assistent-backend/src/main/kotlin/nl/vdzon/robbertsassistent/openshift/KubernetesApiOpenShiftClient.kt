@@ -75,11 +75,19 @@ class KubernetesApiOpenShiftClient(
         return objectMapper.readTree(response.body())
     }
 
+    /**
+     * `ca.crt` is een BUNDEL (op dit cluster 6 certificaten achter elkaar), geen los certificaat —
+     * `generateCertificate` (enkelvoud) leest stilzwijgend alleen het eerste en negeert de rest,
+     * wat hier voor het eerst (zodra de echte client actief werd) een PKIX-fout gaf ("unable to
+     * find valid certification path") omdat de daadwerkelijke ondertekenaar van de
+     * apiserver-certificaatketen verderop in de bundel bleek te staan. `generateCertificates`
+     * (meervoud) leest ze allemaal.
+     */
     private fun buildSslContext(caCertFile: Path): SSLContext {
-        val cert = Files.newInputStream(caCertFile).use { CertificateFactory.getInstance("X.509").generateCertificate(it) }
+        val certs = Files.newInputStream(caCertFile).use { CertificateFactory.getInstance("X.509").generateCertificates(it) }
         val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
             load(null, null)
-            setCertificateEntry("kube-ca", cert)
+            certs.forEachIndexed { index, cert -> setCertificateEntry("kube-ca-$index", cert) }
         }
         val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply {
             init(keyStore)
