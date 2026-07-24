@@ -252,6 +252,50 @@ class SystemStatusSectionProviderTest {
     }
 
     @Test
+    fun `de Time Machine-backups komen in de ruwe data terecht i-p-v de oude dummy-tekst`() {
+        var capturedPrompt: String? = null
+        val chatClient = ChatClient.builder(object : ChatModel {
+            override fun call(prompt: Prompt): ChatResponse {
+                capturedPrompt = prompt.instructions.last().text
+                return ChatResponse(listOf(Generation(AssistantMessage("AANDACHT: geen\nOk."))))
+            }
+
+            override fun stream(prompt: Prompt): Flux<ChatResponse> = Flux.just(call(prompt))
+        }).build()
+        val openShiftClient = object : OpenShiftClient {
+            override fun clusterHealth() = ClusterHealthResult(
+                healthy = true,
+                clusterVersion = "4.16.3",
+                updateAvailable = false,
+                degradedOperators = emptyList(),
+                nodeMetrics = nl.vdzon.robbertsassistent.openshift.NodeMetrics(
+                    timeMachine = nl.vdzon.robbertsassistent.openshift.TimeMachineStatus(
+                        backups = listOf(
+                            nl.vdzon.robbertsassistent.openshift.TimeMachineBackup(
+                                name = "Robbert's MacBook Pro",
+                                sizeGb = 620.0,
+                                lastModified = java.time.Instant.parse("2026-07-24T08:00:00Z"),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        }
+
+        SystemStatusSectionProvider(
+            zonneplanClient = StubZonneplanClient(),
+            openShiftClient = openShiftClient,
+            automowerClient = StubAutomowerClient(),
+            softwareFactoryClient = StubSoftwareFactoryClient(),
+            chatClient = chatClient,
+        ).section()
+
+        assertTrue(capturedPrompt != null && capturedPrompt!!.contains("Robbert"), capturedPrompt)
+        assertTrue(capturedPrompt!!.contains("620.0 GB"), capturedPrompt)
+        assertTrue(!capturedPrompt!!.contains("placeholder"), capturedPrompt)
+    }
+
+    @Test
     fun `de netwerkfout van de Automower-client komt in de ruwe data terecht`() {
         var capturedPrompt: String? = null
         val chatClient = ChatClient.builder(object : ChatModel {

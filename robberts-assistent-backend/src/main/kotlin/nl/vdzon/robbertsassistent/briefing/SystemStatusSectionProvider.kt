@@ -3,6 +3,7 @@ package nl.vdzon.robbertsassistent.briefing
 import nl.vdzon.robbertsassistent.automower.AutomowerClient
 import nl.vdzon.robbertsassistent.automower.activityDescription
 import nl.vdzon.robbertsassistent.automower.stateDescription
+import nl.vdzon.robbertsassistent.openshift.ClusterHealthResult
 import nl.vdzon.robbertsassistent.openshift.OpenShiftClient
 import nl.vdzon.robbertsassistent.openshift.describe
 import nl.vdzon.robbertsassistent.softwarefactory.SoftwareFactoryClient
@@ -14,13 +15,15 @@ import org.springframework.stereotype.Component
 
 /**
  * Systeem-checkrapport-briefingsectie (story 2 van 2): bundelt vijf checks — zonnepanelen
- * ([ZonneplanClient], Zonneplan via Home Assistant), backups (dummy), OpenShift-gezondheid
- * ([OpenShiftClient]), robotmaaier ([AutomowerClient]) en Software Factory
- * ([SoftwareFactoryClient]) — tot één AI-beoordeeld rapport. De code verzamelt alleen ruwe feiten
- * per check; welke check "aandacht nodig" heeft bepaalt uitsluitend de AI-aanroep
- * ([SYSTEM_STATUS_SYSTEM_PROMPT] in `BriefingAiConfig`), geen hardcoded drempel in code (voor een
- * harde, deterministische drempel op nagenoeg-nul-opbrengst, zie
- * `zonneplan.ZonneplanCouplingProbe` op het Koppelingen-scherm). Faalt de AI-call (of levert 'ie
+ * ([ZonneplanClient], Zonneplan via Home Assistant), Time Machine-backups (via
+ * [OpenShiftClient]'s `nodeMetrics.timeMachine`, zelfde node-metrics-route als de
+ * OpenShift-check hieronder), OpenShift-gezondheid ([OpenShiftClient]), robotmaaier
+ * ([AutomowerClient]) en Software Factory ([SoftwareFactoryClient]) — tot één AI-beoordeeld
+ * rapport. De code verzamelt alleen ruwe feiten per check; welke check "aandacht nodig" heeft
+ * bepaalt uitsluitend de AI-aanroep ([SYSTEM_STATUS_SYSTEM_PROMPT] in `BriefingAiConfig`), geen
+ * hardcoded drempel in code (voor een harde, deterministische drempel op nagenoeg-nul-opbrengst,
+ * zie `zonneplan.ZonneplanCouplingProbe` op het Koppelingen-scherm, of voor backups
+ * [nl.vdzon.robbertsassistent.openshift.TimeMachineNightlyCheck]). Faalt de AI-call (of levert 'ie
  * geen herkenbaar antwoord), dan valt de sectie stil terug op een neutrale tekst zonder
  * aandachtspunten — zelfde beschermende patroon als [WeekTasksSectionProvider]. Een falende
  * onderliggende client (Zonneplan/OpenShift/Automower/Software Factory) crasht de sectie niet: die
@@ -77,13 +80,22 @@ class SystemStatusSectionProvider(
         return parseAiReply(reply)
     }
 
-    private fun buildChecks(): List<CheckData> = listOf(
-        runCatching { solarCheckData() }.getOrElse { CheckData("Zonnepanelen", "kon status niet ophalen (${it.message}).") },
-        CheckData("Backups", BACKUPS_DUMMY_TEXT),
-        runCatching { openShiftCheckData() }.getOrElse { CheckData("OpenShift", "kon status niet ophalen (${it.message}).") },
-        runCatching { automowerCheckData() }.getOrElse { CheckData("Robotmaaier", "kon status niet ophalen (${it.message}).") },
-        runCatching { softwareFactoryCheckData() }.getOrElse { CheckData("Software Factory", "kon stories niet ophalen (${it.message}).") },
-    )
+    /**
+     * `health` wordt één keer opgehaald en gedeeld door [backupsCheckData] en [openShiftCheckData]
+     * — allebei lezen uit dezelfde node-metrics-route, en `clusterHealth()` vangt netwerkfouten
+     * zelf al op (levert een `error`-veld i.p.v. te gooien), dus een gedeelde `runCatching` hier
+     * volstaat.
+     */
+    private fun buildChecks(): List<CheckData> {
+        val health = runCatching { openShiftClient.clusterHealth() }.getOrNull()
+        return listOf(
+            runCatching { solarCheckData() }.getOrElse { CheckData("Zonnepanelen", "kon status niet ophalen (${it.message}).") },
+            runCatching { backupsCheckData(health) }.getOrElse { CheckData("Backups", "kon status niet ophalen (${it.message}).") },
+            runCatching { openShiftCheckData(health) }.getOrElse { CheckData("OpenShift", "kon status niet ophalen (${it.message}).") },
+            runCatching { automowerCheckData() }.getOrElse { CheckData("Robotmaaier", "kon status niet ophalen (${it.message}).") },
+            runCatching { softwareFactoryCheckData() }.getOrElse { CheckData("Software Factory", "kon stories niet ophalen (${it.message}).") },
+        )
+    }
 
     private fun solarCheckData(): CheckData {
         val result = zonneplanClient.status()
@@ -93,8 +105,23 @@ class SystemStatusSectionProvider(
         return CheckData("Zonnepanelen", "huidig vermogen=$current, gisteren opgewekt=$yesterday.")
     }
 
-    private fun openShiftCheckData(): CheckData {
-        val health = openShiftClient.clusterHealth()
+    /**
+     * Time Machine-backups van beide MacBooks — zelfde `nodeMetrics.timeMachine` als
+     * [nl.vdzon.robbertsassistent.openshift.TimeMachineNightlyCheck], maar hier bewust zonder
+     * hardcoded staleness-drempel: de AI beoordeelt zelf of het laatste schrijfmoment "aandacht
+     * nodig" is (zie klasse-KDoc). Voor een harde, deterministische drempel is er de aparte
+     * nightly check.
+     */
+    private fun backupsCheckData(health: ClusterHealthResult?): CheckData {
+        if (health == null) return CheckData("Backups", "kon status niet ophalen.")
+        health.error?.let { return CheckData("Backups", "kon status niet ophalen ($it).") }
+        val timeMachine = health.nodeMetrics?.timeMachine
+            ?: return CheckData("Backups", "geen Time Machine-gegevens ontvangen van node-metrics.")
+        return CheckData("Backups", "${timeMachine.describe()}.")
+    }
+
+    private fun openShiftCheckData(health: ClusterHealthResult?): CheckData {
+        if (health == null) return CheckData("OpenShift", "kon status niet ophalen.")
         health.error?.let { return CheckData("OpenShift", "kon status niet ophalen ($it).") }
         val degraded = health.degradedOperators.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "geen"
         val updates = if (health.updateAvailable) health.availableUpdateVersions.joinToString(" of ") else "geen"
@@ -140,7 +167,6 @@ class SystemStatusSectionProvider(
     }
 
     internal companion object {
-        private const val BACKUPS_DUMMY_TEXT = "(nog geen koppeling, placeholder) geen fouten gemeld."
         private const val FALLBACK_TEXT = "Kon het systeemstatusrapport niet ophalen."
 
         private val ATTENTION_LINE = Regex("(?i)^AANDACHT:\\s*(.*)$")

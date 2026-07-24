@@ -11,6 +11,7 @@ import java.nio.file.Path
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.time.Duration
+import java.time.Instant
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
 
@@ -152,7 +153,31 @@ class KubernetesApiOpenShiftClient(
                 memory = root.get("memory")?.let { mapper.treeToValue(it, MemoryUsage::class.java) },
                 ssd = root.get("ssd")?.let { mapper.treeToValue(it, DiskUsage::class.java) },
                 externalHdd = root.get("externalHdd")?.let { mapper.treeToValue(it, DiskUsage::class.java) },
+                timeMachine = root.get("timeMachine")?.let { parseTimeMachine(it) },
             )
         }
+
+        /**
+         * `timeMachine` heeft, anders dan de andere secties, twee mogelijke JSON-vormen: een array
+         * bij succes (`read_time_machine()`'s lijst), of `{"error": "..."}` als het hele
+         * `timemachine`-pad niet uit te lezen was (zelfde `safe()`-wrapper als de andere secties,
+         * maar dan om een lijst i.p.v. een object heen).
+         */
+        private fun parseTimeMachine(node: JsonNode): TimeMachineStatus =
+            if (node.isArray) {
+                TimeMachineStatus(
+                    backups = node.map { item ->
+                        TimeMachineBackup(
+                            name = item.path("name").asText(""),
+                            sizeGb = item.get("sizeGb")?.takeIf { it.isNumber }?.asDouble(),
+                            lastModified = item.get("lastModified")?.takeIf { it.isTextual }
+                                ?.asText()?.let { runCatching { Instant.parse(it) }.getOrNull() },
+                            error = item.get("error")?.asText(),
+                        )
+                    },
+                )
+            } else {
+                TimeMachineStatus(error = node.path("error").asText("onbekende fout"))
+            }
     }
 }

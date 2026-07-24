@@ -131,4 +131,54 @@ class KubernetesApiOpenShiftClientTest {
         assertEquals(null, result.ssd)
         assertEquals(null, result.externalHdd)
     }
+
+    @Test
+    fun `parseNodeMetrics zet een timeMachine-array om naar backups`() {
+        val root = objectMapper.readTree(
+            """
+            {
+              "timeMachine": [
+                {"name": "Robbert's MacBook Pro", "sizeGb": 620.0, "lastModified": "2026-07-24T08:00:00Z"},
+                {"name": "MacBook Pro", "sizeGb": 410.0, "lastModified": "2026-07-20T21:15:00Z"}
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val result = KubernetesApiOpenShiftClient.parseNodeMetrics(root)
+
+        assertEquals(2, result.timeMachine?.backups?.size)
+        assertEquals("Robbert's MacBook Pro", result.timeMachine?.backups?.get(0)?.name)
+        assertEquals(620.0, result.timeMachine?.backups?.get(0)?.sizeGb)
+        assertEquals(java.time.Instant.parse("2026-07-24T08:00:00Z"), result.timeMachine?.backups?.get(0)?.lastModified)
+        assertEquals(null, result.timeMachine?.error)
+    }
+
+    @Test
+    fun `parseNodeMetrics zet een falend timeMachine-object om naar een status-error`() {
+        val root = objectMapper.readTree("""{"timeMachine": {"error": "[Errno 2] No such file or directory: '/host-external-hdd/timemachine'"}}""")
+
+        val result = KubernetesApiOpenShiftClient.parseNodeMetrics(root)
+
+        assertTrue(result.timeMachine?.error?.contains("No such file") == true)
+        assertTrue(result.timeMachine?.backups.isNullOrEmpty())
+    }
+
+    @Test
+    fun `parseNodeMetrics geeft een error door voor een individuele mislukte sparsebundle`() {
+        val root = objectMapper.readTree(
+            """
+            {"timeMachine": [
+              {"name": "Robbert's MacBook Pro", "sizeGb": 620.0, "lastModified": "2026-07-24T08:00:00Z"},
+              {"name": "MacBook Pro", "error": "Permission denied"}
+            ]}
+            """.trimIndent(),
+        )
+
+        val result = KubernetesApiOpenShiftClient.parseNodeMetrics(root)
+
+        val backup = result.timeMachine?.backups?.find { it.name == "MacBook Pro" }
+        assertEquals("Permission denied", backup?.error)
+        assertEquals(null, backup?.sizeGb)
+    }
 }

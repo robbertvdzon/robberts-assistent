@@ -105,6 +105,36 @@ oc auth can-i list clusteroperators --as=system:serviceaccount:robberts-assisten
 **[TEST]** via de assistent: "is de cluster nog gezond?" → een echt antwoord i.p.v. de
 stub-tekst (`0.0.0-stub`). Of via het Koppelingen-scherm: "OpenShift" op **echt**.
 
+## Tweede check: Time Machine-backups
+
+Beide MacBooks (Robbert + Karen) backuppen via Time Machine naar een Samba-share op de externe
+USB-HDD (`robberts-infrastructure/manifests/smb-timemachine`), als één `.sparsebundle`-package
+per Mac. `TimeMachineNightlyCheck` (module `openshift`) meldt per Mac de grootte en het laatste
+schrijfmoment, en is niet-ok als een van beide ouder is dan 48 uur (of een leesfout heeft). Draait
+elke ochtend 07:30, een half uur na de OpenShift-gezondheidscheck.
+
+Gebruikt dezelfde route als de eerste check: `node-metrics` (in-cluster sidecar, geen
+Prometheus/node-exporter op dit cluster) leest de sparsebundles rechtstreeks van de node —
+`/var/mnt/external-hdd/timemachine/*.sparsebundle`, gemount als `/host-external-hdd/timemachine`
+(zelfde hostPath als de Samba-share zelf, zie `manifests/node-metrics/configmap-server.yaml`'s
+`read_time_machine()`). Per sparsebundle: de opgetelde bandbestand-grootte en het nieuwste mtime
+binnen de map — een proxy voor "grootte" en "laatste schrijfmoment", **niet** het exacte
+laatst-voltooide-backup-tijdstip (dat zou de bundel zelf moeten mounten via `hdiutil`/`tmutil`,
+wat de node-metrics-sidecar bewust niet doet — te zwaar voor een klein statusendpoint). Voor het
+doel van deze check (staat de backup er niet al dagenlang stil) is dat nauwkeurig genoeg.
+
+`OpenShiftClient.NodeMetrics.timeMachine` (`TimeMachineStatus`/`TimeMachineBackup`) draagt de
+ruwe data; `TimeMachineBackup.ownerLabel`/`.describe()` (`openshift.OpenShiftClient.kt`) zijn
+gedeelde presentatie-helpers, hergebruikt door zowel deze nightly check als
+`briefing.SystemStatusSectionProvider`s "Backups"-regel (die bewust **geen** harde
+staleness-drempel gebruikt — de AI beoordeelt daar zelf of het laatste schrijfmoment aandacht
+nodig heeft, zie de klasse-KDoc). Sparsebundle-naam → mensleesbare eigenaar ("Robbert"/"Karen")
+is een kleine, hardcoded `KNOWN_TIME_MACHINE_OWNERS`-map — een nieuwe/hernoemde Mac toont gewoon
+de ruwe sparsebundle-naam totdat die map bijgewerkt wordt.
+
+Zelfde gate als de eerste check (`RA_OPENSHIFT_HEALTH_ENABLED`) en dezelfde
+[StubOpenShiftClient]-fallback — geen apart secret nodig.
+
 ## Toekomstige checks (ideeën, nog niet gebouwd)
 
 Elke onderstaande check hergebruikt een bestaande koppeling — het is dus vooral een nieuwe
