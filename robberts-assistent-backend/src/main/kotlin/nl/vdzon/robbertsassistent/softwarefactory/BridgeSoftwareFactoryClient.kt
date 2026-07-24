@@ -124,20 +124,29 @@ class BridgeSoftwareFactoryClient(
         private const val BASE_URL = "http://softwarefactory-dashboard-backend.software-factory"
         private const val GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-        /** Zet de ruwe `/api/v1/stories`-JSON om naar een lijst [FactoryStory]s. */
+        /**
+         * Zet de ruwe `/api/v1/stories`-JSON om naar een lijst [FactoryStory]s.
+         *
+         * De payload bevat zowel stories als subtaken (onderscheiden via `issueType`). Subtaken
+         * hebben altijd `storyPhase=null` (ze gebruiken `subtaskPhase`), dus zonder filter lijken ze
+         * op "fase=onbekend" — filter daarom net als de dashboard-frontend (`stories_screen.dart`)
+         * op `issueType == "STORY"`.
+         */
         internal fun parseStories(root: JsonNode): FactoryStoriesResult {
             val mergedKeys = root.path("mergedStoryKeys").map { it.asText() }.toSet()
-            val stories = root.path("issues").map { issue ->
-                val fields = issue.path("fields")
-                FactoryStory(
-                    key = issue.path("key").asText(),
-                    summary = issue.path("summary").asText(),
-                    phase = fields.path("storyPhase").asText(null),
-                    paused = fields.path("paused").asBoolean(false),
-                    error = fields.path("error").asText(null),
-                    merged = issue.path("key").asText() in mergedKeys,
-                )
-            }
+            val stories = root.path("issues")
+                .filter { it.path("issueType").asText() == "STORY" }
+                .map { issue ->
+                    val fields = issue.path("fields")
+                    FactoryStory(
+                        key = issue.path("key").asText(),
+                        summary = issue.path("summary").asText(),
+                        phase = fields.path("storyPhase").asText(null),
+                        paused = fields.path("paused").asBoolean(false),
+                        error = fields.path("error").asText(null),
+                        merged = issue.path("key").asText() in mergedKeys,
+                    )
+                }
             return FactoryStoriesResult(stories)
         }
 

@@ -18,10 +18,10 @@ class BridgeSoftwareFactoryClientTest {
             """
             {
               "issues": [
-                {"key": "SF-1", "summary": "Eerste story", "fields": {"storyPhase": "developing", "paused": false, "error": null}},
-                {"key": "SF-2", "summary": "Tweede story", "fields": {"storyPhase": "done", "paused": false, "error": null}},
-                {"key": "SF-3", "summary": "Derde story", "fields": {"storyPhase": "developing", "paused": true, "error": null}},
-                {"key": "SF-4", "summary": "Vierde story", "fields": {"storyPhase": "developing", "paused": false, "error": "boom"}}
+                {"key": "SF-1", "summary": "Eerste story", "issueType": "STORY", "fields": {"storyPhase": "developing", "paused": false, "error": null}},
+                {"key": "SF-2", "summary": "Tweede story", "issueType": "STORY", "fields": {"storyPhase": "done", "paused": false, "error": null}},
+                {"key": "SF-3", "summary": "Derde story", "issueType": "STORY", "fields": {"storyPhase": "developing", "paused": true, "error": null}},
+                {"key": "SF-4", "summary": "Vierde story", "issueType": "STORY", "fields": {"storyPhase": "developing", "paused": false, "error": "boom"}}
               ],
               "mergedStoryKeys": ["SF-2"]
             }
@@ -36,6 +36,27 @@ class BridgeSoftwareFactoryClientTest {
         assertEquals(true, result.stories[1].merged)
         assertEquals(true, result.stories[2].paused)
         assertEquals("boom", result.stories[3].error)
+    }
+
+    @Test
+    fun `parseStories negeert subtaken (issueType SUBTASK) zodat ze niet als fase=onbekend verschijnen`() {
+        val json = jacksonObjectMapper().readTree(
+            """
+            {
+              "issues": [
+                {"key": "SF-1", "summary": "Een story", "issueType": "STORY", "fields": {"storyPhase": "developing", "paused": false, "error": null}},
+                {"key": "SF-2", "summary": "Merge-subtaak", "issueType": "SUBTASK", "fields": {"storyPhase": null, "paused": false, "error": null}}
+              ],
+              "mergedStoryKeys": []
+            }
+            """.trimIndent(),
+        )
+
+        val result = BridgeSoftwareFactoryClient.parseStories(json)
+
+        assertNull(result.error)
+        assertEquals(1, result.stories.size)
+        assertEquals("SF-1", result.stories[0].key)
     }
 
     @Test
