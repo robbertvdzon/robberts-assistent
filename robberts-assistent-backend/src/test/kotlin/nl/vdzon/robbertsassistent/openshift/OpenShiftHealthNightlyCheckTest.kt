@@ -72,4 +72,22 @@ class OpenShiftHealthNightlyCheckTest {
         assertTrue(result.detail?.contains("storage") == true, result.detail)
         assertTrue(result.detail?.contains("geheugen") == true, result.detail)
     }
+
+    @Test
+    fun `run noemt de concrete versie bij een beschikbare update`() {
+        val withUpdate = object : OpenShiftClient {
+            override fun clusterHealth() = ClusterHealthResult(
+                healthy = true,
+                clusterVersion = "4.16.3",
+                updateAvailable = true,
+                degradedOperators = emptyList(),
+                availableUpdateVersions = listOf("4.16.4"),
+            )
+        }
+        val check = OpenShiftHealthNightlyCheck(withUpdate)
+
+        val result = check.run()
+
+        assertTrue(result.summary.contains("4.16.4"), result.summary)
+    }
 }

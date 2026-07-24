@@ -13,6 +13,8 @@ data class ClusterHealthResult(
     val degradedOperators: List<String>,
     val error: String? = null,
     val nodeMetrics: NodeMetrics? = null,
+    /** Concrete versienummers uit ClusterVersion's `availableUpdates` (leeg als [updateAvailable] false is). */
+    val availableUpdateVersions: List<String> = emptyList(),
 )
 
 /**

@@ -34,6 +34,7 @@ class KubernetesApiOpenShiftClientTest {
         assertEquals("4.16.3", result.clusterVersion)
         assertFalse(result.updateAvailable)
         assertTrue(result.degradedOperators.isEmpty())
+        assertTrue(result.availableUpdateVersions.isEmpty())
     }
 
     @Test
@@ -65,6 +66,19 @@ class KubernetesApiOpenShiftClientTest {
 
         assertTrue(result.updateAvailable)
         assertTrue(result.healthy)
+        assertEquals(listOf("4.16.4"), result.availableUpdateVersions)
+    }
+
+    @Test
+    fun `verzamelt alle versienummers bij meerdere beschikbare updates`() {
+        val clusterVersion = objectMapper.readTree(
+            """{"status": {"desired": {"version": "4.16.3"}, "availableUpdates": [{"version": "4.16.4"}, {"version": "4.17.0"}]}}""",
+        )
+        val clusterOperators = objectMapper.readTree("""{"items": []}""")
+
+        val result = KubernetesApiOpenShiftClient.parseClusterHealth(clusterVersion, clusterOperators)
+
+        assertEquals(listOf("4.16.4", "4.17.0"), result.availableUpdateVersions)
     }
 
     @Test

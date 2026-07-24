@@ -178,6 +178,42 @@ class SystemStatusSectionProviderTest {
     }
 
     @Test
+    fun `het geheugen-SSD-externe-HDD-gebruik en de update-versie komen in de ruwe data terecht`() {
+        var capturedPrompt: String? = null
+        val chatClient = ChatClient.builder(object : ChatModel {
+            override fun call(prompt: Prompt): ChatResponse {
+                capturedPrompt = prompt.instructions.last().text
+                return ChatResponse(listOf(Generation(AssistantMessage("AANDACHT: geen\nOk."))))
+            }
+
+            override fun stream(prompt: Prompt): Flux<ChatResponse> = Flux.just(call(prompt))
+        }).build()
+        val openShiftClient = object : OpenShiftClient {
+            override fun clusterHealth() = ClusterHealthResult(
+                healthy = true,
+                clusterVersion = "4.16.3",
+                updateAvailable = true,
+                degradedOperators = emptyList(),
+                availableUpdateVersions = listOf("4.16.4"),
+                nodeMetrics = nl.vdzon.robbertsassistent.openshift.NodeMetrics(
+                    ssd = nl.vdzon.robbertsassistent.openshift.DiskUsage(totalGb = 240.0, usedGb = 220.0, freeGb = 20.0, usedPercent = 91.7),
+                ),
+            )
+        }
+
+        SystemStatusSectionProvider(
+            openShiftClient = openShiftClient,
+            automowerClient = StubAutomowerClient(),
+            softwareFactoryClient = StubSoftwareFactoryClient(),
+            chatClient = chatClient,
+        ).section()
+
+        assertTrue(capturedPrompt != null && capturedPrompt!!.contains("4.16.4"), capturedPrompt)
+        assertTrue(capturedPrompt!!.contains("SSD"), capturedPrompt)
+        assertTrue(capturedPrompt!!.contains("91.7"), capturedPrompt)
+    }
+
+    @Test
     fun `de netwerkfout van de Automower-client komt in de ruwe data terecht`() {
         var capturedPrompt: String? = null
         val chatClient = ChatClient.builder(object : ChatModel {
