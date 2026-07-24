@@ -79,15 +79,19 @@ data class TimeMachineBackup(
 
 /**
  * Bekende Time Machine-sparsebundle-namen op de externe HDD → mensleesbare eigenaar (zie
- * screenshot sessie 2026-07-24: "MacBook Pro" = Karen, "Robbert's MacBook Pro" = Robbert). Een
- * onbekende naam (nieuwe/hernoemde Mac) valt terug op de ruwe sparsebundle-naam.
+ * screenshot sessie 2026-07-24: "MacBook Pro" = Karen, "Robbert's MacBook Pro" = Robbert).
+ * Matcht op "bevat Robbert" i.p.v. een exacte string-vergelijking: op het echte cluster bleek de
+ * sparsebundle-naam een typografisch aanhalingsteken te gebruiken ("Robbert’s MacBook Pro", U+2019)
+ * i.p.v. de gewone apostrof — een exacte map-lookup zou daar stil op mislukken. Een onbekende naam
+ * (nieuwe/hernoemde Mac, geen "Robbert" erin) valt terug op "Karen" als het exact "MacBook Pro" is,
+ * anders op de ruwe sparsebundle-naam.
  */
-private val KNOWN_TIME_MACHINE_OWNERS = mapOf(
-    "Robbert's MacBook Pro" to "Robbert",
-    "MacBook Pro" to "Karen",
-)
-
-val TimeMachineBackup.ownerLabel: String get() = KNOWN_TIME_MACHINE_OWNERS[name] ?: name
+val TimeMachineBackup.ownerLabel: String
+    get() = when {
+        name.contains("Robbert", ignoreCase = true) -> "Robbert"
+        name == "MacBook Pro" -> "Karen"
+        else -> name
+    }
 
 // Expliciete Locale (i.p.v. de JVM-default, zoals bv. AgendaSectionProvider gebruikt) zodat de
 // maandnaam altijd Nederlands ("jul") is, ongeacht op welke locale de omgeving draait.
