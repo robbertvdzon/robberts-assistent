@@ -106,6 +106,38 @@ class SystemStatusSectionProviderTest {
     }
 
     @Test
+    fun `section levert de vijf ruwe per-check statusregels als items met heading`() {
+        val reply = "AANDACHT: geen\nAlles is in orde."
+
+        val section = provider(chatModel = FixedChatModel(reply)).section()
+
+        val headings = section.items.map { it.heading }
+        assertEquals(listOf("Zonnepanelen", "Backups", "OpenShift", "Robotmaaier", "Software Factory"), headings)
+        assertTrue(section.items.all { it.text.isNotBlank() })
+        // De ruwe items bevatten de bestaande statustekst zelf, geen AI-parafrasering.
+        assertTrue(section.items.first { it.heading == "Zonnepanelen" }.text.contains("huidig vermogen"))
+    }
+
+    @Test
+    fun `items blijven gevuld als de AI-call faalt`() {
+        val section = provider(chatModel = ThrowingChatModel()).section()
+
+        assertEquals(5, section.items.size)
+        assertTrue(section.items.all { it.heading != null })
+    }
+
+    @Test
+    fun `een maaier-fout-status komt ook in het Robotmaaier-item terecht`() {
+        val section = provider(
+            chatModel = FixedChatModel("AANDACHT: geen\nOk."),
+            automowerClient = FixedAutomowerClient(errorMower()),
+        ).section()
+
+        val mowerItem = section.items.first { it.heading == "Robotmaaier" }
+        assertTrue(mowerItem.text.contains("errorCode=42"))
+    }
+
+    @Test
     fun `shortSummary is null als geen enkele check aandacht nodig heeft`() {
         val reply = "AANDACHT: geen\nAlles is in orde."
 

@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 
-/// 'Morgen'-scherm: dagelijkse briefing met weerkaart, kite/strandfiets-kans, agenda komende
+/// 'Upcoming'-scherm: dagelijkse briefing met weerkaart, kite/strandfiets-kans, agenda komende
 /// 7 dagen (incl. één-tap reminder-actie per afspraak zonder reminder), AI-weektakensamenvatting
-/// en de moestuin-placeholder. Vult de bestaande "Samenvatting"-tab (geen nieuwe navigatie-ingang)
-/// en wordt ook geopend door een tik op de dagelijkse 18:00-FCM-push (zie `FcmService`). Toont de
-/// gecachete data direct ("Bijgewerkt om ...") met een reload-knop bovenin die de backend live laat
-/// opbouwen (`POST /api/v1/briefing/refresh`), los van de pull-to-refresh die de cache ophaalt.
+/// en de moestuin-placeholder — alle secties van `GET /api/v1/briefing` behálve de
+/// systeemstatus-sectie (die heeft een eigen tab, zie `HealthCheckScreen`). Wordt ook geopend door
+/// een tik op de dagelijkse 18:00-FCM-push (zie `FcmService`). Toont de gecachete data direct
+/// ("Bijgewerkt om ...") met een reload-knop bovenin die de backend live laat opbouwen
+/// (`POST /api/v1/briefing/refresh`), los van de pull-to-refresh die de cache ophaalt.
 class SummaryScreen extends StatefulWidget {
   const SummaryScreen({super.key, required this.api});
 
@@ -99,7 +100,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
         children: [
           _buildHeaderRow(_data!.updatedAt),
           const SizedBox(height: 8),
-          ..._data!.sections.map(_buildSectionCard),
+          ..._data!.sections.where((s) => s.key != 'system-status').map(_buildSectionCard),
         ],
       ),
     );

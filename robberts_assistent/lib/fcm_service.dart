@@ -9,7 +9,7 @@ import 'api_client.dart';
 // Moet gelijk zijn aan `BriefingScheduler.PUSH_TYPE` in de backend.
 const _briefingPushType = 'briefing';
 
-// Index van de Morgen-tab in HomeScreen's NavigationBar/IndexedStack.
+// Index van de Upcoming-tab in HomeScreen's NavigationBar/IndexedStack.
 const _morgenTabIndex = 0;
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond

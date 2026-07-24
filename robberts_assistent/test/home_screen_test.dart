@@ -6,6 +6,7 @@ import 'package:robberts_assistent/api_client.dart';
 import 'package:robberts_assistent/conversations_screen.dart';
 import 'package:robberts_assistent/couplings_screen.dart';
 import 'package:robberts_assistent/fcm_service.dart';
+import 'package:robberts_assistent/health_check_screen.dart';
 import 'package:robberts_assistent/home_screen.dart';
 import 'package:robberts_assistent/memory_screen.dart';
 import 'package:robberts_assistent/more_screen.dart';
@@ -52,14 +53,15 @@ void main() {
     (call) async => -1,
   );
 
-  testWidgets('bottom-nav telt precies 4 tabs en Meer opent MoreScreen', (tester) async {
+  testWidgets('bottom-nav telt precies 5 tabs en Meer opent MoreScreen', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
     );
     await tester.pump();
 
-    expect(find.byType(NavigationDestination), findsNWidgets(4));
-    expect(find.text('Morgen'), findsOneWidget);
+    expect(find.byType(NavigationDestination), findsNWidgets(5));
+    expect(find.text('Upcoming'), findsOneWidget);
+    expect(find.text('Health check'), findsOneWidget);
     expect(find.text('Assistent'), findsOneWidget);
     expect(find.text('Herinneringen'), findsOneWidget);
     expect(find.text('Meer'), findsOneWidget);
@@ -74,7 +76,7 @@ void main() {
     expect(find.text('Updates'), findsOneWidget);
   });
 
-  testWidgets('start standaard op de tab Assistent (ConversationsScreen), niet Samenvatting', (
+  testWidgets('start standaard op de tab Assistent (ConversationsScreen), niet Upcoming', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -82,13 +84,14 @@ void main() {
     );
     await tester.pump();
 
-    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 1);
-    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 2);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 2);
     expect(find.byType(ConversationsScreen), findsOneWidget);
     expect(find.byType(SummaryScreen), findsNothing);
+    expect(find.byType(HealthCheckScreen), findsNothing);
   });
 
-  testWidgets('tik op de Morgen-briefing-push (FcmService.deepLinkTab) schakelt naar de Morgen-tab', (
+  testWidgets('tik op de Morgen-briefing-push (FcmService.deepLinkTab) schakelt naar de Upcoming-tab', (
     tester,
   ) async {
     addTearDown(() => FcmService.deepLinkTab.value = null);
@@ -96,7 +99,7 @@ void main() {
       MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
     );
     await tester.pump();
-    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 1);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 2);
 
     FcmService.deepLinkTab.value = 0;
     await tester.pump();

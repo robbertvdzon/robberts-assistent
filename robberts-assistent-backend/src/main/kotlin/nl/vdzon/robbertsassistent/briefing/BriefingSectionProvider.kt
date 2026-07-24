@@ -17,6 +17,9 @@ data class BriefingItem(
     // Optionele afbeelding (bv. de weerkaart-sectie): de app rendert een item met imageUrl als
     // afbeelding i.p.v. platte tekst. Bestaande secties zonder afbeelding blijven ongewijzigd.
     val imageUrl: String? = null,
+    // Optionele kop boven dit item (bv. per systeemstatus-onderdeel, zie
+    // `SystemStatusSectionProvider`); secties zonder heading blijven ongewijzigd.
+    val heading: String? = null,
 )
 
 /**
