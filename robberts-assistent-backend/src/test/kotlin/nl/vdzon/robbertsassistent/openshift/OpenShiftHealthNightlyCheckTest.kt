@@ -42,4 +42,34 @@ class OpenShiftHealthNightlyCheckTest {
         assertTrue(result.detail?.contains("storage") == true)
         assertTrue(result.detail?.contains("network") == true)
     }
+
+    @Test
+    fun `run vermeldt het node-metrics-gebruik van de stub in het detail`() {
+        val check = OpenShiftHealthNightlyCheck(StubOpenShiftClient())
+
+        val result = check.run()
+
+        assertTrue(result.detail?.contains("geheugen") == true, result.detail)
+        assertTrue(result.detail?.contains("SSD") == true, result.detail)
+        assertTrue(result.detail?.contains("externe HDD") == true, result.detail)
+    }
+
+    @Test
+    fun `run combineert gedegradeerde operators en node-metrics in het detail`() {
+        val degradedWithMetrics = object : OpenShiftClient {
+            override fun clusterHealth() = ClusterHealthResult(
+                healthy = false,
+                clusterVersion = "4.16.3",
+                updateAvailable = false,
+                degradedOperators = listOf("storage"),
+                nodeMetrics = NodeMetrics(memory = MemoryUsage(totalMb = 16000, usedMb = 8000, availableMb = 8000, usedPercent = 50.0)),
+            )
+        }
+        val check = OpenShiftHealthNightlyCheck(degradedWithMetrics)
+
+        val result = check.run()
+
+        assertTrue(result.detail?.contains("storage") == true, result.detail)
+        assertTrue(result.detail?.contains("geheugen") == true, result.detail)
+    }
 }

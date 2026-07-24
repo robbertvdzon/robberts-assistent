@@ -1,6 +1,7 @@
 namespace: robberts-assistent
 resources:
 - sealed-secret-robberts-assistent.yaml
+- robberts-assistent-backend-serviceaccount.yaml
 - robberts-assistent-backend-deployment.yaml
 - robberts-assistent-backend-service.yaml
 - robberts-assistent-frontend-deployment.yaml
