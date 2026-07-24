@@ -378,19 +378,22 @@ class BriefingSection {
       );
 }
 
-/// Eén regel binnen een [BriefingSection] (bv. één afspraak of een weerkaart-dagdeel), met een
-/// eventuele één-tap-actie en/of afbeelding (`imageUrl`, relatief pad — de app rendert dit als
-/// `Image.network` met auth-header i.p.v. platte tekst, zie `SummaryScreen`).
+/// Eén regel binnen een [BriefingSection] (bv. één afspraak, een weerkaart-dagdeel, of een
+/// systeemstatus-onderdeel), met een eventuele één-tap-actie, afbeelding (`imageUrl`, relatief
+/// pad — de app rendert dit als `Image.network` met auth-header i.p.v. platte tekst, zie
+/// `SummaryScreen`) en/of `heading` (bv. per systeemstatus-onderdeel, zie `HealthCheckScreen`).
 class BriefingItem {
   final String text;
   final BriefingAction? action;
   final String? imageUrl;
-  const BriefingItem({required this.text, this.action, this.imageUrl});
+  final String? heading;
+  const BriefingItem({required this.text, this.action, this.imageUrl, this.heading});
 
   static BriefingItem fromJson(Map<String, dynamic> m) => BriefingItem(
         text: m['text'] as String,
         action: m['action'] == null ? null : BriefingAction.fromJson(Map<String, dynamic>.from(m['action'] as Map)),
         imageUrl: m['imageUrl'] as String?,
+        heading: m['heading'] as String?,
       );
 }
 

@@ -226,6 +226,26 @@ void main() {
     expect(find.text('Morgen: 🟢 24kn NW\nOvermorgen: 🟡 12kn Z'), findsNothing);
   });
 
+  testWidgets('de systeemstatus-sectie wordt niet getoond op de Upcoming-tab', (tester) async {
+    final api = _FakeApiClient()
+      ..sections = const [
+        BriefingSection(key: 'kite', title: 'Kiten', text: 'Morgen: 🟢 24kn', items: []),
+        BriefingSection(
+          key: 'system-status',
+          title: 'Systeemstatus',
+          text: 'Alles is in orde.',
+          items: [BriefingItem(text: 'huidig vermogen=100 W.', heading: 'Zonnepanelen')],
+        ),
+      ];
+
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+
+    expect(find.text('Kiten'), findsOneWidget);
+    expect(find.text('Systeemstatus'), findsNothing);
+    expect(find.text('huidig vermogen=100 W.'), findsNothing);
+  });
+
   testWidgets('toont een foutmelding als het ophalen van de briefing faalt', (tester) async {
     final api = _FailingApiClient();
 

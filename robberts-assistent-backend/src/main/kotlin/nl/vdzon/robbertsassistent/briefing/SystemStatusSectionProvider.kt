@@ -39,8 +39,10 @@ class SystemStatusSectionProvider(
 
     override val order = 40
 
-    override fun section(): BriefingSection =
-        BriefingSection(key = "system-status", title = "Systeemstatus", text = assess().text)
+    override fun section(): BriefingSection {
+        val result = assess()
+        return BriefingSection(key = "system-status", title = "Systeemstatus", text = result.text, items = result.items)
+    }
 
     override fun shortSummary(): String? {
         val result = assess()
@@ -48,19 +50,24 @@ class SystemStatusSectionProvider(
         return "⚠️ " + result.attentionItems.joinToString(", ")
     }
 
+    /**
+     * Verzamelt de vijf ruwe per-check statusregels ([buildChecks]) en laat die door de AI
+     * beoordelen op "aandacht nodig" ([callAi]/[parseAiReply]). De ruwe [CheckData]-regels gaan
+     * ongewijzigd mee als [SystemStatusResult.items] (heading + de bestaande ruwe statustekst,
+     * zonder AI-parafrasering) — dit voedt de "Health check"-pagina in de app; de AI-beoordeelde
+     * [SystemStatusResult.text]/[SystemStatusResult.attentionItems] blijven ongewijzigd de bron
+     * voor de 18:00-push.
+     */
     private fun assess(): SystemStatusResult {
-        val rawData = listOf(
-            runCatching { buildSolarText() }.getOrElse { "Zonnepanelen: kon status niet ophalen (${it.message})." },
-            BACKUPS_DUMMY_TEXT,
-            runCatching { buildOpenShiftText() }.getOrElse { "OpenShift: kon status niet ophalen (${it.message})." },
-            runCatching { buildAutomowerText() }.getOrElse { "Robotmaaier: kon status niet ophalen (${it.message})." },
-            runCatching { buildSoftwareFactoryText() }.getOrElse { "Software Factory: kon stories niet ophalen (${it.message})." },
-        ).joinToString("\n")
+        val checks = buildChecks()
+        val rawData = checks.joinToString("\n") { "${it.heading}: ${it.content}" }
+        val items = checks.map { BriefingItem(text = it.content, heading = it.heading) }
 
         return runCatching { callAi(rawData) }
+            .map { it.copy(items = items) }
             .getOrElse {
                 logger.warn("Systeemstatus-AI-beoordeling mislukt", it)
-                SystemStatusResult(text = FALLBACK_TEXT, attentionItems = emptyList())
+                SystemStatusResult(text = FALLBACK_TEXT, attentionItems = emptyList(), items = items)
             }
     }
 
@@ -70,50 +77,70 @@ class SystemStatusSectionProvider(
         return parseAiReply(reply)
     }
 
-    private fun buildSolarText(): String {
+    private fun buildChecks(): List<CheckData> = listOf(
+        runCatching { solarCheckData() }.getOrElse { CheckData("Zonnepanelen", "kon status niet ophalen (${it.message}).") },
+        CheckData("Backups", BACKUPS_DUMMY_TEXT),
+        runCatching { openShiftCheckData() }.getOrElse { CheckData("OpenShift", "kon status niet ophalen (${it.message}).") },
+        runCatching { automowerCheckData() }.getOrElse { CheckData("Robotmaaier", "kon status niet ophalen (${it.message}).") },
+        runCatching { softwareFactoryCheckData() }.getOrElse { CheckData("Software Factory", "kon stories niet ophalen (${it.message}).") },
+    )
+
+    private fun solarCheckData(): CheckData {
         val result = zonneplanClient.status()
-        result.error?.let { return "Zonnepanelen: kon status niet ophalen ($it)." }
+        result.error?.let { return CheckData("Zonnepanelen", "kon status niet ophalen ($it).") }
         val current = result.currentPowerWatt?.let { "$it W" } ?: "onbekend"
         val yesterday = result.yesterdayYieldKwh?.let { "$it kWh" } ?: "onbekend"
-        return "Zonnepanelen: huidig vermogen=$current, gisteren opgewekt=$yesterday."
+        return CheckData("Zonnepanelen", "huidig vermogen=$current, gisteren opgewekt=$yesterday.")
     }
 
-    private fun buildOpenShiftText(): String {
+    private fun openShiftCheckData(): CheckData {
         val health = openShiftClient.clusterHealth()
-        health.error?.let { return "OpenShift: kon status niet ophalen ($it)." }
+        health.error?.let { return CheckData("OpenShift", "kon status niet ophalen ($it).") }
         val degraded = health.degradedOperators.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "geen"
         val updates = if (health.updateAvailable) health.availableUpdateVersions.joinToString(" of ") else "geen"
         val metrics = health.nodeMetrics?.let { ", ${it.describe()}" }.orEmpty()
-        return "OpenShift: gezond=${health.healthy}, versie=${health.clusterVersion ?: "onbekend"}, " +
-            "beschikbare update=$updates, gedegradeerde operators=$degraded$metrics."
+        return CheckData(
+            "OpenShift",
+            "gezond=${health.healthy}, versie=${health.clusterVersion ?: "onbekend"}, " +
+                "beschikbare update=$updates, gedegradeerde operators=$degraded$metrics.",
+        )
     }
 
-    private fun buildAutomowerText(): String {
+    private fun automowerCheckData(): CheckData {
         val result = automowerClient.status()
-        result.error?.let { return "Robotmaaier: kon status niet ophalen ($it)." }
-        if (result.mowers.isEmpty()) return "Robotmaaier: geen maaier gevonden op het account."
-        return result.mowers.joinToString("\n") { mower ->
+        result.error?.let { return CheckData("Robotmaaier", "kon status niet ophalen ($it).") }
+        if (result.mowers.isEmpty()) return CheckData("Robotmaaier", "geen maaier gevonden op het account.")
+        val text = result.mowers.joinToString("\n") { mower ->
             "Robotmaaier ${mower.name}: activiteit=${activityDescription(mower.activity)}, " +
                 "status=${stateDescription(mower.state)}, errorCode=${mower.errorCode}, verbonden=${mower.connected}."
         }
+        return CheckData("Robotmaaier", text)
     }
 
-    private fun buildSoftwareFactoryText(): String {
+    private fun softwareFactoryCheckData(): CheckData {
         val result = softwareFactoryClient.stories()
-        result.error?.let { return "Software Factory: kon stories niet ophalen ($it)." }
-        if (result.stories.isEmpty()) return "Software Factory: geen stories gevonden."
-        return result.stories.joinToString("\n") { story ->
+        result.error?.let { return CheckData("Software Factory", "kon stories niet ophalen ($it).") }
+        if (result.stories.isEmpty()) return CheckData("Software Factory", "geen stories gevonden.")
+        val text = result.stories.joinToString("\n") { story ->
             "Software factory-story ${story.key}: fase=${story.phase ?: "onbekend"}, " +
                 "merged=${story.merged}, error=${story.error ?: "geen"}."
         }
+        return CheckData("Software Factory", text)
     }
 
-    internal data class SystemStatusResult(val text: String, val attentionItems: List<String>) {
+    /** Eén ruwe, per-check statusregel (kop + de bestaande, niet-AI-samengevatte tekst). */
+    internal data class CheckData(val heading: String, val content: String)
+
+    internal data class SystemStatusResult(
+        val text: String,
+        val attentionItems: List<String>,
+        val items: List<BriefingItem> = emptyList(),
+    ) {
         val hasAttention: Boolean get() = attentionItems.isNotEmpty()
     }
 
     internal companion object {
-        private const val BACKUPS_DUMMY_TEXT = "Backups: (nog geen koppeling, placeholder) geen fouten gemeld."
+        private const val BACKUPS_DUMMY_TEXT = "(nog geen koppeling, placeholder) geen fouten gemeld."
         private const val FALLBACK_TEXT = "Kon het systeemstatusrapport niet ophalen."
 
         private val ATTENTION_LINE = Regex("(?i)^AANDACHT:\\s*(.*)$")

@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'conversations_screen.dart';
 import 'fcm_service.dart';
+import 'health_check_screen.dart';
 import 'more_screen.dart';
 import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
 import 'summary_screen.dart';
 
-/// App-shell na het inloggen: navigatie tussen de dagelijkse samenvatting en de assistent.
+/// App-shell na het inloggen: navigatie tussen Upcoming (briefing), Health check, de assistent,
+/// herinneringen en 'Meer'.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.api, required this.onLoggedOut});
 
@@ -21,7 +23,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  var _tab = 1;
+  var _tab = 2;
 
   @override
   void initState() {
@@ -55,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final screens = [
       SummaryScreen(api: widget.api),
+      HealthCheckScreen(api: widget.api),
       ConversationsScreen(api: widget.api),
       SchedulesScreen(api: widget.api),
       MoreScreen(api: widget.api),
@@ -84,7 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _tab,
         onDestinationSelected: (index) => setState(() => _tab = index),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Morgen'),
+          NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Upcoming'),
+          NavigationDestination(icon: Icon(Icons.health_and_safety_outlined), selectedIcon: Icon(Icons.health_and_safety), label: 'Health check'),
           NavigationDestination(icon: Icon(Icons.assistant_outlined), selectedIcon: Icon(Icons.assistant), label: 'Assistent'),
           NavigationDestination(icon: Icon(Icons.alarm_outlined), selectedIcon: Icon(Icons.alarm), label: 'Herinneringen'),
           NavigationDestination(icon: Icon(Icons.more_horiz_outlined), selectedIcon: Icon(Icons.more_horiz), label: 'Meer'),
