@@ -31,7 +31,11 @@ zien zijn. Zie ook [CLAUDE.md](../CLAUDE.md) §4/§5 voor hoe dit in de modulest
   checkrapport-sectie (`briefing.SystemStatusSectionProvider`); die gebruikt bewust een **live**
   check (`OpenShiftClient.clusterHealth()` rechtstreeks) i.p.v. de hier bewaarde
   `NightlyCheckRepository`-historie, omdat die historie t.o.v. het briefing-moment verouderd zou
-  kunnen zijn. Zie root `CLAUDE.md` §4 (`briefing`-rij) voor details.
+  kunnen zijn. Sinds SF-1267/SF-1268 heeft de "Morgen"-tab plaatsgemaakt voor twee tabs
+  ("Upcoming" + "Health check"); de systeemstatus-sectie (nog steeds live, niet
+  `NightlyCheckRepository`-historie) is verhuisd naar de "Health check"-tab, in ruwe
+  per-check-vorm i.p.v. de AI-samenvatting. Zie root `CLAUDE.md` §4 (`briefing`-rij) voor
+  details.
 
 ## Eerste check: OpenShift-gezondheid
 
