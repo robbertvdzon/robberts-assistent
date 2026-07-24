@@ -10,7 +10,8 @@ class OpenShiftHealthNightlyCheck(private val client: OpenShiftClient) : Nightly
 
     override val id = "openshift-health"
     override val name = "OpenShift-gezondheid"
-    override val description = "Clustergezondheid (gedegradeerde operators) en beschikbare platform-updates."
+    override val description = "Clustergezondheid (gedegradeerde operators), beschikbare platform-updates, " +
+        "en geheugen-/SSD-/externe-HDD-gebruik van de node."
 
     // Elke ochtend om 07:00 — vaker heeft weinig zin voor een cluster die je zelf thuis beheert.
     override val cronSchedule = "0 0 7 * * *"
@@ -24,8 +25,10 @@ class OpenShiftHealthNightlyCheck(private val client: OpenShiftClient) : Nightly
             health.clusterVersion?.let { append(" (versie $it)") }
             if (health.updateAvailable) append(" — update beschikbaar")
         }
-        val detail = health.degradedOperators.takeIf { it.isNotEmpty() }
+        val degradedDetail = health.degradedOperators.takeIf { it.isNotEmpty() }
             ?.joinToString(", ", prefix = "Gedegradeerde operators: ")
+        val metricsDetail = health.nodeMetrics?.describe()
+        val detail = listOfNotNull(degradedDetail, metricsDetail).joinToString("\n").takeIf { it.isNotEmpty() }
 
         return CheckResult(ok = health.healthy, summary = summary, detail = detail)
     }

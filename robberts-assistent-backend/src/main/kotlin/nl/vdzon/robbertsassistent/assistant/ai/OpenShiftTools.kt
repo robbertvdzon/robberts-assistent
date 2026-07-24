@@ -1,6 +1,7 @@
 package nl.vdzon.robbertsassistent.assistant.ai
 
 import nl.vdzon.robbertsassistent.openshift.OpenShiftClient
+import nl.vdzon.robbertsassistent.openshift.describe
 import org.springframework.ai.tool.annotation.Tool
 import org.springframework.stereotype.Component
 
@@ -13,9 +14,10 @@ import org.springframework.stereotype.Component
 class OpenShiftTools(private val client: OpenShiftClient) {
 
     @Tool(
-        description = "Haal de gezondheid van de OpenShift-cluster op: gedegradeerde operators en " +
-            "of er een platform-/security-update beschikbaar is. Gebruik dit voor vragen als " +
-            "'is de cluster nog gezond' of 'moet ik updaten'.",
+        description = "Haal de gezondheid van de OpenShift-cluster op: gedegradeerde operators, of er " +
+            "een platform-/security-update beschikbaar is, en het geheugen-/SSD-/externe-HDD-gebruik " +
+            "van de node. Gebruik dit voor vragen als 'is de cluster nog gezond', 'moet ik updaten' of " +
+            "'hoeveel geheugen/schijfruimte is er nog vrij'.",
     )
     fun getOpenShiftHealth(): String {
         val health = client.clusterHealth()
@@ -25,6 +27,7 @@ class OpenShiftTools(private val client: OpenShiftClient) {
         val degraded = health.degradedOperators.takeIf { it.isNotEmpty() }
             ?.joinToString(", ", prefix = "; gedegradeerde operators: ")
             ?: ""
-        return "Cluster is $status (versie ${health.clusterVersion}), $updates$degraded."
+        val metrics = health.nodeMetrics?.let { ". ${it.describe()}" }.orEmpty()
+        return "Cluster is $status (versie ${health.clusterVersion}), $updates$degraded$metrics"
     }
 }

@@ -1,6 +1,7 @@
 namespace: robberts-assistent
 resources:
 - sealed-secret-robberts-assistent.yaml
+- robberts-assistent-backend-serviceaccount.yaml
 - robberts-assistent-backend-deployment.yaml
 - robberts-assistent-backend-service.yaml
 - robberts-assistent-frontend-deployment.yaml
@@ -15,7 +16,7 @@ images:
   newTag: sha-3e951db
 - name: ghcr.io/robbertvdzon/robberts-assistent-backend
   newName: ghcr.io/robbertvdzon/robberts-assistent-backend
-  newTag: sha-34275a9
+  newTag: sha-540866c
 - name: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newName: ghcr.io/robbertvdzon/robberts-assistent-frontend
   newTag: sha-cc0294f
