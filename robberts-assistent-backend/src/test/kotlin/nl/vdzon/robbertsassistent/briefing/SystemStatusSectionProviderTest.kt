@@ -13,6 +13,8 @@ import nl.vdzon.robbertsassistent.softwarefactory.FactoryMyActionsResult
 import nl.vdzon.robbertsassistent.softwarefactory.FactoryStoriesResult
 import nl.vdzon.robbertsassistent.softwarefactory.SoftwareFactoryClient
 import nl.vdzon.robbertsassistent.softwarefactory.StubSoftwareFactoryClient
+import nl.vdzon.robbertsassistent.zonneplan.StubZonneplanClient
+import nl.vdzon.robbertsassistent.zonneplan.ZonneplanClient
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.messages.AssistantMessage
 import org.springframework.ai.chat.model.ChatModel
@@ -81,10 +83,12 @@ class SystemStatusSectionProviderTest {
 
     private fun provider(
         chatModel: ChatModel = MockChatModel(),
+        zonneplanClient: ZonneplanClient = StubZonneplanClient(),
         openShiftClient: OpenShiftClient = StubOpenShiftClient(),
         automowerClient: AutomowerClient = StubAutomowerClient(),
         softwareFactoryClient: SoftwareFactoryClient = StubSoftwareFactoryClient(),
     ) = SystemStatusSectionProvider(
+        zonneplanClient = zonneplanClient,
         openShiftClient = openShiftClient,
         automowerClient = automowerClient,
         softwareFactoryClient = softwareFactoryClient,
@@ -167,6 +171,7 @@ class SystemStatusSectionProviderTest {
         }).build()
 
         SystemStatusSectionProvider(
+            zonneplanClient = StubZonneplanClient(),
             openShiftClient = StubOpenShiftClient(),
             automowerClient = FixedAutomowerClient(errorMower()),
             softwareFactoryClient = StubSoftwareFactoryClient(),
@@ -202,6 +207,7 @@ class SystemStatusSectionProviderTest {
         }
 
         SystemStatusSectionProvider(
+            zonneplanClient = StubZonneplanClient(),
             openShiftClient = openShiftClient,
             automowerClient = StubAutomowerClient(),
             softwareFactoryClient = StubSoftwareFactoryClient(),
@@ -226,6 +232,7 @@ class SystemStatusSectionProviderTest {
         }).build()
 
         SystemStatusSectionProvider(
+            zonneplanClient = StubZonneplanClient(),
             openShiftClient = StubOpenShiftClient(),
             automowerClient = ErroredAutomowerClient(),
             softwareFactoryClient = StubSoftwareFactoryClient(),

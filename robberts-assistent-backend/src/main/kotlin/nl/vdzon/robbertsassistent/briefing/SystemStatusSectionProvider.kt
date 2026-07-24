@@ -6,6 +6,7 @@ import nl.vdzon.robbertsassistent.automower.stateDescription
 import nl.vdzon.robbertsassistent.openshift.OpenShiftClient
 import nl.vdzon.robbertsassistent.openshift.describe
 import nl.vdzon.robbertsassistent.softwarefactory.SoftwareFactoryClient
+import nl.vdzon.robbertsassistent.zonneplan.ZonneplanClient
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.beans.factory.annotation.Qualifier
@@ -13,18 +14,21 @@ import org.springframework.stereotype.Component
 
 /**
  * Systeem-checkrapport-briefingsectie (story 2 van 2): bundelt vijf checks — zonnepanelen
- * (dummy), backups (dummy), OpenShift-gezondheid ([OpenShiftClient]), robotmaaier
- * ([AutomowerClient]) en Software Factory ([SoftwareFactoryClient]) — tot één AI-beoordeeld
- * rapport. De code verzamelt alleen ruwe feiten per check; welke check "aandacht nodig" heeft
- * bepaalt uitsluitend de AI-aanroep ([SYSTEM_STATUS_SYSTEM_PROMPT] in `BriefingAiConfig`), geen
- * hardcoded drempel in code. Faalt de AI-call (of levert 'ie geen herkenbaar antwoord), dan valt
- * de sectie stil terug op een neutrale tekst zonder aandachtspunten — zelfde beschermende patroon
- * als [WeekTasksSectionProvider]. Een falende onderliggende client (OpenShift/Automower/Software
- * Factory) crasht de sectie niet: die ene check meldt dan gewoon "kon niet opgehaald worden" als
- * ruwe data aan de AI.
+ * ([ZonneplanClient], Zonneplan via Home Assistant), backups (dummy), OpenShift-gezondheid
+ * ([OpenShiftClient]), robotmaaier ([AutomowerClient]) en Software Factory
+ * ([SoftwareFactoryClient]) — tot één AI-beoordeeld rapport. De code verzamelt alleen ruwe feiten
+ * per check; welke check "aandacht nodig" heeft bepaalt uitsluitend de AI-aanroep
+ * ([SYSTEM_STATUS_SYSTEM_PROMPT] in `BriefingAiConfig`), geen hardcoded drempel in code (voor een
+ * harde, deterministische drempel op nagenoeg-nul-opbrengst, zie
+ * `zonneplan.ZonneplanCouplingProbe` op het Koppelingen-scherm). Faalt de AI-call (of levert 'ie
+ * geen herkenbaar antwoord), dan valt de sectie stil terug op een neutrale tekst zonder
+ * aandachtspunten — zelfde beschermende patroon als [WeekTasksSectionProvider]. Een falende
+ * onderliggende client (Zonneplan/OpenShift/Automower/Software Factory) crasht de sectie niet: die
+ * ene check meldt dan gewoon "kon niet opgehaald worden" als ruwe data aan de AI.
  */
 @Component
 class SystemStatusSectionProvider(
+    private val zonneplanClient: ZonneplanClient,
     private val openShiftClient: OpenShiftClient,
     private val automowerClient: AutomowerClient,
     private val softwareFactoryClient: SoftwareFactoryClient,
@@ -46,7 +50,7 @@ class SystemStatusSectionProvider(
 
     private fun assess(): SystemStatusResult {
         val rawData = listOf(
-            SOLAR_DUMMY_TEXT,
+            runCatching { buildSolarText() }.getOrElse { "Zonnepanelen: kon status niet ophalen (${it.message})." },
             BACKUPS_DUMMY_TEXT,
             runCatching { buildOpenShiftText() }.getOrElse { "OpenShift: kon status niet ophalen (${it.message})." },
             runCatching { buildAutomowerText() }.getOrElse { "Robotmaaier: kon status niet ophalen (${it.message})." },
@@ -64,6 +68,14 @@ class SystemStatusSectionProvider(
         val reply = chatClient.prompt().user(rawData).call().content()?.trim().orEmpty()
         if (reply.isBlank()) return SystemStatusResult(text = FALLBACK_TEXT, attentionItems = emptyList())
         return parseAiReply(reply)
+    }
+
+    private fun buildSolarText(): String {
+        val result = zonneplanClient.status()
+        result.error?.let { return "Zonnepanelen: kon status niet ophalen ($it)." }
+        val current = result.currentPowerWatt?.let { "$it W" } ?: "onbekend"
+        val yesterday = result.yesterdayYieldKwh?.let { "$it kWh" } ?: "onbekend"
+        return "Zonnepanelen: huidig vermogen=$current, gisteren opgewekt=$yesterday."
     }
 
     private fun buildOpenShiftText(): String {
@@ -101,7 +113,6 @@ class SystemStatusSectionProvider(
     }
 
     internal companion object {
-        private const val SOLAR_DUMMY_TEXT = "Zonnepanelen: (nog geen koppeling, placeholder) geen afwijkingen bekend."
         private const val BACKUPS_DUMMY_TEXT = "Backups: (nog geen koppeling, placeholder) geen fouten gemeld."
         private const val FALLBACK_TEXT = "Kon het systeemstatusrapport niet ophalen."
 

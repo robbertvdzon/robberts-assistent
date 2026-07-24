@@ -65,6 +65,11 @@ data class AppSecrets(
     // RBAC (ServiceAccount + ClusterRole) bestaat nog niet in de cluster (zie docs/nightly-checks.md)
     // — zonder deze vlag blijft de koppeling op de stub staan i.p.v. steeds 403-fouten te loggen.
     val openShiftHealthEnabled: Boolean = false,
+    // Zonnepanelen-gezondheidscheck via de Zonneplan-integratie in Home Assistant (eigen
+    // thuis-cluster, geen los Zonneplan-account nodig). Long-lived access token, aan te maken via
+    // het HA-gebruikersprofiel. Zonder deze waarden valt de koppeling terug op de stub.
+    val homeAssistantUrl: String? = null,
+    val homeAssistantToken: String? = null,
 ) {
     /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
     val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
@@ -122,6 +127,8 @@ class AppSecretsLoader(
             softwareFactoryGoogleClientSecret = optional("RA_SOFTWAREFACTORY_CLIENT_SECRET"),
             softwareFactoryGoogleRefreshToken = optional("RA_SOFTWAREFACTORY_REFRESH_TOKEN"),
             openShiftHealthEnabled = openShiftHealthEnabled,
+            homeAssistantUrl = optional("RA_HOME_ASSISTENT_URL"),
+            homeAssistantToken = optional("RA_HOME_ASSISTENT_TOKEN"),
         )
     }
 
