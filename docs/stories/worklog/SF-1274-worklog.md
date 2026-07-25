@@ -90,3 +90,34 @@ Done / rationale:
 - Geen bugs, regressies of scope-afwijkingen gevonden. Testdekking is volledig en groen (zowel
   door de developer gerapporteerd als hier zelf herhaald).
 - Oordeel: akkoord, geen blockers.
+
+## Test (SF-1276)
+
+- Volledige story-diff t.o.v. `main` opnieuw doorgenomen (backend `briefing`-module + frontend
+  `health_check_screen.dart`/`api_client.dart` + alle tests).
+- `mvn -o test` (backend, volledige suite): **291 tests, 0 failures, 0 errors, BUILD SUCCESS**.
+- `flutter analyze` (`robberts_assistent/`): **geen issues** (Flutter bleek in deze sandbox-run wél
+  bruikbaar, in tegenstelling tot de eerdere aanname dat dit structureel niet zou kunnen).
+- `flutter test` (`robberts_assistent/`): **36 tests, alle groen**, inclusief de nieuwe
+  `health_check_screen_test.dart`-cases (reload-spinner, timestamp, foutmelding).
+- End-to-end geverifieerd tegen de live preview (`robberts-assistent-pr-30`, via de
+  frontend-proxy-route `SF_PREVIEW_URL/api/...`):
+  - `GET /api/v1/briefing/health` en `GET /api/v1/briefing` leveren elk een eigen `updatedAt`.
+  - `POST /api/v1/briefing/health/refresh` ververst alléén de Health check-`updatedAt`; een
+    daaropvolgende `GET /api/v1/briefing` bleef ongewijzigd — onafhankelijkheid bevestigd op
+    live API-niveau, niet alleen in unit tests.
+  - Live Software Factory-check toont uitsluitend `SF-1274` (fase=in-progress, merged=false) —
+    bevestigt het nieuwe filter ook met echte productie-achtige data.
+- Browser-verificatie (Playwright/Chromium, viewport 480x900) op de preview-web-app:
+  - Health check-tab toont "Bijgewerkt om ..." + reload-icoon; tijdens het verversen toont het
+    icoon een niet-klikbare spinner (icoon zelf verdwijnt); na afloop update de timestamp
+    (05:07 → 05:08) en komt het reload-icoon terug met tooltip "Systeemstatus verversen".
+    Netwerklog bevestigt de aanroepen naar `/api/v1/briefing/health` (laden) en
+    `/api/v1/briefing/health/refresh` (reload-klik).
+  - Upcoming-tab toont alle briefingsecties (weerkaart, kiten, strandfietsen, agenda,
+    week-taken) behalve systeemstatus, met een eigen, andere timestamp (05:09) — bevestigt de
+    ontkoppeling ook visueel.
+  - Screenshots opgeslagen in `/work/screenshots/` (`01_health_check.png`,
+    `02_health_check_refreshing.png`, `03_health_check_refreshed.png`, `04_upcoming_tab.png`).
+- Geen bugs of afwijkingen van de acceptatiecriteria gevonden.
+- Oordeel: **tested**, geen blockers of openstaande vragen.
