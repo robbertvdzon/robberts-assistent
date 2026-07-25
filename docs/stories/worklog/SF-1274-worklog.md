@@ -64,3 +64,29 @@ Done / rationale:
 - Geen wijziging aan `docs/factory/`-documentatie (expliciet buiten scope per de Aannames-sectie van
   de story).
 - Geen wijziging aan `summary_screen.dart` (blijft functioneel ongewijzigd, zoals gevraagd).
+
+## Review (SF-1275)
+
+- Volledige story-diff t.o.v. `main` bekeken (backend `briefing`-module + frontend
+  `health_check_screen.dart`/`api_client.dart` + bijbehorende tests).
+- Zelf uitgevoerd in de reviewer-sandbox (flutter én mvn zijn hier beide bruikbaar):
+  - `mvn -o test` (volledige backend-suite): **291 tests, 0 failures, 0 errors**.
+  - `flutter analyze` in `robberts_assistent/`: **geen issues**.
+  - `flutter test` in `robberts_assistent/`: **36 tests, alle groen**.
+- Geverifieerd dat `BriefingScheduler` (18:00-FCM-push) en `BriefingSchedulerTest` ongewijzigd zijn
+  gebleven (`git diff main...HEAD` op beide bestanden is leeg), en dat `summary_screen.dart`
+  eveneens ongewijzigd is — beide expliciete acceptatiecriteria.
+- `BriefingService`/`BriefingCacheScheduler`/`BriefingController`/`BriefingStoreConfig`/
+  `FirestoreBriefingCacheRepository` correct gesplitst in twee onafhankelijke caches
+  (Upcoming/Health), elk met eigen `updatedAt`, gedekt door `BriefingServiceTest`/
+  `BriefingCacheSchedulerTest`.
+- `SystemStatusSectionProvider.softwareFactoryCheckData()`-filter (`error != null` of `phase !=
+  null && !merged`) komt exact overeen met de acceptatiecriteria; "geen lopende of error-stories."-
+  fallback gedekt door een nieuwe test.
+- Frontend `health_check_screen.dart`: reload-knop met spinner (niet opnieuw indrukbaar tijdens
+  laden), "Bijgewerkt om ..."-header, foutafhandeling via snackbar — consistent met het bestaande
+  `summary_screen.dart`-patroon (`_refresh`/`_refreshing`/`_buildHeaderRow`/`_formatTime`). Tests
+  dekken spinner-state, timestamp en foutmelding.
+- Geen bugs, regressies of scope-afwijkingen gevonden. Testdekking is volledig en groen (zowel
+  door de developer gerapporteerd als hier zelf herhaald).
+- Oordeel: akkoord, geen blockers.
