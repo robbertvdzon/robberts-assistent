@@ -29,18 +29,36 @@ class BriefingController(
     @GetMapping("/api/v1/briefing")
     fun briefing(@RequestHeader("Authorization", required = false) authorization: String?): BriefingResponse {
         authService.requireAuthorization(authorization)
-        return briefingService.current()
+        return briefingService.currentUpcoming()
     }
 
     /**
-     * Bouwt de briefing live opnieuw op, overschrijft de cache (incl. de weerkaart-PNG's van
-     * [WeatherMapSectionProvider]) en geeft het verse resultaat terug. Zelfde auth als de gewone
+     * Bouwt de Upcoming-briefing (alle secties behalve systeemstatus) live opnieuw op, overschrijft
+     * alléén de Upcoming-cache (incl. de weerkaart-PNG's van [WeatherMapSectionProvider]) en geeft
+     * het verse resultaat terug — laat de Health check-cache ongewijzigd. Zelfde auth als de gewone
      * `GET /api/v1/briefing`.
      */
     @PostMapping("/api/v1/briefing/refresh")
     fun refresh(@RequestHeader("Authorization", required = false) authorization: String?): BriefingResponse {
         authService.requireAuthorization(authorization)
-        return briefingService.refresh()
+        return briefingService.refreshUpcoming()
+    }
+
+    /** De systeemstatus-sectie voor het 'Health check'-scherm, met een eigen `updatedAt` (zie [BriefingService]). */
+    @GetMapping("/api/v1/briefing/health")
+    fun health(@RequestHeader("Authorization", required = false) authorization: String?): BriefingResponse {
+        authService.requireAuthorization(authorization)
+        return briefingService.currentHealth()
+    }
+
+    /**
+     * Bouwt uitsluitend de systeemstatus-sectie live opnieuw op, overschrijft alléén de Health
+     * check-cache en geeft het verse resultaat terug — laat de Upcoming-cache ongewijzigd.
+     */
+    @PostMapping("/api/v1/briefing/health/refresh")
+    fun refreshHealth(@RequestHeader("Authorization", required = false) authorization: String?): BriefingResponse {
+        authService.requireAuthorization(authorization)
+        return briefingService.refreshHealth()
     }
 
     /** Weerkaart-PNG onder sleutel `slot` (`morgen`), zie [WeatherMapSectionProvider]. */

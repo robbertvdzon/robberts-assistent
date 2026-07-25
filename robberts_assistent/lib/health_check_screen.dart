@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 
 /// 'Health check'-scherm: toont uitsluitend de systeemstatus-sectie (`key == 'system-status'`)
-/// van `GET /api/v1/briefing` — per onderdeel (zonnepanelen, backups, OpenShift, robotmaaier,
-/// Software Factory) een duidelijke kop met daaronder de ruwe, niet-AI-samengevatte statusregel(s)
-/// die de backend al berekent (`SystemStatusSectionProvider`'s `BriefingItem.heading`/`text`), in
-/// bullet-vorm. Alle tekst is selecteerbaar (`SelectableText`) zodat Robbert statusregels kan
-/// kopiëren. Hergebruikt dezelfde databron als `SummaryScreen` (geen apart backend-endpoint).
+/// van `GET /api/v1/briefing/health` — per onderdeel (zonnepanelen, backups, OpenShift,
+/// robotmaaier, Software Factory) een duidelijke kop met daaronder de ruwe, niet-AI-samengevatte
+/// statusregel(s) die de backend al berekent (`SystemStatusSectionProvider`'s
+/// `BriefingItem.heading`/`text`), in bullet-vorm. Alle tekst is selecteerbaar (`SelectableText`)
+/// zodat Robbert statusregels kan kopiëren. Sinds SF-1275 heeft dit scherm een eigen cache/
+/// `updatedAt`, los van `SummaryScreen`'s Upcoming-briefing: verversen hier raakt de Upcoming-tab
+/// niet en andersom (zie `ApiClient.getHealthCheck`/`refreshHealthCheck`).
 class HealthCheckScreen extends StatefulWidget {
   const HealthCheckScreen({super.key, required this.api});
 
@@ -20,6 +22,7 @@ class HealthCheckScreen extends StatefulWidget {
 class _HealthCheckScreenState extends State<HealthCheckScreen> {
   BriefingData? _data;
   String? _error;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -30,10 +33,24 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
   Future<void> _load() async {
     setState(() => _error = null);
     try {
-      final data = await widget.api.getBriefing();
+      final data = await widget.api.getHealthCheck();
       if (mounted) setState(() => _data = data);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _refreshing = true);
+    try {
+      final data = await widget.api.refreshHealthCheck();
+      if (mounted) setState(() => _data = data);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Verversen mislukt: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
     }
   }
 
@@ -64,25 +81,50 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
     }
     final section = _systemStatusSection();
     final items = section?.items ?? [];
-    if (items.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          children: const [
-            SizedBox(height: 80),
-            Center(child: Text('Geen systeemstatus beschikbaar.')),
-          ],
-        ),
-      );
-    }
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
-        children: items.map(_buildItemCard).toList(),
+        children: [
+          _buildHeaderRow(_data!.updatedAt),
+          const SizedBox(height: 8),
+          if (items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 64),
+              child: Center(child: Text('Geen systeemstatus beschikbaar.')),
+            )
+          else
+            ...items.map(_buildItemCard),
+        ],
       ),
     );
   }
+
+  Widget _buildHeaderRow(DateTime updatedAt) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Bijgewerkt om ${_formatTime(updatedAt)}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        _refreshing
+            ? const Padding(
+                padding: EdgeInsets.all(8),
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            : IconButton(
+                tooltip: 'Systeemstatus verversen',
+                icon: const Icon(Icons.refresh),
+                onPressed: _refresh,
+              ),
+      ],
+    );
+  }
+
+  String _formatTime(DateTime at) =>
+      '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
 
   Widget _buildItemCard(BriefingItem item) {
     return Card(

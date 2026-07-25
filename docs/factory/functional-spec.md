@@ -50,14 +50,18 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   secties kunnen later worden toegevoegd zonder de kernservice te wijzigen (SPI-patroon, zie
   `docs/factory/technical-spec.md`).
   NL-feestdagen worden algoritmisch berekend; een vakantiedag wordt gedetecteerd als hele-dag
-  agenda-item. Sinds SF-1200 wordt de briefing dagelijks om 17:30 (Europe/Amsterdam, een half uur
-  vóór de push) opgebouwd en gecachet (Firestore); het scherm toont die gecachete versie meteen
-  (incl. wanneer 'm is opgehaald) en heeft een reload-knop om 'm handmatig live te verversen.
-  Dagelijks om 18:00 (Europe/Amsterdam) gaat er automatisch één FCM-push uit met een korte
-  samenvatting; een tik erop opent het "Upcoming"-scherm (de app-tab die eerst "Samenvatting",
-  daarna "Morgen" heette; sinds SF-1267/SF-1268 gesplitst in "Upcoming" (deze briefing, zonder
-  systeemstatus) en de nieuwe "Health check"-tab met alleen het systeem-checkrapport in ruwe
-  vorm).
+  agenda-item. Sinds SF-1200 wordt de briefing opgebouwd en gecachet (Firestore); sinds
+  SF-1274/SF-1275 zijn "Upcoming" en "Health check" onafhankelijk cachebaar/verversbaar (elk een
+  eigen cache + `updatedAt`) en wordt beide elk uur automatisch ververst (was: dagelijks om 17:30,
+  een half uur vóór de push). Elk scherm toont zijn eigen gecachete versie meteen (incl. wanneer
+  'm is opgehaald) en heeft een eigen reload-knop om 'm handmatig live te verversen, zonder de
+  andere tab te raken. Dagelijks om 18:00 (Europe/Amsterdam) gaat er automatisch één FCM-push uit
+  met een korte samenvatting (ongewijzigd door SF-1274/SF-1275, bouwt los van de caches op); een
+  tik erop opent het "Upcoming"-scherm (de app-tab die eerst "Samenvatting", daarna "Morgen"
+  heette; sinds SF-1267/SF-1268 gesplitst in "Upcoming" (deze briefing, zonder systeemstatus) en de
+  "Health check"-tab met alleen het systeem-checkrapport in ruwe vorm). Sinds SF-1275 toont de
+  Software Factory-check binnen het systeem-checkrapport alleen nog stories met een fout of een
+  lopende (niet-gemergede) fase, i.p.v. alle stories.
 
 ## Push / meldingen
 

@@ -205,6 +205,21 @@ class ApiClient {
     return BriefingData.fromJson(body);
   }
 
+  // -- Health check ---------------------------------------------------------
+  /// De systeemstatus-sectie voor de 'Health check'-tab (`GET /api/v1/briefing/health`), met een
+  /// eigen `updatedAt` los van de Upcoming-briefing (zie backend `BriefingService`).
+  Future<BriefingData> getHealthCheck() async {
+    final body = await getJson('/api/v1/briefing/health');
+    return BriefingData.fromJson(body);
+  }
+
+  /// Bouwt uitsluitend de systeemstatus-sectie live opnieuw op en overschrijft alléén de Health
+  /// check-cache (`POST /api/v1/briefing/health/refresh`), zonder de Upcoming-cache te raken.
+  Future<BriefingData> refreshHealthCheck() async {
+    final body = await postJson('/api/v1/briefing/health/refresh');
+    return BriefingData.fromJson(body);
+  }
+
   /// Voert een generieke één-tap-actie uit die bij een briefing-item hoort (bv. "reminder
   /// aanmaken" bij een afspraak zonder reminder) — de app kent de betekenis van het endpoint niet,
   /// stuurt gewoon de door de backend meegegeven `endpoint`/`payload` door.

@@ -1,5 +1,11 @@
 package nl.vdzon.robbertsassistent.briefing
 
+import nl.vdzon.robbertsassistent.assistant.ai.MockChatModel
+import nl.vdzon.robbertsassistent.automower.StubAutomowerClient
+import nl.vdzon.robbertsassistent.openshift.StubOpenShiftClient
+import nl.vdzon.robbertsassistent.softwarefactory.StubSoftwareFactoryClient
+import nl.vdzon.robbertsassistent.zonneplan.StubZonneplanClient
+import org.springframework.ai.chat.client.ChatClient
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -16,62 +22,118 @@ class BriefingServiceTest {
         override fun section(): BriefingSection = error("boom")
     }
 
+    private fun systemStatusProvider() = SystemStatusSectionProvider(
+        zonneplanClient = StubZonneplanClient(),
+        openShiftClient = StubOpenShiftClient(),
+        automowerClient = StubAutomowerClient(),
+        softwareFactoryClient = StubSoftwareFactoryClient(),
+        chatClient = ChatClient.builder(MockChatModel()).build(),
+    )
+
     private fun service(
         providers: List<BriefingSectionProvider>,
-        cache: BriefingCacheRepository = InMemoryBriefingCacheRepository(),
-    ) = BriefingService(providers, cache)
+        upcomingCache: BriefingCacheRepository = InMemoryBriefingCacheRepository(),
+        healthCache: BriefingCacheRepository = InMemoryBriefingCacheRepository(),
+    ) = BriefingService(providers, upcomingCache, healthCache)
 
     @Test
-    fun `current bouwt live op en sorteert secties op order als er nog geen cache is`() {
+    fun `currentUpcoming bouwt live op en sorteert secties op order als er nog geen cache is`() {
         val svc = service(listOf(FixedProvider(2, "b"), FixedProvider(0, "a"), FixedProvider(1, "c")))
 
-        val response = svc.current()
+        val response = svc.currentUpcoming()
 
         assertEquals(listOf("a", "c", "b"), response.sections.map { it.key })
         assertNotNull(response.updatedAt)
     }
 
     @Test
-    fun `current vangt een crashende sectie op in plaats van te crashen`() {
+    fun `currentUpcoming laat de systeemstatus-sectie buiten beschouwing`() {
+        val svc = service(listOf(FixedProvider(0, "a"), systemStatusProvider()))
+
+        val response = svc.currentUpcoming()
+
+        assertEquals(listOf("a"), response.sections.map { it.key })
+    }
+
+    @Test
+    fun `currentHealth levert uitsluitend de systeemstatus-sectie`() {
+        val svc = service(listOf(FixedProvider(0, "a"), systemStatusProvider()))
+
+        val response = svc.currentHealth()
+
+        assertEquals(listOf("system-status"), response.sections.map { it.key })
+    }
+
+    @Test
+    fun `currentUpcoming vangt een crashende sectie op in plaats van te crashen`() {
         val svc = service(listOf(FixedProvider(0, "a"), ThrowingProvider(1)))
 
-        val sections = svc.current().sections
+        val sections = svc.currentUpcoming().sections
 
         assertEquals(2, sections.size)
         assertEquals("fout", sections[1].key)
     }
 
     @Test
-    fun `current levert de gecachete briefing als die bestaat, zonder opnieuw op te bouwen`() {
-        val cache = InMemoryBriefingCacheRepository()
+    fun `currentUpcoming levert de gecachete briefing als die bestaat, zonder opnieuw op te bouwen`() {
+        val upcomingCache = InMemoryBriefingCacheRepository()
         val cached = BriefingResponse(sections = listOf(BriefingSection(key = "x", title = "x", text = "x")), updatedAt = "vast")
-        cache.store(cached)
-        val svc = service(listOf(FixedProvider(0, "a")), cache)
+        upcomingCache.store(cached)
+        val svc = service(listOf(FixedProvider(0, "a")), upcomingCache)
 
-        val response = svc.current()
+        val response = svc.currentUpcoming()
 
         assertSame(cached, response)
     }
 
     @Test
-    fun `refresh bouwt altijd live op en overschrijft de cache`() {
-        val cache = InMemoryBriefingCacheRepository()
-        cache.store(BriefingResponse(sections = listOf(BriefingSection(key = "oud", title = "oud", text = "oud")), updatedAt = "vast"))
-        val svc = service(listOf(FixedProvider(0, "nieuw")), cache)
+    fun `refreshUpcoming bouwt altijd live op en overschrijft alleen de Upcoming-cache`() {
+        val upcomingCache = InMemoryBriefingCacheRepository()
+        upcomingCache.store(BriefingResponse(sections = listOf(BriefingSection(key = "oud", title = "oud", text = "oud")), updatedAt = "vast"))
+        val healthCache = InMemoryBriefingCacheRepository()
+        val healthCached = BriefingResponse(sections = listOf(BriefingSection(key = "system-status", title = "s", text = "s")), updatedAt = "health-vast")
+        healthCache.store(healthCached)
+        val svc = service(listOf(FixedProvider(0, "nieuw")), upcomingCache, healthCache)
 
-        val response = svc.refresh()
+        val response = svc.refreshUpcoming()
 
         assertEquals(listOf("nieuw"), response.sections.map { it.key })
-        assertEquals(response, cache.current())
+        assertEquals(response, upcomingCache.current())
+        assertSame(healthCached, healthCache.current())
     }
 
     @Test
-    fun `zonder cache levert current een live opbouw zonder deze te cachen`() {
-        val cache = InMemoryBriefingCacheRepository()
-        val svc = service(listOf(FixedProvider(0, "a")), cache)
+    fun `refreshHealth bouwt altijd live op en overschrijft alleen de Health check-cache`() {
+        val upcomingCache = InMemoryBriefingCacheRepository()
+        val upcomingCached = BriefingResponse(sections = listOf(BriefingSection(key = "a", title = "a", text = "a")), updatedAt = "upcoming-vast")
+        upcomingCache.store(upcomingCached)
+        val healthCache = InMemoryBriefingCacheRepository()
+        val svc = service(listOf(FixedProvider(0, "a"), systemStatusProvider()), upcomingCache, healthCache)
 
-        svc.current()
+        val response = svc.refreshHealth()
 
-        assertNull(cache.current())
+        assertEquals(listOf("system-status"), response.sections.map { it.key })
+        assertEquals(response, healthCache.current())
+        assertSame(upcomingCached, upcomingCache.current())
+    }
+
+    @Test
+    fun `zonder cache levert currentUpcoming een live opbouw zonder deze te cachen`() {
+        val upcomingCache = InMemoryBriefingCacheRepository()
+        val svc = service(listOf(FixedProvider(0, "a")), upcomingCache)
+
+        svc.currentUpcoming()
+
+        assertNull(upcomingCache.current())
+    }
+
+    @Test
+    fun `zonder cache levert currentHealth een live opbouw zonder deze te cachen`() {
+        val healthCache = InMemoryBriefingCacheRepository()
+        val svc = service(listOf(systemStatusProvider()), healthCache = healthCache)
+
+        svc.currentHealth()
+
+        assertNull(healthCache.current())
     }
 }

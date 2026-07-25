@@ -11,6 +11,7 @@ import nl.vdzon.robbertsassistent.openshift.OpenShiftClient
 import nl.vdzon.robbertsassistent.openshift.StubOpenShiftClient
 import nl.vdzon.robbertsassistent.softwarefactory.FactoryMyActionsResult
 import nl.vdzon.robbertsassistent.softwarefactory.FactoryStoriesResult
+import nl.vdzon.robbertsassistent.softwarefactory.FactoryStory
 import nl.vdzon.robbertsassistent.softwarefactory.SoftwareFactoryClient
 import nl.vdzon.robbertsassistent.softwarefactory.StubSoftwareFactoryClient
 import nl.vdzon.robbertsassistent.zonneplan.StubZonneplanClient
@@ -56,6 +57,11 @@ class SystemStatusSectionProviderTest {
     private class ThrowingSoftwareFactoryClient : SoftwareFactoryClient {
         override fun stories(): FactoryStoriesResult = error("kapot")
         override fun myActions(): FactoryMyActionsResult = error("kapot")
+    }
+
+    private class FixedSoftwareFactoryClient(private val stories: List<FactoryStory>) : SoftwareFactoryClient {
+        override fun stories(): FactoryStoriesResult = FactoryStoriesResult(stories)
+        override fun myActions(): FactoryMyActionsResult = FactoryMyActionsResult(emptyList())
     }
 
     private class ErroredAutomowerClient : AutomowerClient {
@@ -178,6 +184,65 @@ class SystemStatusSectionProviderTest {
         val section = provider(chatModel = FixedChatModel("AANDACHT: geen\nOk."), automowerClient = ThrowingAutomowerClient()).section()
 
         assertEquals("Ok.", section.text)
+    }
+
+    @Test
+    fun `softwareFactoryCheckData toont alleen stories met error of een gezette fase die nog niet gemerged is`() {
+        var capturedPrompt: String? = null
+        val chatClient = ChatClient.builder(object : ChatModel {
+            override fun call(prompt: Prompt): ChatResponse {
+                capturedPrompt = prompt.instructions.last().text
+                return ChatResponse(listOf(Generation(AssistantMessage("AANDACHT: geen\nOk."))))
+            }
+
+            override fun stream(prompt: Prompt): Flux<ChatResponse> = Flux.just(call(prompt))
+        }).build()
+        val stories = listOf(
+            FactoryStory(key = "SF-1", summary = "lopend", phase = "developing", paused = false, error = null, merged = false),
+            FactoryStory(key = "SF-2", summary = "gemerged", phase = "done", paused = false, error = null, merged = true),
+            FactoryStory(key = "SF-3", summary = "niet gestart", phase = null, paused = false, error = null, merged = false),
+            FactoryStory(key = "SF-4", summary = "error, ook al gemerged", phase = "done", paused = false, error = "kapot", merged = true),
+        )
+
+        SystemStatusSectionProvider(
+            zonneplanClient = StubZonneplanClient(),
+            openShiftClient = StubOpenShiftClient(),
+            automowerClient = StubAutomowerClient(),
+            softwareFactoryClient = FixedSoftwareFactoryClient(stories),
+            chatClient = chatClient,
+        ).section()
+
+        assertTrue(capturedPrompt != null && capturedPrompt!!.contains("SF-1"), capturedPrompt)
+        assertTrue(capturedPrompt!!.contains("SF-4"), capturedPrompt)
+        assertTrue(!capturedPrompt!!.contains("SF-2"), capturedPrompt)
+        assertTrue(!capturedPrompt!!.contains("SF-3"), capturedPrompt)
+    }
+
+    @Test
+    fun `softwareFactoryCheckData toont een nette melding als er na filteren geen stories overblijven`() {
+        var capturedPrompt: String? = null
+        val chatClient = ChatClient.builder(object : ChatModel {
+            override fun call(prompt: Prompt): ChatResponse {
+                capturedPrompt = prompt.instructions.last().text
+                return ChatResponse(listOf(Generation(AssistantMessage("AANDACHT: geen\nOk."))))
+            }
+
+            override fun stream(prompt: Prompt): Flux<ChatResponse> = Flux.just(call(prompt))
+        }).build()
+        val stories = listOf(
+            FactoryStory(key = "SF-2", summary = "gemerged", phase = "done", paused = false, error = null, merged = true),
+            FactoryStory(key = "SF-3", summary = "niet gestart", phase = null, paused = false, error = null, merged = false),
+        )
+
+        SystemStatusSectionProvider(
+            zonneplanClient = StubZonneplanClient(),
+            openShiftClient = StubOpenShiftClient(),
+            automowerClient = StubAutomowerClient(),
+            softwareFactoryClient = FixedSoftwareFactoryClient(stories),
+            chatClient = chatClient,
+        ).section()
+
+        assertTrue(capturedPrompt != null && capturedPrompt!!.contains("geen lopende of error-stories"), capturedPrompt)
     }
 
     @Test
