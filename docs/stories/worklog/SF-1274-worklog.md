@@ -1,0 +1,66 @@
+# SF-1274 - Worklog
+
+Story-context bij eerste pickup:
+Health check-tab ontkoppelen van Upcoming + Software Factory-filter
+
+Backend (briefing-module): splits de gedeelde BriefingCacheRepository/BriefingService in twee onafhankelijke caches met elk een eigen updatedAt - Upcoming (alle BriefingSectionProvider's behalve SystemStatusSectionProvider) en Health check (uitsluitend system-status), elk met een eigen GET/POST-refresh-endpoint in BriefingController (bestaande /api/v1/briefing + /refresh voor Upcoming, nieuwe analoge endpoints voor de health-check-cache). Vervang de dagelijkse 17:30-cron (BriefingCacheScheduler) door een uurlijkse job die beide caches ververst; laat BriefingScheduler (18:00-FCM-push, bouwt al buiten de cache om) ongewijzigd en verifieer dat expliciet. Pas SystemStatusSectionProvider.softwareFactoryCheckData() aan zodat alleen stories met error != null of (phase != null en merged == false) getoond worden, met een nette 'geen lopende of error-stories'-regel als na filtering niets overblijft; schrijf/breid hiervoor SystemStatusSectionProviderTest uit. Frontend (robberts_assistent/lib): api_client.dart krijgt methodes voor de nieuwe health-check-cache-endpoints; health_check_screen.dart laadt daarmee i.p.v. via getBriefing(), en krijgt een reload-knop (spinner tijdens laden, niet opnieuw indrukbaar) + 'Bijgewerkt om ...'-header analoog aan summary_screen.dart se _refresh()/_refreshing/_buildHeaderRow-patroon; summary_screen.dart blijft functioneel ongewijzigd. Nederlandstalige code-comments/UI-teksten/commits.
+
+Stappenplan:
+[x]: read issue and target docs
+[x]: implement requested changes
+[x]: run relevant tests
+[x]: update story-log with results
+
+Done / rationale:
+- Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
+
+## SF-1275 — Health check-tab ontkoppelen van Upcoming + Software Factory-filter
+
+**Backend (`briefing`-module):**
+- `BriefingService` bouwt nu twee onafhankelijke responses: `currentUpcoming()`/`refreshUpcoming()`
+  (alle secties behalve `system-status`) en `currentHealth()`/`refreshHealth()` (uitsluitend
+  `system-status`, geïdentificeerd via `providers.filterIsInstance<SystemStatusSectionProvider>()`).
+  Elk gebruikt een eigen `BriefingCacheRepository` (`@Qualifier("upcomingBriefingCache")` /
+  `("healthBriefingCache")`), zodat een refresh van de ene de andere cache/`updatedAt` niet raakt.
+- `FirestoreBriefingCacheRepository` kreeg een `documentId`-parameter (`current` vs. `health`) zodat
+  beide caches als losse Firestore-documenten worden bewaard; `BriefingStoreConfig` registreert twee
+  gekwalificeerde beans (in-memory-fallback ongewijzigd per bean).
+- `BriefingController`: bestaande `GET /api/v1/briefing` + `POST /api/v1/briefing/refresh` praten nu
+  met de Upcoming-cache; nieuwe `GET /api/v1/briefing/health` + `POST /api/v1/briefing/health/refresh`
+  met de Health check-cache.
+- `BriefingCacheScheduler`: cron van dagelijks 17:30 naar uurlijks (`0 0 * * * *`), ververst nu beide
+  caches (elk in een eigen `runCatching`, zodat een falende sectie in de ene de andere niet blokkeert).
+  `BriefingScheduler` (dagelijkse 18:00-FCM-push) is niet aangeraakt — die bouwt al rechtstreeks via de
+  providers-lijst op, los van beide caches; expliciet geverifieerd door de code te lezen (geen
+  referentie naar `BriefingCacheRepository`/`BriefingService`-cache-methodes) en door
+  `BriefingCacheSchedulerTest`/`BriefingServiceTest` gescheiden te houden van
+  `BriefingSchedulerTest` (ongewijzigd, blijft groen).
+- `SystemStatusSectionProvider.softwareFactoryCheckData()`: filtert nu op `error != null` of
+  (`phase != null && !merged`); lege lijst na filteren → "geen lopende of error-stories." i.p.v. de
+  oude "geen stories gevonden."/volledige opsomming. AI-beoordeling/`shortSummary()` en de overige
+  vier checks blijven ongewijzigd.
+- Tests uitgebreid: `BriefingServiceTest`, `BriefingCacheSchedulerTest` (nu met een losse
+  `SystemStatusSectionProvider`-instance voor de Health check-cache) en
+  `SystemStatusSectionProviderTest` (twee nieuwe tests voor het Software Factory-filter, met en
+  zonder resterende stories).
+
+**Frontend (`robberts_assistent/lib`):**
+- `api_client.dart`: nieuwe `getHealthCheck()`/`refreshHealthCheck()` tegen de nieuwe
+  `/api/v1/briefing/health(/refresh)`-endpoints, zelfde `BriefingData`-model als de bestaande
+  Upcoming-calls.
+- `health_check_screen.dart`: laadt nu via `getHealthCheck()` i.p.v. `getBriefing()`, kreeg een eigen
+  `_refresh()`/`_refreshing`/`_buildHeaderRow()` (reload-knop met spinner, niet opnieuw indrukbaar
+  tijdens een lopende refresh, "Bijgewerkt om ..."-regel) — zelfde patroon als `summary_screen.dart`.
+  `summary_screen.dart` zelf is niet gewijzigd.
+- `health_check_screen_test.dart` uitgebreid met reload-knop-/spinner-/foutmelding-/timestamp-tests,
+  analoog aan `summary_screen_test.dart`.
+
+**Getest:**
+- Backend: `mvn test` vanuit `robberts-assistent-backend/` — groen (0 failures, 0 errors).
+- Frontend: `flutter analyze` en `flutter test` vanuit `robberts_assistent/` — groen, geen issues.
+- `pubspec.lock` ongewijzigd gelaten na `flutter pub get` (geen ongerelateerde dependency-bumps).
+
+**Niet gedaan / bewust buiten scope:**
+- Geen wijziging aan `docs/factory/`-documentatie (expliciet buiten scope per de Aannames-sectie van
+  de story).
+- Geen wijziging aan `summary_screen.dart` (blijft functioneel ongewijzigd, zoals gevraagd).

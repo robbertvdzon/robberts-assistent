@@ -144,11 +144,18 @@ class SystemStatusSectionProvider(
         return CheckData("Robotmaaier", text)
     }
 
+    /**
+     * Toont sinds SF-1275 alleen nog stories die aandacht behoeven: een fout ([FactoryStory.error]
+     * gezet), of nog niet gemerged mét een gezette fase (dus gestart/gerefined, maar nog niet klaar).
+     * Gemergede stories en stories zonder fase (nog niet gestart) zijn "normaal" en worden
+     * weggelaten — anders groeit deze check ongelimiteerd met historische ruis.
+     */
     private fun softwareFactoryCheckData(): CheckData {
         val result = softwareFactoryClient.stories()
         result.error?.let { return CheckData("Software Factory", "kon stories niet ophalen ($it).") }
-        if (result.stories.isEmpty()) return CheckData("Software Factory", "geen stories gevonden.")
-        val text = result.stories.joinToString("\n") { story ->
+        val relevant = result.stories.filter { it.error != null || (it.phase != null && !it.merged) }
+        if (relevant.isEmpty()) return CheckData("Software Factory", "geen lopende of error-stories.")
+        val text = relevant.joinToString("\n") { story ->
             "Software factory-story ${story.key}: fase=${story.phase ?: "onbekend"}, " +
                 "merged=${story.merged}, error=${story.error ?: "geen"}."
         }
