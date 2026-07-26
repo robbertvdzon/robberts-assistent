@@ -25,7 +25,7 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 - **Google Docs** (read-only) — de agent leest een doc op id en beantwoordt vragen eruit.
 - **Dagelijkse samenvatting** — oorspronkelijke samenvatting-skill (`summary`); sinds de
   Morgen-briefing (hieronder) niet meer aangesloten op een app-scherm.
-- **Morgen-briefing** — dagelijks (pluggable) overzicht met zeven secties: een weerkaart voor
+- **Morgen-briefing** — dagelijks (pluggable) overzicht met acht secties: een weerkaart voor
   morgen (één kaartbeeld van de kust IJmuiden–Egmond met daarop twee gekleurde windpijlen,
   verticaal gestapeld aan de linkerkant — oranje = ochtend (07:00), blauw = avond (19:00) — elk
   met windsnelheid in kn en een écht getekend weer-icoon (java.awt-vormen: zon/wolk/regen, geen
@@ -37,7 +37,12 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   (de laagwatertijd zelf staat sinds SF-1220/1221 op de weerkaart, niet meer hier), zodat het
   oordeel navolgbaar is — kiten en strandfietsen waren tot SF-1192 één samengevoegde kaart),
   afspraken komende 7 dagen (alle agenda's, met per afspraak of er al een reminder ~1u vooraf
-  staat en zo niet een één-tap-actie om er één aan te maken), een AI-samenvatting "wat moet ik
+  staat en zo niet een één-tap-actie om er één aan te maken), sinds SF-1297 een afvalsectie
+  (welke afvalbak(ken) de komende 7 dagen buiten moeten, per ophaalmoment `dd-MM: <type>`, via
+  de bestaande, keyless HVC-koppeling — geen AI-call, deterministisch; leeg venster of een
+  koppelingsfout degradeert stil naar een neutrale melding zonder de briefing te laten crashen;
+  bij een ophaalmoment morgen verschijnt ook "Zet vanavond de \<bak(ken)\> buiten" in de
+  18:00-push), een AI-samenvatting "wat moet ik
   komende week echt doen?" (op basis van reminders + de notitie), een moestuin-placeholder, en een
   systeem-checkrapport (zonnepanelen en backups: dummy-data; OpenShift-gezondheid, robotmaaier en
   Software Factory: live via de bestaande koppelingen). Een AI-aanroep bepaalt per check of er
