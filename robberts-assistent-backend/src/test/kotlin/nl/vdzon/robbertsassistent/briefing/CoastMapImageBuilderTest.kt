@@ -9,6 +9,7 @@ import java.time.Instant
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -125,5 +126,60 @@ class CoastMapImageBuilderTest {
         val decoded = ImageIO.read(ByteArrayInputStream(bytes))
         assertEquals(8, decoded.width)
         assertEquals(8, decoded.height)
+    }
+
+    @Test
+    fun `OsmCoastMapImageBuilder haalt de basiskaart bij een tweede build-aanroep niet opnieuw op`() {
+        val storage = InMemoryBaseMapStorage()
+        val builder = CountingCoastMapImageBuilder(storage)
+
+        builder.build(slots(), dayWeatherCode = 0, tideExtremes = tideExtremes())
+        builder.build(slots(), dayWeatherCode = 0, tideExtremes = tideExtremes())
+
+        assertEquals(1, builder.fetchCount, "een tweede build() mag geen nieuwe tile-fetch triggeren")
+    }
+
+    @Test
+    fun `OsmCoastMapImageBuilder laadt de basiskaart uit opslag i-p-v opnieuw op te halen na een herstart`() {
+        val storage = InMemoryBaseMapStorage()
+        val firstBuilder = CountingCoastMapImageBuilder(storage)
+        firstBuilder.build(slots(), dayWeatherCode = 0, tideExtremes = tideExtremes())
+
+        val secondBuilder = CountingCoastMapImageBuilder(storage)
+        secondBuilder.build(slots(), dayWeatherCode = 0, tideExtremes = tideExtremes())
+
+        assertEquals(0, secondBuilder.fetchCount, "een nieuwe instantie met een gevulde opslag mag niet opnieuw fetchen")
+    }
+
+    @Test
+    fun `OsmCoastMapImageBuilder tekent de overlay op een kopie, de gecachete basiskaart blijft schoon`() {
+        val storage = InMemoryBaseMapStorage()
+        val builder = CountingCoastMapImageBuilder(storage)
+
+        val firstBytes = builder.build(slots(), dayWeatherCode = 0, tideExtremes = tideExtremes())
+        val secondBytes = builder.build(slots().take(1), dayWeatherCode = 0, tideExtremes = emptyList())
+
+        assertFalse(firstBytes.contentEquals(secondBytes), "verschillende invoer moet een andere PNG opleveren")
+
+        val secondImage = ImageIO.read(ByteArrayInputStream(secondBytes))
+        val blueArgb = Color.BLUE.rgb or (0xFF shl 24)
+        val leftHalfPixels = (0 until secondImage.width / 2).flatMap { x ->
+            (0 until secondImage.height).map { y -> secondImage.getRGB(x, y) }
+        }
+        assertFalse(
+            leftHalfPixels.contains(blueArgb),
+            "de avond-pijl van de eerste build() mag niet doorschemeren in de tweede build() met alleen het ochtend-dagdeel",
+        )
+        assertEquals(1, builder.fetchCount, "beide build()-aanroepen moeten dezelfde gecachete basiskaart hergebruiken")
+    }
+
+    /** Test-subclass die [OsmCoastMapImageBuilder.fetchMap] telt en zonder netwerk-call een blanco basiskaart levert. */
+    private class CountingCoastMapImageBuilder(storage: BaseMapStorage) : OsmCoastMapImageBuilder(storage) {
+        var fetchCount = 0
+
+        override fun fetchMap(): BufferedImage {
+            fetchCount++
+            return BufferedImage(400, 400, BufferedImage.TYPE_INT_ARGB)
+        }
     }
 }

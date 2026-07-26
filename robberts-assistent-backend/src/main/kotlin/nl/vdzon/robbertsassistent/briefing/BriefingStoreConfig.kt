@@ -50,4 +50,18 @@ class BriefingStoreConfig {
                 InMemoryWeatherMapStorage()
             }
     }
+
+    @Bean
+    fun baseMapStorage(firebase: FirebaseProvider): BaseMapStorage {
+        if (!firebase.isConfigured) {
+            logger.info("Basiskaart-opslag: in-memory (geen Firebase-config)")
+            return InMemoryBaseMapStorage()
+        }
+        return runCatching { FirebaseStorageBaseMapStorage(firebase.bucket()) }
+            .onSuccess { logger.info("Basiskaart-opslag: Firebase Storage") }
+            .getOrElse {
+                logger.error("Firebase Storage-init (basiskaart) faalde, val terug op in-memory", it)
+                InMemoryBaseMapStorage()
+            }
+    }
 }

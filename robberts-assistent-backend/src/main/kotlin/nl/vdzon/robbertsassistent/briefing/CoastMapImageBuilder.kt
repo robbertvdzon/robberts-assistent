@@ -46,27 +46,71 @@ data class WindMapSlot(
  * [WeatherMapSectionProvider]. [OsmCoastMapImageBuilder] is de altijd-actieve, keyless
  * implementatie (OpenStreetMap-tegels, geen betaalde kaarten-API — zelfde "Fase 0"-stijl als
  * `weather.OpenMeteoWindForecastClient`); [StubCoastMapImageBuilder] bestaat alleen voor tests
- * (geen netwerk-call).
+ * (geen netwerk-call). De basiskaart verandert nooit, dus [OsmCoastMapImageBuilder] haalt 'm
+ * maximaal één keer op: eerst een in-memory cache, daarna [BaseMapStorage] (overleeft een
+ * pod-herstart) en pas als laatste een echte tegel-fetch — alleen de overlay wordt bij elke
+ * [build]-aanroep vers getekend, op een kopie van de gecachete basiskaart.
  */
 interface CoastMapImageBuilder {
     fun build(slots: List<WindMapSlot>, dayWeatherCode: Int, tideExtremes: List<TideExtreme>): ByteArray
 }
 
 @Component
-class OsmCoastMapImageBuilder : CoastMapImageBuilder {
+open class OsmCoastMapImageBuilder(private val baseMapStorage: BaseMapStorage) : CoastMapImageBuilder {
 
     private val logger = LoggerFactory.getLogger(javaClass)
     private val httpClient: HttpClient = HttpClient.newHttpClient()
 
+    @Volatile
+    private var cachedBaseMap: BufferedImage? = null
+    private val baseMapLock = Any()
+
     override fun build(slots: List<WindMapSlot>, dayWeatherCode: Int, tideExtremes: List<TideExtreme>): ByteArray {
-        val map = fetchMap()
+        val map = copyOf(baseMap())
         drawOverlay(map, slots, dayWeatherCode, tideExtremes)
         val out = ByteArrayOutputStream()
         ImageIO.write(map, "png", out)
         return out.toByteArray()
     }
 
-    private fun fetchMap(): BufferedImage {
+    /**
+     * Levert de basiskaart uit het geheugen-cache, of (bij een cache-miss, thread-veilig via
+     * double-checked locking omdat de scheduler en de reload-knop gelijktijdig kunnen aanroepen)
+     * eerst uit [baseMapStorage] geladen, en anders vers via [fetchMap] opgehaald + weggeschreven.
+     * De teruggegeven instantie mag NOOIT direct beschreven worden — [build] tekent altijd op een
+     * kopie ([copyOf]), zodat de cache niet vervuild raakt met overlay-tekeningen.
+     */
+    private fun baseMap(): BufferedImage {
+        cachedBaseMap?.let { return it }
+        synchronized(baseMapLock) {
+            cachedBaseMap?.let { return it }
+            val map = loadFromStorage() ?: fetchMap().also { storeToStorage(it) }
+            cachedBaseMap = map
+            return map
+        }
+    }
+
+    private fun loadFromStorage(): BufferedImage? = runCatching {
+        baseMapStorage.load()?.let { ImageIO.read(it.inputStream()) }
+    }.onFailure { logger.warn("Basiskaart laden uit opslag faalde: {}", it.message) }.getOrNull()
+
+    private fun storeToStorage(image: BufferedImage) {
+        runCatching {
+            val out = ByteArrayOutputStream()
+            ImageIO.write(image, "png", out)
+            baseMapStorage.store(out.toByteArray())
+        }.onFailure { logger.warn("Basiskaart opslaan in opslag faalde: {}", it.message) }
+    }
+
+    private fun copyOf(source: BufferedImage): BufferedImage {
+        val copy = BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_ARGB)
+        val g = copy.createGraphics()
+        g.drawImage(source, 0, 0, null)
+        g.dispose()
+        return copy
+    }
+
+    internal open fun fetchMap(): BufferedImage {
         val minX = lonToTileX(MIN_LON, ZOOM)
         val maxX = lonToTileX(MAX_LON, ZOOM)
         val minY = latToTileY(MAX_LAT, ZOOM)
