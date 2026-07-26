@@ -24,8 +24,9 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu ni
 - ✅ Reminders & alarms — eigen lijst, push-melding of echte wekker
 - 🔜 Agenda **schrijven** — upgrade van de bestaande read-only koppeling (agent zet zelf afspraken)
 - 🔜 Google Tasks of Todoist — echte takenlijst naast de ene notitie
-- ✅ Afvalkalender — HVC Groep (keyless, postcode+huisnummer als config), geen automatische
-  reminders nog (🔜 upgrade: "morgen groene bak buiten")
+- ✅ Afvalkalender — HVC Groep (keyless, postcode+huisnummer als config). Sinds SF-1297 een
+  eigen briefingsectie (Upcoming-tab, komende 7 dagen) + "Zet vanavond de \<bak\> buiten" in de
+  18:00-push; nog geen echte `Reminder`-entity (🔜 upgrade: automatische reminder aanmaken)
 
 ## Communicatie / mail
 - ✅ Telegram — uitgaand (meldingen)
@@ -86,8 +87,9 @@ Volgende stappen (vereisen wel een secret/token of extra werk):
 1. **OpenShift-gezondheid RBAC toepassen** — code + app staan al klaar, alleen de RBAC-manifests
    (`docs/nightly-checks.md`) moeten nog in `robberts-infrastructure` + hier toegepast worden.
 2. **NS/9292** — key staat al in secrets.env en werkt; klaar om te bouwen.
-3. **Afvalkalender → auto-reminders** — upgrade: automatisch een reminder zetten de avond vóór
-   ophaaldag, gebruikt de bestaande reminders-koppeling.
+3. **Afvalkalender → auto-reminders** — upgrade: sinds SF-1297 al een briefingsectie + korte
+   pushmelding ("Zet vanavond de \<bak\> buiten"); resterende stap is een echte `Reminder`-entity
+   automatisch aanmaken de avond vóór ophaaldag, via de bestaande reminders-koppeling.
 4. **Agenda-schrijven** (upgrade) — maakt de agent proactief
 5. **Mail (IMAP one.com)** en **Home Assistant** — zwaardere maar zeer waardevolle volgende stap
 
