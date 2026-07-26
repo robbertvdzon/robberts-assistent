@@ -48,3 +48,28 @@ Done / rationale:
   no-arg-constructor).
 - Vangnet: `mvn test` in `robberts-assistent-backend/` — 297 tests, 0 failures, 0 errors, BUILD
   SUCCESS.
+
+## SF-1299 - Story-brede test (tester)
+
+- Code-review van `CoastMapImageBuilder.kt`/`BaseMapStorage.kt`/`FirebaseStorageBaseMapStorage.kt`/
+  `BriefingStoreConfig.kt` tegen de acceptatiecriteria: basiskaart-cache met double-checked locking,
+  `build()` tekent op een `copyOf()`-kopie i.p.v. de gecachete instantie, `BaseMapStorage`
+  (Firebase Storage + in-memory fallback) volgt exact het `WeatherMapStorage`-patroon, geen
+  wijziging aan de `CoastMapImageBuilder`-interface of aanroepers — komt overeen met de story-scope.
+- `mvn test` opnieuw gedraaid (niet alleen op ontwikkelaars-woord vertrouwd): start `2026-07-26
+  14:43:25Z`, eind `14:43:53Z` — 297 tests, 0 failures, 0 errors, BUILD SUCCESS. Specifiek
+  gecontroleerd: `CoastMapImageBuilderTest` (13 tests, incl. de 3 nieuwe cache-tests: tweede
+  `build()` fetcht niet opnieuw, nieuwe instantie met gevulde opslag fetcht niet opnieuw
+  ("herstart"), overlay op kopie laat geen doorschemering zien), `BaseMapStorageTest` (3 tests),
+  `WeatherMapSectionProviderTest` (6 tests) en `WeatherMapStorageTest` (3 tests) — allemaal groen.
+  `ModulithArchitectureTest` ook groen (module-grenzen niet geraakt).
+- Live preview-verificatie op `robberts-assistent-frontend-robberts-assistent-pr-31` (via de
+  frontend-nginx-proxy, zie eerdere tester-tip): `GET /api/v1/briefing` → HTTP 200 met
+  `weather-map`-sectie + `imageUrl`; `POST /api/v1/briefing/refresh` → HTTP 200 (tweemaal
+  aangeroepen, ~2,3s de tweede keer, geen fouten); `GET
+  /api/v1/briefing/weather-map/morgen` → HTTP 200, geldige PNG (181.750 bytes). Bevestigt dat de
+  basiskaart-caching-laag de bestaande weerkaart-functionaliteit end-to-end niet breekt.
+- Geen frontend-/UI-wijziging in deze story (uitsluitend backend `briefing`-module) — geen
+  screenshot-verplichting van toepassing.
+- Geen bugs gevonden. Geen tijdelijke testdata aangemaakt (alleen leesoperaties/curl-GETs en twee
+  refresh-POSTs die al bestaand gedrag triggeren, geen cleanup nodig).
