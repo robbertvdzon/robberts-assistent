@@ -36,3 +36,26 @@ Done / rationale:
   dagen, en met een `error`; `shortSummary()` met één ophaal morgen, met meerdere types
   morgen, zonder ophaal morgen, en met een `error`.
 - Volledig vangnet: `mvn test` → 304 tests, 0 failures, 0 errors, BUILD SUCCESS.
+
+## SF-1305 - Story-brede test (tester)
+
+- Code-review `WasteSectionProvider.kt`/`WasteSectionProviderTest.kt`: implementatie en
+  tests dekken alle acceptatiecriteria (7-dagen-filter, sortering, lege lijst, error-
+  fallback, `shortSummary()` met/zonder ophaal morgen/error, meerdere types samengevoegd);
+  `order = 15` botst niet met bestaande waarden en zit logisch tussen agenda(10) en
+  weektaken(20).
+- Volledig vangnet opnieuw gedraaid (`mvn test` in `robberts-assistent-backend/`,
+  start 2026-07-26T15:01:19Z, eind 2026-07-26T15:01:52Z, Total time 32.313s):
+  304 tests, 0 failures, 0 errors, BUILD SUCCESS — incl. de 7 nieuwe
+  `WasteSectionProviderTest`-tests.
+- Live geverifieerd op preview `robberts-assistent-pr-32`
+  (`https://robberts-assistent-frontend-robberts-assistent-pr-32.apps.sno.lab.vdzon.com`):
+  `GET /api/v1/briefing` bevat een nieuwe sectie `"key":"waste","title":"Afval"` met tekst
+  `"28-07: gft & etensresten"`, correct gepositioneerd tussen `agenda` en `week-tasks`;
+  `POST /api/v1/briefing/refresh` → HTTP 200, sectie blijft aanwezig na refresh.
+- Screenshot van de Upcoming-tab (Flutter-web-preview) bevestigt dat de nieuwe
+  "Afval"-kaart zichtbaar rendert tussen Agenda en "Deze week", zonder enige
+  frontend-codewijziging nodig (generieke sectie-rendering) —
+  `screenshots/sf1305-upcoming-waste-section-scrolled.png`.
+- Geen bugs gevonden. Geen wijziging aan `BriefingService`/`BriefingController`/
+  `BriefingScheduler`/frontend aangetroffen, zoals vereist.
