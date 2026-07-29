@@ -51,3 +51,20 @@ Reviewfix:
   `flutter build web --release` zijn groen. `flutter build apk --release` stopte vóór compilatie
   met `No Android SDK found`; dit is de bekende containerbeperking en liet geen proces of
   gedeeltelijke APK-build achter.
+
+Herreview:
+- Volledige story-diff tegen `main` beoordeeld. Gericht groen:
+  `Watch*Test`, `ModulithArchitectureTest`, `BriefingControllerTest` en de Flutter-widgettests
+  voor `WatchesScreen` en `HomeScreen`. Het revisiongebonden Surefire-bewijs bevat 322 tests,
+  0 failures, 0 errors en 0 skips; het developerbewijs vermeldt daarnaast 41 groene
+  Flutter-tests, groene analyse, backend-package en web-releasebuild.
+- [bug] `WatchSchedule.isDue` vergelijkt voor `KANTOORUREN` alleen kalenderdatum en uur.
+  Een controle om 09:59:59 is daardoor om 10:00:00 alweer aan de beurt, terwijl de story
+  voorschrijft dat nooit vaker dan eenmaal per uur wordt gecontroleerd. Vergelijk de verstreken
+  tijd met minimaal één uur en voeg een grensgeval over de uurgrens toe.
+- [bug] `WatchesScreen._load` kan meerdere requests tegelijk hebben (de eager initiële load plus
+  tabactivatie/watch-push of handmatig herladen), maar verwerkt elk antwoord ongeacht de
+  startvolgorde. Reproductie: houd de eerste `listWatches()` pending, laat de door de watch-push
+  gestarte tweede call de actuele `GEVONDEN`-status retourneren en voltooi daarna de eerste call
+  met `NIET_GEVONDEN`; het oudere antwoord overschrijft dan de actuele status. Negeer verouderde
+  loadresultaten en dek deze omgekeerde voltooiingsvolgorde af.
