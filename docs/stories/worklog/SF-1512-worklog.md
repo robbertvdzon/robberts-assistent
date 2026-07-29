@@ -17,6 +17,9 @@ Stappenplan:
 - [x] Finale reviewbevinding oplossen: verwijderde watch niet vanuit een lopende poll herstellen.
 - [x] Finale reviewbevinding oplossen: lokale watch-notificatie bij cold start afhandelen.
 - [x] Gerichte regressietests en het volledige factory-vangnet opnieuw groen afronden.
+- [x] Reviewbevinding oplossen: pollresultaten met compare-and-set tegen de gelezen watch opslaan.
+- [x] Regressietests toevoegen voor dubbele vondst en een laat verouderd pollresultaat.
+- [x] Volledige backend- en Flutter-vangnetten opnieuw groen afronden.
 
 Uitvoering en keuzes:
 - De story heeft geen aanvullende PO-comments; de refined scope en acceptatiecriteria zijn leidend.
@@ -145,3 +148,21 @@ Review na finale reviewfix:
   rolling update van de backend-Deployment ontstaan. Maak de opslagoperatie een compare-and-set
   op de verwachte actuele watch/versie (en laat alleen de winnaar de overgangspush uitvoeren) en
   dek zowel de dubbele-vondst als een laat stale resultaat met een regressietest af.
+
+CAS-reviewfix:
+- De concrete reviewerbevinding is leidend voor deze developer-run. Pollresultaten worden alleen
+  opgeslagen wanneer de actuele repositorywaarde nog exact overeenkomt met de watch die de
+  runner vóór de externe fetch/AI-aanroep heeft gelezen; alleen de winnaar mag een vondstpush
+  versturen.
+- `WatchRepository.compareAndSet(expected, updated)` gebruikt in-memory een atomaire
+  `ConcurrentHashMap.replace` en vergelijkt in Firestore binnen de transactie de actuele,
+  volledig gemapte watch. Een Firestore-conflict wordt opnieuw gelezen en verliest de CAS zodra
+  een andere poller de watch al heeft gewijzigd.
+- Twee deterministische regressietests laten beide runners eerst hetzelfde snapshot lezen. Ze
+  bewijzen daarna respectievelijk dat twee vondsten maar één update/push geven en dat een laat
+  niet-gevonden resultaat de al gevonden, inactieve watch niet overschrijft.
+- Vangnet na de CAS-fix: verse `mvn -o test` en finale herhaling (beide 325 tests,
+  0 failures/errors/skips), `mvn -o -DskipTests package`, `flutter analyze`, `flutter test`
+  (43 tests) en `flutter build web --release` zijn groen. `flutter build apk --release` stopte
+  vóór compilatie met de bekende containerbeperking `No Android SDK found`; er bleef geen proces
+  of gedeeltelijke APK-build achter. Dependency-resolutie wijzigde de lockfile niet.

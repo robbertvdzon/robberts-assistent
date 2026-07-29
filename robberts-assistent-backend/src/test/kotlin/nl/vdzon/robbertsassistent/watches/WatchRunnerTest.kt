@@ -160,6 +160,92 @@ class WatchRunnerTest {
     }
 
     @Test
+    fun `twee overlappende vondsten slaan eenmaal op en pushen eenmaal`() {
+        val repository = InMemoryWatchRepository().also { it.save(watch()) }
+        val firstFetch = BlockingFetcher()
+        val secondFetch = BlockingFetcher()
+        val push = FakePush()
+        val firstRunner = WatchRunner(
+            repository,
+            firstFetch,
+            FakeEvaluator(WatchAssessment(true, "Eerste vondst.")),
+            push,
+        )
+        val secondRunner = WatchRunner(
+            repository,
+            secondFetch,
+            FakeEvaluator(WatchAssessment(true, "Tweede vondst.")),
+            push,
+        )
+        val executor = Executors.newFixedThreadPool(2)
+        val firstPoll = executor.submit { firstRunner.poll(instant("2026-07-27T09:00:00")) }
+        val secondPoll = executor.submit { secondRunner.poll(instant("2026-07-27T09:00:00")) }
+
+        try {
+            assertTrue(firstFetch.started.await(5, TimeUnit.SECONDS))
+            assertTrue(secondFetch.started.await(5, TimeUnit.SECONDS))
+            firstFetch.proceed.countDown()
+            firstPoll.get(5, TimeUnit.SECONDS)
+            secondFetch.proceed.countDown()
+            secondPoll.get(5, TimeUnit.SECONDS)
+        } finally {
+            firstFetch.proceed.countDown()
+            secondFetch.proceed.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+
+        val updated = repository.all().single()
+        assertEquals(WatchStatus.GEVONDEN, updated.status)
+        assertEquals("Eerste vondst.", updated.statusDescription)
+        assertFalse(updated.active)
+        assertEquals(1, push.sent.size)
+    }
+
+    @Test
+    fun `laat verouderd resultaat overschrijft een gevonden watch niet`() {
+        val repository = InMemoryWatchRepository().also { it.save(watch()) }
+        val foundFetch = BlockingFetcher()
+        val staleFetch = BlockingFetcher()
+        val push = FakePush()
+        val foundRunner = WatchRunner(
+            repository,
+            foundFetch,
+            FakeEvaluator(WatchAssessment(true, "Gevonden.")),
+            push,
+        )
+        val staleRunner = WatchRunner(
+            repository,
+            staleFetch,
+            FakeEvaluator(WatchAssessment(false, "Nog niet gevonden.")),
+            push,
+        )
+        val executor = Executors.newFixedThreadPool(2)
+        val foundPoll = executor.submit { foundRunner.poll(instant("2026-07-27T09:00:00")) }
+        val stalePoll = executor.submit { staleRunner.poll(instant("2026-07-27T09:00:00")) }
+
+        try {
+            assertTrue(foundFetch.started.await(5, TimeUnit.SECONDS))
+            assertTrue(staleFetch.started.await(5, TimeUnit.SECONDS))
+            foundFetch.proceed.countDown()
+            foundPoll.get(5, TimeUnit.SECONDS)
+            staleFetch.proceed.countDown()
+            stalePoll.get(5, TimeUnit.SECONDS)
+        } finally {
+            foundFetch.proceed.countDown()
+            staleFetch.proceed.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+
+        val updated = repository.all().single()
+        assertEquals(WatchStatus.GEVONDEN, updated.status)
+        assertEquals("Gevonden.", updated.statusDescription)
+        assertFalse(updated.active)
+        assertEquals(1, push.sent.size)
+    }
+
+    @Test
     fun `pushadapter verstuurt watch-type voor deeplink`() {
         val pushService = mock(PushService::class.java)
         val found = watch().copy(
@@ -175,5 +261,16 @@ class WatchRunnerTest {
             "Kaarten: Twee kaarten beschikbaar.",
             mapOf("type" to "watch"),
         )
+    }
+
+    private class BlockingFetcher : WatchPageFetcher {
+        val started = CountDownLatch(1)
+        val proceed = CountDownLatch(1)
+
+        override fun fetch(url: String): String {
+            started.countDown()
+            assertTrue(proceed.await(5, TimeUnit.SECONDS))
+            return "paginatekst"
+        }
     }
 }

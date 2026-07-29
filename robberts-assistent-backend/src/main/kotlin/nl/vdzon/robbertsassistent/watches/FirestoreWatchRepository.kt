@@ -12,16 +12,19 @@ class FirestoreWatchRepository(private val firestore: Firestore) : WatchReposito
         return watch
     }
 
-    override fun updateIfPresent(watch: Watch): Watch? =
-        firestore.runTransaction<Watch?> { transaction ->
-            val document = collection.document(watch.id)
-            if (!transaction.get(document).get().exists()) {
+    override fun compareAndSet(expected: Watch, updated: Watch): Watch? {
+        require(expected.id == updated.id)
+        return firestore.runTransaction<Watch?> { transaction ->
+            val document = collection.document(expected.id)
+            val current = transaction.get(document).get().toWatch()
+            if (current != expected) {
                 null
             } else {
-                transaction.set(document, watch.toMap())
-                watch
+                transaction.set(document, updated.toMap())
+                updated
             }
         }.get()
+    }
 
     override fun all(): List<Watch> =
         collection.get().get().documents.mapNotNull { it.toWatch() }

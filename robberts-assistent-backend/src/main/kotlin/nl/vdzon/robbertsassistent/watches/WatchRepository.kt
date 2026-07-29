@@ -4,7 +4,13 @@ import java.util.concurrent.ConcurrentHashMap
 
 interface WatchRepository {
     fun save(watch: Watch): Watch
-    fun updateIfPresent(watch: Watch): Watch?
+
+    /**
+     * Vervangt de watch alleen wanneer de actuele waarde nog gelijk is aan [expected].
+     * Retourneert [updated] voor de winnende schrijver en null bij een conflict of verwijdering.
+     */
+    fun compareAndSet(expected: Watch, updated: Watch): Watch?
+
     fun all(): List<Watch>
     fun delete(id: String)
 }
@@ -17,8 +23,10 @@ class InMemoryWatchRepository : WatchRepository {
         return watch
     }
 
-    override fun updateIfPresent(watch: Watch): Watch? =
-        watches.computeIfPresent(watch.id) { _, _ -> watch }
+    override fun compareAndSet(expected: Watch, updated: Watch): Watch? {
+        require(expected.id == updated.id)
+        return if (watches.replace(expected.id, expected, updated)) updated else null
+    }
 
     override fun all(): List<Watch> = watches.values.toList()
 

@@ -40,7 +40,8 @@ class WatchRunner(
             evaluator.assess(watch.instruction, pageFetcher.fetch(watch.url))
         }.getOrElse {
             logger.warn("Controle van watch {} mislukte: {}", watch.id, it.message)
-            repository.updateIfPresent(
+            repository.compareAndSet(
+                watch,
                 watch.copy(
                     status = WatchStatus.ONBEKEND,
                     statusDescription = "Controle mislukt; de opdracht wordt later opnieuw geprobeerd.",
@@ -56,7 +57,7 @@ class WatchRunner(
             lastCheckedAt = now,
             active = !assessment.found,
         )
-        val persisted = repository.updateIfPresent(updated) ?: return
+        val persisted = repository.compareAndSet(watch, updated) ?: return
         if (assessment.found && watch.status != WatchStatus.GEVONDEN && watch.notifyOnFound) {
             runCatching { pushNotifier.found(persisted) }
                 .onFailure { logger.warn("Push van gevonden watch {} mislukte: {}", watch.id, it.message) }
