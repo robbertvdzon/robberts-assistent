@@ -166,3 +166,15 @@ CAS-reviewfix:
   (43 tests) en `flutter build web --release` zijn groen. `flutter build apk --release` stopte
   vóór compilatie met de bekende containerbeperking `No Android SDK found`; er bleef geen proces
   of gedeeltelijke APK-build achter. Dependency-resolutie wijzigde de lockfile niet.
+
+Review na CAS-fix:
+- Volledige story-diff tegen `main` opnieuw beoordeeld op bugs, regressies, scope en testdekking.
+  De uiteindelijke CAS laat alleen de winnende poller opslaan en pushen; verwijderen en een laat
+  verouderd resultaat blijven afgedekt. De zes tabs, beide push-startpaden, herladen en het negeren
+  van verouderde Flutter-loads sluiten aan op de acceptatiecriteria.
+- Volledig revisiongebonden bewijs gecontroleerd: 325 backendtests, 0 failures/errors/skips; het
+  developerbewijs bevat daarnaast 43 groene Fluttertests, groene analyse, backend-package en
+  web-releasebuild. Gericht opnieuw groen gedraaid: 23 backendtests (alle watches-tests,
+  `ModulithArchitectureTest` en `BriefingControllerTest`), 11 relevante Flutter-widgettests en
+  analyse van de zes gewijzigde Flutterbron-/testbestanden.
+- [info] Geen resterende blockers, bugs of scope-afwijkingen gevonden; review akkoord.
