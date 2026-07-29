@@ -8,9 +8,11 @@ import 'api_client.dart';
 
 // Moet gelijk zijn aan `BriefingScheduler.PUSH_TYPE` in de backend.
 const _briefingPushType = 'briefing';
+const _watchPushType = 'watch';
 
 // Index van de Upcoming-tab in HomeScreen's NavigationBar/IndexedStack.
 const _morgenTabIndex = 0;
+const _watchesTabIndex = 4;
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond
 /// of gesloten is toont Android de FCM-notification-payload zelf op het opgegeven kanaal.
@@ -35,8 +37,14 @@ class FcmService {
   static final deepLinkTab = ValueNotifier<int?>(null);
 
   static void _handleTap(RemoteMessage message) {
-    if (message.data['type'] == _briefingPushType) {
+    handlePushData(message.data);
+  }
+
+  static void handlePushData(Map<String, dynamic> data) {
+    if (data['type'] == _briefingPushType) {
       deepLinkTab.value = _morgenTabIndex;
+    } else if (data['type'] == _watchPushType) {
+      deepLinkTab.value = _watchesTabIndex;
     }
   }
 
@@ -50,6 +58,10 @@ class FcmService {
       // kanaal geluid maken en op het lockscreen verschijnen).
       await _local.initialize(
         const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+        onDidReceiveNotificationResponse: (response) {
+          final type = response.payload;
+          if (type != null) handlePushData({'type': type});
+        },
       );
       await _local
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
@@ -95,6 +107,7 @@ class FcmService {
               priority: Priority.high,
             ),
           ),
+          payload: message.data['type']?.toString(),
         );
       });
     } catch (_) {

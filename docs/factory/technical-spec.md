@@ -33,10 +33,11 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
 - **AI-agent:** twee `ChatClient`-beans in `assistant/ai/AiConfig` — `assistantChatClient`
   (`@Primary`, met alle `@Tool`-beans) en `gardenChatClient` (`@Qualifier`, vision, eigen
   system-prompt). `MockChatModel` in preview/tests (deterministisch, geen kosten/netwerk).
-  Andere modules kunnen een eigen lichte `ChatClient`-bean toevoegen die de gedeelde `ChatModel`
-  hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient`), zodat mock/echt automatisch
+  Andere modules kunnen een eigen lichte, tool-loze `ChatClient`-bean toevoegen die de gedeelde
+  `ChatModel` hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient` en
+  `watches.WatchAiConfig.watchChatClient`), zodat mock/echt automatisch
   meeloopt met `AppSecrets.effectiveMockAi` zonder eigen schakelaar.
-- **Data:** notities in Postgres (JdbcTemplate + Flyway `V1`); reminders + chat-conversaties
+- **Data:** notities, reminders, langdurige zoekopdrachten (`watches`) + chat-conversaties
   (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
   database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
   (`tuinbewatering.firebasestorage.app`, map `moestuin/`).

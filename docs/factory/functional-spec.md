@@ -67,24 +67,32 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   "Health check"-tab met alleen het systeem-checkrapport in ruwe vorm). Sinds SF-1275 toont de
   Software Factory-check binnen het systeem-checkrapport alleen nog stories met een fout of een
   lopende (niet-gemergede) fase, i.p.v. alle stories.
+- **Langdurige zoekopdrachten** — een opdracht bevat titel, absolute HTTP(S)-URL,
+  zoekinstructie, frequentie (kantooruren of dagelijks) en een pushvoorkeur. Kantooruren is
+  maandag t/m vrijdag 09:00–17:00 Europe/Amsterdam, maximaal uurlijks; dagelijks is maximaal
+  eenmaal per lokale kalenderdag. De backend beoordeelt begrensde, server-gerenderde paginatekst
+  met een losse tool-loze AI-client. Fouten geven `ONBEKEND` en worden later opnieuw geprobeerd.
+  Een vondst blijft zichtbaar, deactiveert de opdracht en geeft optioneel precies één watch-push.
 
 ## Push / meldingen
 
 - **Telegram** (uitgaand): reminders/alerts gaan naar Robberts Telegram-groep.
-- **FCM**: push naar de app; gebruikt voor reminders/alarms én de dagelijkse
+- **FCM**: push naar de app; gebruikt voor reminders/alarms, gevonden zoekopdrachten én de dagelijkse
   18:00-Morgen-briefingpush. App-kant (lokaal alarm, reminders-scherm, FCM-ontvangst,
-  deep-link naar de Upcoming-tab) is gebouwd.
+  deep-links naar de Upcoming- en Zoekopdrachten-tab) is gebouwd.
 
 ## Apps
 
-- **robberts_assistent** — bottom-nav met 5 tabs: dagelijkse Morgen-briefing zonder
+- **robberts_assistent** — bottom-nav met 6 tabs: dagelijkse Morgen-briefing zonder
   systeemstatus (eerste tab, "Upcoming"), systeem-checkrapport in ruwe, selecteerbare vorm
   (tweede tab, "Health check", sinds SF-1267/SF-1268) + chat met de assistent, in persistente,
   benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij). Gesprekken zijn
   te archiveren (reversibel) en te verwijderen (met bevestiging); de lijst toont eerst de 10
   meest recente, oudere onder een uitklapbare "Ouder"-sectie. Een gebruiker-breed geheugen
   (feiten/voorkeuren) wordt automatisch bijgewerkt na elke chat-beurt en gebruikt als context in
-  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". Google-login.
+  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". De tab "Zoekopdrachten"
+  vóór "Meer" beheert langdurige websitezoekopdrachten en toont hun leesbare actuele status.
+  Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.
 - **notities** — één auto-opslaande notitie. Google-login.
