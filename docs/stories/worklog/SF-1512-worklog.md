@@ -26,3 +26,14 @@ Uitvoering en keuzes:
   `flutter build apk --release` kon niet starten omdat deze container aantoonbaar geen Android
   SDK bevat; er bleef geen proces draaien en de analyse/tests plus web-releasebuild zijn volledig
   afgerond.
+
+Review:
+- Gericht geverifieerd: watches-tests, `ModulithArchitectureTest` en een Spring-contexttest zijn
+  groen; de relevante Flutter-tests voor `WatchesScreen` en `HomeScreen` zijn eveneens groen.
+  Het revisiongebonden volledige bewijs bevat 322 backendtests zonder failures/errors/skips en
+  41 groene Flutter-tests plus groene analyse en web-releasebuild.
+- [bug] De verborgen `WatchesScreen` wordt door de eager `IndexedStack` al bij het openen van
+  `HomeScreen` geladen. Bij een latere watch-push wisselt `HomeScreen` alleen naar tab 4; de
+  bestaande `WatchesScreen` herlaadt niet. Daardoor kan een tik op een vondstmelding een verouderde
+  status tonen totdat de gebruiker handmatig op herladen tikt. Herlaad bij activatie via de
+  watch-deeplink/tab en dek af dat de pushroute opnieuw `listWatches()` uitvoert.
