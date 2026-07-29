@@ -114,3 +114,52 @@ net als bij `assistant.ai.WindTools`.
     single-user is.
   - Een handmatig hervatte, al gevonden zoekopdracht blijft gepold worden zonder ooit opnieuw
     te pushen (er is immers geen omslag meer); functioneel logisch, maar wel wat nutteloos werk.
+
+## Test (SF-1505)
+
+Uitgevoerd op branch `ai/SF-1489` (83d7d10) met preview `robberts-assistent-pr-33`.
+
+**Geautomatiseerd vangnet**
+- Backend `mvn test` (vanuit `robberts-assistent-backend/`): start 2026-07-29 19:24:46 UTC,
+  eind 19:25:24 UTC, exitcode 0 — 333 tests, 0 failures, 0 errors (surefire-reports),
+  inclusief `WatchesServiceTest`, `WatchSchedulerTest`, `WatchRepositoryConfigTest` en
+  `ModulithArchitectureTest`.
+- `flutter test` (robberts_assistent): 48 tests groen, exitcode 0.
+- `flutter analyze`: "No issues found!", exitcode 0.
+
+**API-gedrag op de preview** (`/api/v1/watches` via de frontend-nginx-proxy)
+- Aanmaken/lijst/bijwerken/verwijderen werken; validatie geeft HTTP 400 bij een niet-http(s)-URL
+  ("url moet met http:// of https:// beginnen") en bij een onbekende frequentie; `PUT`/`POST /check`
+  op een onbekend id geven HTTP 404 (AC2).
+- `POST /{id}/check` op `https://example.com/` levert onder `RA_MOCK_AI` deterministisch
+  `found=false` met de ruwe mock-tekst als status en géén push (AC4, AC11).
+- `POST /{id}/check` op een onbereikbare host zet uitsluitend `lastError=ConnectException` op díe
+  zoekopdracht, laat de andere zoekopdracht ongemoeid en levert geen fout/crash (AC9).
+- Pauzeren/hervatten via `PUT` (`active`) werkt; de in-memory repository draait zonder
+  Firebase-config (preview blankt `RA_FIREBASE_PROJECT_ID`) (AC5, AC11).
+
+**UI op de preview** (screenshots in de story-bijlagen)
+- Nieuw tabblad "Zoekopdrachten" staat op index 4, vóór "Meer"; Upcoming (0), Health check (1),
+  Assistent (2) en Herinneringen (3) behouden hun plek en Upcoming laadt nog gewoon de briefing
+  (incl. weerkaart-request) (AC1).
+- Lijst toont per opdracht titel, statustekst, laatste controlemoment, frequentie, "gepauzeerd" en
+  een rode foutregel; per rij "Nu controleren", pauzeren/hervatten en verwijderen, plus een
+  +-knop met dialoog (titel, URL, instructie, frequentiekeuze, push-schakelaar) (AC2, AC3).
+- Aanmaken via de dialoog en daarna "Nu controleren" bijgewerkt in de lijst geverifieerd
+  (`POST /v1/watches` + `POST /v1/watches/{id}/check` in de netwerklog) (AC4).
+
+**Code-verificatie waar gedrag niet live te forceren was**
+- Alle vijf endpoints roepen `authService.requireAuthorization(...)` aan (in preview staat
+  `RA_PREVIEW_SKIP_GOOGLE_AUTH` aan, dus negatief testen kan daar niet) (AC10).
+- Push uitsluitend bij de omslag niet-gevonden → gevonden en alleen met `pushOnFound`, gevolgd door
+  `active=false`; gedekt door drie unittests (AC7). Deep-link `data['type'] == 'watch'` →
+  tabindex 4 in `fcm_service.dart`, gelijk aan `WatchesService.PUSH_TYPE` (AC8).
+- Aan-de-beurt-logica (kantooruren-uurranden 09/17, weekend, één keer per uur/dag, gepauzeerd)
+  gedekt door `WatchSchedulerTest` (AC5, AC6).
+
+**Opmerkingen (geen blocker)**
+- Tijdens de testronde verdwenen eerder aangemaakte zoekopdrachten uit de preview: verwacht
+  in-memory-fallback-gedrag bij een pod-herstart, geen bug.
+- Alle testdata is na afloop verwijderd (`GET /api/v1/watches` → `{"watches":[]}`).
+
+Resultaat: **tested**.
