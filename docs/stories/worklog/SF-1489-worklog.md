@@ -94,3 +94,23 @@ net als bij `assistant.ai.WindTools`.
   `ModulithArchitectureTest` en de 29 nieuwe `watches`-tests.
 - `flutter test` (`robberts_assistent`): 48 tests, alles groen.
 - `flutter analyze` (`robberts_assistent`): No issues found.
+
+## Review (SF-1504)
+
+- Volledige story-diff t.o.v. `main` (f46bd79) gereviewd tegen de acceptatiecriteria 1-12:
+  alle criteria gedekt. Backend-module leunt alleen op `firebase`/`push`/`auth`, patronen
+  (`ReminderRepositoryConfig`, `BriefingAiConfig`, `RemindersController`) correct gevolgd.
+- Eigen gerichte verificatie in de reviewer-sandbox: `flutter analyze` (No issues) en
+  `flutter test` (48 groen), `mvn -o test -Dtest='Watch*Test,ModulithArchitectureTest'` groen,
+  plus `BriefingControllerTest` (volledige Spring-context) om te bevestigen dat de nieuwe
+  beans (`watchChatClient`, `WatchesService` met Kotlin-default-parameter voor `HttpClient`,
+  `WatchesController`) probleemloos wiren.
+- Geen blockers. Aandachtspunten voor later (geen wijziging gevraagd):
+  - `fetchPageText` leest de response ongelimiteerd in geheugen (`BodyHandlers.ofString`)
+    vóór het aftoppen op 6000 tekens; bij een zeer grote of binaire pagina is dat onnodig
+    geheugengebruik (zelfde beperking als `assistant.ai.WindTools`).
+  - De opgegeven URL wordt server-side vanuit de pod opgehaald; cluster-interne adressen zijn
+    daarmee bereikbaar. Acceptabel omdat alles achter `requireAuthorization` zit en de app
+    single-user is.
+  - Een handmatig hervatte, al gevonden zoekopdracht blijft gepold worden zonder ooit opnieuw
+    te pushen (er is immers geen omslag meer); functioneel logisch, maar wel wat nutteloos werk.
