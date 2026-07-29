@@ -4,6 +4,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 interface WatchRepository {
     fun save(watch: Watch): Watch
+    fun updateIfPresent(watch: Watch): Watch?
     fun all(): List<Watch>
     fun delete(id: String)
 }
@@ -15,6 +16,9 @@ class InMemoryWatchRepository : WatchRepository {
         watches[watch.id] = watch
         return watch
     }
+
+    override fun updateIfPresent(watch: Watch): Watch? =
+        watches.computeIfPresent(watch.id) { _, _ -> watch }
 
     override fun all(): List<Watch> = watches.values.toList()
 

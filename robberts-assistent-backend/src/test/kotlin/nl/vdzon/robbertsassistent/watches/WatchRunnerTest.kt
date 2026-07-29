@@ -5,6 +5,9 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -114,6 +117,45 @@ class WatchRunnerTest {
         runner.poll(instant("2026-07-27T09:00:00"))
 
         assertFalse(repository.all().single().active)
+        assertTrue(push.sent.isEmpty())
+    }
+
+    @Test
+    fun `lopende controle slaat een gelijktijdig verwijderde watch niet opnieuw op`() {
+        val repository = InMemoryWatchRepository().also { it.save(watch()) }
+        val fetchStarted = CountDownLatch(1)
+        val continueFetch = CountDownLatch(1)
+        val fetcher = object : WatchPageFetcher {
+            override fun fetch(url: String): String {
+                fetchStarted.countDown()
+                assertTrue(continueFetch.await(5, TimeUnit.SECONDS))
+                return "paginatekst"
+            }
+        }
+        val push = FakePush()
+        val runner = WatchRunner(
+            repository,
+            fetcher,
+            FakeEvaluator(WatchAssessment(true, "Gevonden.")),
+            push,
+        )
+        val executor = Executors.newSingleThreadExecutor()
+        val poll = executor.submit {
+            runner.poll(instant("2026-07-27T09:00:00"))
+        }
+
+        try {
+            assertTrue(fetchStarted.await(5, TimeUnit.SECONDS))
+            repository.delete("1")
+            continueFetch.countDown()
+            poll.get(5, TimeUnit.SECONDS)
+        } finally {
+            continueFetch.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+
+        assertTrue(repository.all().isEmpty())
         assertTrue(push.sent.isEmpty())
     }
 

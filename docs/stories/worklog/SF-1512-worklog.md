@@ -14,6 +14,9 @@ Stappenplan:
 - [x] Herreviewbevinding oplossen: minimaal één verstreken uur tussen kantoorurencontroles afdwingen.
 - [x] Herreviewbevinding oplossen: verouderde Flutter-loadresultaten negeren.
 - [x] Gerichte regressietests en het volledige factory-vangnet opnieuw groen afronden.
+- [x] Finale reviewbevinding oplossen: verwijderde watch niet vanuit een lopende poll herstellen.
+- [x] Finale reviewbevinding oplossen: lokale watch-notificatie bij cold start afhandelen.
+- [x] Gerichte regressietests en het volledige factory-vangnet opnieuw groen afronden.
 
 Uitvoering en keuzes:
 - De story heeft geen aanvullende PO-comments; de refined scope en acceptatiecriteria zijn leidend.
@@ -105,3 +108,20 @@ Finale review:
   melding te openen en tik daarna op die melding. `FirebaseMessaging.getInitialMessage()` hoort
   niet bij deze lokaal gemaakte notificatie en de app blijft op de standaardtab in plaats van
   `Zoekopdrachten`.
+
+Finale reviewfix:
+- Poll-resultaten worden niet langer met een gewone upsert opgeslagen. `WatchRepository` biedt
+  een conditionele update die bij de in-memory fallback atomisch via `computeIfPresent` werkt en
+  bij Firestore in een transactie eerst het actuele bestaan van het document controleert. Een
+  tussentijds verwijderde watch blijft daardoor verwijderd en veroorzaakt ook geen vondstpush.
+- De regressietest blokkeert een lopende page-fetch, verwijdert de watch, laat de controle daarna
+  voltooien en verifieert dat opslag en push leeg blijven.
+- `FcmService` vraagt na initialisatie van lokale notificaties expliciet
+  `getNotificationAppLaunchDetails()` op en verwerkt de payload wanneer de lokale notificatie de
+  beëindigde app heeft gestart. De widgettest simuleert de Android launch-details met payload
+  `watch` en verifieert dat tab `Zoekopdrachten` opent.
+- Vangnet na de finale reviewfix: verse `mvn -o test` (323 tests, 0 failures/errors/skips),
+  `mvn -o -DskipTests package`, `flutter analyze`, `flutter test` (43 tests) en
+  `flutter build web --release` zijn groen. `flutter build apk --release` kon vóór compilatie
+  niet starten doordat de container geen Android SDK bevat (`No Android SDK found`); er bleef
+  geen proces of gedeeltelijke APK-build achter.

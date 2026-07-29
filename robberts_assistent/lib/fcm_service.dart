@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart' show ValueNotifier;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -48,6 +48,17 @@ class FcmService {
     }
   }
 
+  @visibleForTesting
+  static Future<void> handleInitialLocalNotification([
+    FlutterLocalNotificationsPlugin? localNotifications,
+  ]) async {
+    final details =
+        await (localNotifications ?? _local).getNotificationAppLaunchDetails();
+    if (details?.didNotificationLaunchApp != true) return;
+    final type = details?.notificationResponse?.payload;
+    if (type != null) handlePushData({'type': type});
+  }
+
   static Future<void> setup(ApiClient api) async {
     if (kIsWeb || _done) return; // FCM-web vereist extra config; alleen Android voor nu.
     _done = true;
@@ -63,6 +74,7 @@ class FcmService {
           if (type != null) handlePushData({'type': type});
         },
       );
+      await handleInitialLocalNotification();
       await _local
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(

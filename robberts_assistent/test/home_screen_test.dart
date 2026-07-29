@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'package:robberts_assistent/api_client.dart';
 import 'package:robberts_assistent/conversations_screen.dart';
@@ -155,6 +157,51 @@ void main() {
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 4);
     expect(find.byType(WatchesScreen), findsOneWidget);
     expect(find.text('Nu beschikbaar.'), findsOneWidget);
+    expect(FcmService.deepLinkTab.value, null);
+  });
+
+  testWidgets('lokale watch-notificatie opent Zoekopdrachten bij een koude start', (
+    tester,
+  ) async {
+    const notificationsChannel = MethodChannel(
+      'dexterous.com/flutter/local_notifications',
+    );
+    addTearDown(() {
+      FcmService.deepLinkTab.value = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(notificationsChannel, null);
+      debugDefaultTargetPlatformOverride = null;
+    });
+    AndroidFlutterLocalNotificationsPlugin.registerWith();
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationsChannel, (call) async {
+          expect(call.method, 'getNotificationAppLaunchDetails');
+          return {
+            'notificationLaunchedApp': true,
+            'notificationResponse': {
+              'notificationId': 1,
+              'notificationResponseType': 0,
+              'payload': 'watch',
+            },
+          };
+        });
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
+    );
+    await tester.pump();
+
+    try {
+      await FcmService.handleInitialLocalNotification(
+        FlutterLocalNotificationsPlugin(),
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+    await tester.pump();
+
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 4);
+    expect(find.byType(WatchesScreen), findsOneWidget);
     expect(FcmService.deepLinkTab.value, null);
   });
 
