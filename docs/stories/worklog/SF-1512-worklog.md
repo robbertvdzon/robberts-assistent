@@ -84,3 +84,24 @@ Herreviewfix:
   gerichte Dart-formatcheck en `flutter build web --release` zijn groen.
   `flutter build apk --release` kon vóór compilatie niet starten doordat de container geen Android
   SDK bevat (`No Android SDK found`); er bleef geen proces of gedeeltelijke APK-build achter.
+
+Finale review:
+- Volledige story-diff tegen `main` beoordeeld. Gericht groen:
+  `Watch*Test`, `ModulithArchitectureTest`, `BriefingControllerTest` en de Flutter-widgettests
+  voor `WatchesScreen` en `HomeScreen`. Het aanwezige volledige Surefire-bewijs bevat 322 tests,
+  0 failures, 0 errors en 0 skips.
+- [bug] Verwijderen is niet bestand tegen een gelijktijdige controle. `WatchRunner.poll()` leest
+  eerst een snapshot van alle watches en slaat na de mogelijk trage fetch/AI-call die oude watch
+  onvoorwaardelijk opnieuw op. Als `WatchService.delete()` tussendoor dezelfde watch verwijdert,
+  maakt `WatchRunner` hem dus opnieuw aan. Reproduceerbaar met een blokkerende
+  `WatchPageFetcher`: start `poll()`, verwijder de watch terwijl `fetch()` wacht en laat `fetch()`
+  daarna voltooien; de in-memory- en Firestore-implementatie bevatten de watch vervolgens weer.
+  Daarmee verdwijnt een verwijderde opdracht niet blijvend uit overzicht en planning.
+- [bug] Een voorgrond-FCM wordt als lokale notificatie met watch-payload geplaatst, maar
+  `FcmService` verwerkt voor die lokale notificatie alleen `onDidReceiveNotificationResponse`.
+  Volgens het contract van `flutter_local_notifications` wordt die callback niet aangeroepen als
+  de notificatie de beëindigde app start; daarvoor is `getNotificationAppLaunchDetails()` nodig.
+  Reproductie: ontvang een watch-push terwijl de app open is, beëindig de app zonder de lokale
+  melding te openen en tik daarna op die melding. `FirebaseMessaging.getInitialMessage()` hoort
+  niet bij deze lokaal gemaakte notificatie en de app blijft op de standaardtab in plaats van
+  `Zoekopdrachten`.
