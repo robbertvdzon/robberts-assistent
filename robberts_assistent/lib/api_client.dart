@@ -257,6 +257,59 @@ class ApiClient {
 
   Future<void> deleteAlarm(String id) => _delete('/api/v1/alarms/$id');
 
+  // -- Zoekopdrachten ---------------------------------------------------------
+  /// Alle langlopende zoekopdrachten ("houd deze pagina in de gaten"), nieuwste bovenaan.
+  Future<List<Watch>> listWatches() async {
+    final body = await getJson('/api/v1/watches');
+    return (body['watches'] as List).map((e) => Watch.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<Watch> createWatch({
+    required String title,
+    required String url,
+    required String instruction,
+    required String frequency,
+    required bool pushOnFound,
+  }) async {
+    final body = await postJson('/api/v1/watches', {
+      'title': title,
+      'url': url,
+      'instruction': instruction,
+      'frequency': frequency,
+      'pushOnFound': pushOnFound,
+    });
+    return Watch.fromJson(body);
+  }
+
+  /// Werkt een zoekopdracht bij; via [active] pauzeer/hervat je 'm.
+  Future<Watch> updateWatch({
+    required String id,
+    required String title,
+    required String url,
+    required String instruction,
+    required String frequency,
+    required bool pushOnFound,
+    required bool active,
+  }) async {
+    final body = await putJson('/api/v1/watches/$id', {
+      'title': title,
+      'url': url,
+      'instruction': instruction,
+      'frequency': frequency,
+      'pushOnFound': pushOnFound,
+      'active': active,
+    });
+    return Watch.fromJson(body);
+  }
+
+  Future<void> deleteWatch(String id) => _delete('/api/v1/watches/$id');
+
+  /// Controleert een zoekopdracht meteen (buiten de poller om) en geeft de bijgewerkte stand terug.
+  Future<Watch> checkWatch(String id) async {
+    final body = await postJson('/api/v1/watches/$id/check');
+    return Watch.fromJson(body);
+  }
+
   // -- Koppelingen ------------------------------------------------------------
   /// Status van alle externe koppelingen (geconfigureerd + echt/fallback), zonder live-test.
   Future<List<Coupling>> listCouplings() async {
@@ -534,6 +587,51 @@ class Alarm {
         time: DateTime.parse(m['time'] as String).toLocal(),
         recurrence: Recurrence.fromJson(m['recurrence'] as Map<String, dynamic>?),
         active: m['active'] as bool? ?? true,
+      );
+}
+
+/// Eén langlopende zoekopdracht: houd [url] in de gaten en meld het zodra [instruction] geldt.
+class Watch {
+  final String id;
+  final String title;
+  final String url;
+  final String instruction;
+
+  /// `KANTOORUREN` of `DAGELIJKS` (zie de backend-enum `WatchFrequency`).
+  final String frequency;
+  final bool pushOnFound;
+  final bool active;
+  final DateTime? lastCheckedAt;
+  final String? lastStatus;
+  final bool found;
+  final String? lastError;
+
+  const Watch({
+    required this.id,
+    required this.title,
+    required this.url,
+    required this.instruction,
+    required this.frequency,
+    required this.pushOnFound,
+    required this.active,
+    this.lastCheckedAt,
+    this.lastStatus,
+    required this.found,
+    this.lastError,
+  });
+
+  static Watch fromJson(Map<String, dynamic> m) => Watch(
+        id: m['id'] as String,
+        title: m['title'] as String,
+        url: m['url'] as String,
+        instruction: m['instruction'] as String? ?? '',
+        frequency: m['frequency'] as String? ?? 'DAGELIJKS',
+        pushOnFound: m['pushOnFound'] as bool? ?? true,
+        active: m['active'] as bool? ?? true,
+        lastCheckedAt: m['lastCheckedAt'] == null ? null : DateTime.parse(m['lastCheckedAt'] as String).toLocal(),
+        lastStatus: m['lastStatus'] as String?,
+        found: m['found'] as bool? ?? false,
+        lastError: m['lastError'] as String?,
       );
 }
 

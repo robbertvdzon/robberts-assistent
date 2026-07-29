@@ -13,8 +13,9 @@ import 'package:robberts_assistent/more_screen.dart';
 import 'package:robberts_assistent/nightly_checks_screen.dart';
 import 'package:robberts_assistent/summary_screen.dart';
 import 'package:robberts_assistent/updates_screen.dart';
+import 'package:robberts_assistent/watches_screen.dart';
 
-/// Stub-ApiClient die alleen de door de vier hoofdschermen aangeroepen methodes overschrijft
+/// Stub-ApiClient die alleen de door de hoofdschermen aangeroepen methodes overschrijft
 /// met lege/harmloze resultaten, zodat er geen echte netwerkcalls in de test plaatsvinden.
 class _FakeApiClient extends ApiClient {
   @override
@@ -41,6 +42,9 @@ class _FakeApiClient extends ApiClient {
 
   @override
   Future<String> getMemoryText() async => '';
+
+  @override
+  Future<List<Watch>> listWatches() async => [];
 }
 
 void main() {
@@ -53,17 +57,18 @@ void main() {
     (call) async => -1,
   );
 
-  testWidgets('bottom-nav telt precies 5 tabs en Meer opent MoreScreen', (tester) async {
+  testWidgets('bottom-nav telt precies 6 tabs en Meer opent MoreScreen', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
     );
     await tester.pump();
 
-    expect(find.byType(NavigationDestination), findsNWidgets(5));
+    expect(find.byType(NavigationDestination), findsNWidgets(6));
     expect(find.text('Upcoming'), findsOneWidget);
     expect(find.text('Health check'), findsOneWidget);
     expect(find.text('Assistent'), findsOneWidget);
     expect(find.text('Herinneringen'), findsOneWidget);
+    expect(find.text('Zoekopdrachten'), findsOneWidget);
     expect(find.text('Meer'), findsOneWidget);
 
     await tester.tap(find.text('Meer'));
@@ -107,6 +112,43 @@ void main() {
     expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 0);
     expect(find.byType(SummaryScreen), findsOneWidget);
     expect(FcmService.deepLinkTab.value, null);
+  });
+
+  testWidgets('tik op een zoekopdracht-push (deepLinkTab 4) schakelt naar de Zoekopdrachten-tab', (
+    tester,
+  ) async {
+    addTearDown(() => FcmService.deepLinkTab.value = null);
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
+    );
+    await tester.pump();
+
+    FcmService.deepLinkTab.value = 4;
+    await tester.pump();
+
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 4);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 4);
+    expect(find.byType(WatchesScreen), findsOneWidget);
+  });
+
+  testWidgets('Zoekopdrachten staat op index 4, vóór Meer', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
+    );
+    await tester.pump();
+
+    final labels = tester
+        .widgetList<NavigationDestination>(find.byType(NavigationDestination))
+        .map((d) => d.label)
+        .toList();
+    expect(labels, [
+      'Upcoming',
+      'Health check',
+      'Assistent',
+      'Herinneringen',
+      'Zoekopdrachten',
+      'Meer',
+    ]);
   });
 
   testWidgets('lijst-items in Meer navigeren naar het bijbehorende scherm', (tester) async {
