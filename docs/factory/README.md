@@ -6,10 +6,12 @@ backend-modules, de koppelingen, de apps en de deploy). Deze map verdiept per on
 
 De repo bevat één Kotlin/Spring-Boot-backend (`robberts-assistent-backend/`) en vier
 Flutter/Android-apps (`robberts_assistent/`, `groentetuin/`, `notities/`, `wind/`). De
-backend is een Spring Modulith met skills (notes, reminders, gardenchat/moestuin-chat,
-google-agenda/docs, wind via de chat-assistent, summary), aangesproken door de apps en door
-een OpenAI-agent met `@Tool`-functies. Elke externe koppeling heeft een stub/in-memory
-fallback, dus alles bouwt en test groen zónder secrets.
+backend is een Spring Modulith met onder meer notes, reminders,
+gardenchat/moestuin-chat, briefing, langdurige websitezoekopdrachten (`watches`)
+en de Google-/windkoppelingen. De apps spreken modules via REST aan; de
+OpenAI-agent gebruikt daarnaast `@Tool`-functies. Externe koppelingen en
+persistente opslag hebben waar mogelijk een stub- of in-memory fallback, zodat
+de applicatie zonder optionele secrets kan bouwen en testen.
 
 ## Index
 

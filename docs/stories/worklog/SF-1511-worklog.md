@@ -13,3 +13,17 @@ Stappenplan:
 
 Done / rationale:
 - Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
+
+## Documentatie (SF-1515)
+
+- De daadwerkelijke story-diff, het volledige SF-1512-worklog en de
+  review-/testuitkomsten zijn als bron gebruikt; er waren geen aanvullende
+  leidende PO-comments.
+- Root- en app-README's zijn bijgewerkt met de actuele repo-inhoud, zes
+  navigatietabs, Zoekopdrachten-gedrag en het REST-contract.
+- Factory functional/technical/development-overzichten en `CLAUDE.md`
+  documenteren nu ook validatie, planning, opslagfallback, paginalimieten,
+  foutstatussen, push-deeplink en compare-and-set-bescherming tegen
+  gelijktijdige pollresultaten.
+- Er zijn uitsluitend Markdown-documenten gewijzigd; productiecode en tests
+  zijn ongemoeid gelaten.

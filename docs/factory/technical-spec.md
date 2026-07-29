@@ -41,6 +41,26 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
   database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
   (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
+- **Watches:** `GET`/`POST /api/v1/watches` en `DELETE /api/v1/watches/{id}` zijn
+  geauthenticeerd. `WatchStoreConfig` kiest de Firestore-collectie `watches` of
+  `InMemoryWatchRepository`. `WatchRunner` gebruikt één fixed-delay poller
+  (`ra.watches.poll-interval-ms`, standaard 300000 ms); de pure
+  `WatchSchedule.isDue` rekent in `Europe/Amsterdam`. `JdkWatchPageFetcher`
+  accepteert alleen succesvolle HTTP-responses, begrenst de HTML op 1.000.000
+  bytes en de geëxtraheerde tekst op 20.000 tekens. `watchChatClient` heeft geen
+  tools en `WatchAssessmentParser` accepteert alleen `GEVONDEN` of `NIET
+  GEVONDEN` plus een omschrijving. Netwerk-, HTTP-, AI- en parsefouten worden
+  als `ONBEKEND` opgeslagen en bij een volgende geplande beurt opnieuw
+  geprobeerd.
+- **Gelijktijdigheid watches:** een pollresultaat wordt met
+  `WatchRepository.compareAndSet(expected, updated)` alleen opgeslagen wanneer
+  de actuele opdracht nog exact gelijk is aan het gelezen snapshot. In-memory
+  gebeurt dit atomisch met `ConcurrentHashMap.replace`; Firestore gebruikt een
+  transactie. Daardoor kunnen overlappende pollers geen gevonden status
+  terugdraaien of dubbele push versturen en kan een lopende controle een
+  tussentijds verwijderde opdracht niet herstellen. Alleen de winnende
+  overgang naar `GEVONDEN` mag de optionele FCM-push met `data.type=watch`
+  versturen.
 
 ## Web-apps
 
