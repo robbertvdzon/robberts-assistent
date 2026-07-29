@@ -11,10 +11,11 @@ Deze repo bevat vier Flutter/Android-apps en één Kotlin/Spring-Boot-backend:
   login. Draait als APK én als web-app (`moestuin.vdzonsoftware.nl`).
 - **notities/** — één auto-opslaande notitie, Google-login. Alleen APK.
 - **robberts-assistent-backend/** — Kotlin/Spring Boot/Spring Modulith backend
-  voor alle apps. Modules: `auth`, `config`, `health`, `notes`, `summary`,
-  `assistant` (+`ai/`), `reminders`, `gardenchat`, `google`, `firebase`,
-  `notifier`. Koppelingen achter ports met stub/in-memory fallback (zie
-  `technical-spec.md` en de root `CLAUDE.md`).
+  voor alle apps. Modules o.a.: `auth`, `config`, `health`, `notes`, `summary`,
+  `assistant` (+`ai/`), `reminders`, `watches`, `briefing`, `gardenchat`,
+  `google`, `firebase`, `push`, `notifier`. Koppelingen achter ports met
+  stub/in-memory fallback (zie `technical-spec.md` en de root `CLAUDE.md` voor
+  de volledige, actuele modulelijst).
 
 Zie `deployment.md` voor hoe elke component gebouwd/gedeployed wordt en
 `secrets-local.md` voor lokale env-vars.

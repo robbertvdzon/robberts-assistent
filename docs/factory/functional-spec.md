@@ -20,6 +20,21 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 - **Moestuin-AI-chat** — de gebruiker stuurt tekst + één of meer foto's; de backend slaat de
   foto's op, laat een vision-AI antwoorden (plant/ziekte/verzorging herkennen) en bewaart de
   chat. Multi-turn: doorpraten binnen één conversatie.
+- **Zoekopdrachten (watches)** — een langlopende opdracht om een webpagina in de gaten te
+  houden: titel, URL en in gewone taal waar op gelet moet worden ("meld het als de aaltjes weer
+  op voorraad zijn"). Per zoekopdracht kiest de gebruiker de frequentie (KANTOORUREN = elk uur
+  ma t/m vr tussen 09:00 en 17:00 Europe/Amsterdam, of DAGELIJKS = één keer per dag) en of er
+  een pushbericht mag komen. Een achtergrondpoller haalt de pagina op, laat de AI beoordelen of
+  de situatie zich voordoet en bewaart alleen de laatste korte statuszin ("nog steeds
+  uitverkocht" / "nu beschikbaar") + het laatste controlemoment. Bij de omslag "niet gevonden" →
+  "gevonden" gaat er, mits de push-schakelaar aan staat, precies één FCM-push uit; daarna stopt de
+  zoekopdracht (niet meer actief), zodat er geen herhaalde meldingen komen — handmatig hervatten
+  kan. De gebruiker kan een zoekopdracht ook direct laten controleren, pauzeren (wordt dan door de
+  poller overgeslagen) of verwijderen. Een fout bij het ophalen of bij de AI-beoordeling zet
+  alleen een foutmelding op díe zoekopdracht, laat de vorige status staan, veroorzaakt geen push
+  en blokkeert de andere zoekopdrachten niet. Alleen server-side HTML wordt gelezen: pagina's die
+  hun status pas met JavaScript opbouwen zijn een geaccepteerde beperking. Aanmaken kan (nog) niet
+  via de chat-assistent, en er is geen historie van eerdere checkresultaten.
 - **Google Agenda** (read-only) — de agent leest Robberts agenda ("wanneer moet ik naar de
   tandarts", "vakanties dit jaar").
 - **Google Docs** (read-only) — de agent leest een doc op id en beantwoordt vragen eruit.
@@ -71,20 +86,26 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 ## Push / meldingen
 
 - **Telegram** (uitgaand): reminders/alerts gaan naar Robberts Telegram-groep.
-- **FCM**: push naar de app; gebruikt voor reminders/alarms én de dagelijkse
-  18:00-Morgen-briefingpush. App-kant (lokaal alarm, reminders-scherm, FCM-ontvangst,
-  deep-link naar de Upcoming-tab) is gebouwd.
+- **FCM**: push naar de app; gebruikt voor reminders/alarms, de dagelijkse
+  18:00-Morgen-briefingpush én (sinds SF-1489) de "gevonden"-melding van een zoekopdracht.
+  App-kant (lokaal alarm, reminders-scherm, FCM-ontvangst, deep-link naar de Upcoming-tab bij
+  `type = briefing` en naar de Zoekopdrachten-tab bij `type = watch`) is gebouwd.
 
 ## Apps
 
-- **robberts_assistent** — bottom-nav met 5 tabs: dagelijkse Morgen-briefing zonder
+- **robberts_assistent** — bottom-nav met 6 tabs (sinds SF-1489, waarin "Zoekopdrachten" als
+  index 4 vóór "Meer" is toegevoegd): dagelijkse Morgen-briefing zonder
   systeemstatus (eerste tab, "Upcoming"), systeem-checkrapport in ruwe, selecteerbare vorm
   (tweede tab, "Health check", sinds SF-1267/SF-1268) + chat met de assistent, in persistente,
   benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij). Gesprekken zijn
   te archiveren (reversibel) en te verwijderen (met bevestiging); de lijst toont eerst de 10
   meest recente, oudere onder een uitklapbare "Ouder"-sectie. Een gebruiker-breed geheugen
   (feiten/voorkeuren) wordt automatisch bijgewerkt na elke chat-beurt en gebruikt als context in
-  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". Google-login.
+  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". Sinds SF-1489 ook een
+  "Zoekopdrachten"-tab: lijst met per opdracht titel, laatste status, laatste controlemoment en
+  frequentie (plus "gepauzeerd", een foutregel en een groene markering bij gevonden), met per rij
+  "Nu controleren", pauzeren/hervatten en verwijderen (met bevestiging), en aanmaken/bewerken via
+  een dialoog. Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.
 - **notities** — één auto-opslaande notitie. Google-login.

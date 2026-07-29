@@ -20,8 +20,8 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   in de base-package van de andere module.
 - **Koppelingen achter ports met fallback.** Een selector-`@Configuration` kiest per koppeling
   de echte implementatie (als de secret gezet is) of de fallback (stub/in-memory/mock).
-  Voorbeelden: `Notifier` (Telegram/Logging), `ReminderRepository` + `ConversationRepository`
-  (Firestore/in-memory), `PhotoStorage` (Firebase Storage/in-memory), `CalendarClient` +
+  Voorbeelden: `Notifier` (Telegram/Logging), `ReminderRepository` + `ConversationRepository` +
+  `WatchRepository` (Firestore/in-memory), `PhotoStorage` (Firebase Storage/in-memory), `CalendarClient` +
   `DocsClient` (Google/stub). Firebase-init-fouten worden afgevangen → fallback, geen crashloop.
 - **Pluggable SPI-patroon** voor uitbreidbare lijsten: een module definieert een interface
   (`CouplingProbe`, `NightlyCheck`, `BriefingSectionProvider`), elke leverende module registreert
@@ -34,10 +34,19 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   (`@Primary`, met alle `@Tool`-beans) en `gardenChatClient` (`@Qualifier`, vision, eigen
   system-prompt). `MockChatModel` in preview/tests (deterministisch, geen kosten/netwerk).
   Andere modules kunnen een eigen lichte `ChatClient`-bean toevoegen die de gedeelde `ChatModel`
-  hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient`), zodat mock/echt automatisch
-  meeloopt met `AppSecrets.effectiveMockAi` zonder eigen schakelaar.
+  hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient`, `watches.WatchAiConfig`'s
+  `watchChatClient`), zodat mock/echt automatisch meeloopt met `AppSecrets.effectiveMockAi` zonder
+  eigen schakelaar. Laat zo'n eigen client met een **vast antwoordformaat** werken en parse dat
+  defensief (bv. `watches`: regel 1 `GEVONDEN`/`NIET GEVONDEN`, regel 2 een statuszin; een
+  niet-herkend antwoord ⇒ neutrale uitkomst, geen exception), zodat mock-AI/preview deterministisch
+  blijft.
+- **Achtergrondjobs:** `@Scheduled`-poller met een **pure, los testbare "is dit aan de beurt?"-
+  functie** i.p.v. dynamische per-item triggers (`watches.WatchScheduler.isDue`, interval via
+  `ra.watches.poll-interval-ms`, default 5 min). Elk item in een eigen `runCatching`, zodat een
+  fout op één item alleen daar een `lastError` zet en de rest niet blokkeert.
 - **Data:** notities in Postgres (JdbcTemplate + Flyway `V1`); reminders + chat-conversaties
-  (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
+  (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) + zoekopdrachten
+  (`watches`, doc-id = watch-id) in Firestore (named
   database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
   (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
 
