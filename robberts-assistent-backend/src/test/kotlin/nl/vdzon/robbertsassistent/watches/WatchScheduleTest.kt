@@ -29,11 +29,12 @@ class WatchScheduleTest {
     }
 
     @Test
-    fun `kantooruren controleert maximaal eenmaal per lokaal uur`() {
-        val checked = watch(WatchFrequency.KANTOORUREN, instant("2026-07-27T09:01:00"))
+    fun `kantooruren controleert pas na minimaal een verstreken uur opnieuw`() {
+        val checked = watch(WatchFrequency.KANTOORUREN, instant("2026-07-27T09:59:59"))
 
-        assertFalse(WatchSchedule.isDue(checked, instant("2026-07-27T09:59:59")))
-        assertTrue(WatchSchedule.isDue(checked, instant("2026-07-27T10:00:00")))
+        assertFalse(WatchSchedule.isDue(checked, instant("2026-07-27T10:00:00")))
+        assertFalse(WatchSchedule.isDue(checked, instant("2026-07-27T10:59:58")))
+        assertTrue(WatchSchedule.isDue(checked, instant("2026-07-27T10:59:59")))
     }
 
     @Test

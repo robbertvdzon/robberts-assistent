@@ -16,6 +16,7 @@ class _WatchesScreenState extends State<WatchesScreen> {
   List<Watch> _watches = [];
   bool _loading = true;
   String? _error;
+  var _loadSequence = 0;
 
   @override
   void initState() {
@@ -32,17 +33,24 @@ class _WatchesScreenState extends State<WatchesScreen> {
   }
 
   Future<void> _load() async {
+    final loadSequence = ++_loadSequence;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final watches = await widget.api.listWatches();
-      if (mounted) setState(() => _watches = watches);
+      if (mounted && loadSequence == _loadSequence) {
+        setState(() => _watches = watches);
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Zoekopdrachten laden mislukt: $e');
+      if (mounted && loadSequence == _loadSequence) {
+        setState(() => _error = 'Zoekopdrachten laden mislukt: $e');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && loadSequence == _loadSequence) {
+        setState(() => _loading = false);
+      }
     }
   }
 

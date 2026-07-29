@@ -1,6 +1,7 @@
 package nl.vdzon.robbertsassistent.watches
 
 import java.time.DayOfWeek
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 
@@ -15,10 +16,9 @@ object WatchSchedule {
             WatchFrequency.KANTOORUREN -> {
                 val weekday = localNow.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
                 val inOfficeHours = localNow.hour in 9 until 17
-                val notCheckedThisHour = last == null ||
-                    last.toLocalDate() != localNow.toLocalDate() ||
-                    last.hour != localNow.hour
-                weekday && inOfficeHours && notCheckedThisHour
+                val atLeastOneHourSinceLastCheck = watch.lastCheckedAt == null ||
+                    Duration.between(watch.lastCheckedAt, now) >= Duration.ofHours(1)
+                weekday && inOfficeHours && atLeastOneHourSinceLastCheck
             }
             WatchFrequency.DAGELIJKS ->
                 last == null || last.toLocalDate() != localNow.toLocalDate()

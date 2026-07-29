@@ -11,6 +11,9 @@ Stappenplan:
 - [x] Volledige backend- en Flutter-vangnetten zonder failures/errors afronden.
 - [x] Reviewbevinding oplossen: Zoekopdrachten bij tabactivatie/watch-push herladen en regressietest toevoegen.
 - [x] Volledige backend- en Flutter-vangnetten na de reviewfix opnieuw groen afronden.
+- [x] Herreviewbevinding oplossen: minimaal één verstreken uur tussen kantoorurencontroles afdwingen.
+- [x] Herreviewbevinding oplossen: verouderde Flutter-loadresultaten negeren.
+- [x] Gerichte regressietests en het volledige factory-vangnet opnieuw groen afronden.
 
 Uitvoering en keuzes:
 - De story heeft geen aanvullende PO-comments; de refined scope en acceptatiecriteria zijn leidend.
@@ -68,3 +71,16 @@ Herreview:
   gestarte tweede call de actuele `GEVONDEN`-status retourneren en voltooi daarna de eerste call
   met `NIET_GEVONDEN`; het oudere antwoord overschrijft dan de actuele status. Negeer verouderde
   loadresultaten en dek deze omgekeerde voltooiingsvolgorde af.
+
+Herreviewfix:
+- De twee concrete reviewerbevindingen zijn leidend voor deze developer-run. De backendplanning
+  vergelijkt de werkelijk verstreken tijd sinds de laatste controle; het Flutter-scherm kent elke
+  load een oplopend volgnummer toe en verwerkt alleen het nieuwste resultaat.
+- De backendregressietest controleert de grens van 09:59:59 naar 10:00:00 en staat een volgende
+  controle exact één uur later toe. De widgettest laat de tweede pushrefresh eerst voltooien en
+  verifieert daarna dat het late antwoord van de initiële load de actuele status niet overschrijft.
+- Vangnet na de herreviewfix: verse `mvn -o test` (322 tests, 0 failures/errors/skips),
+  `mvn -o -DskipTests package`, `flutter analyze`, `flutter test` (42 tests),
+  gerichte Dart-formatcheck en `flutter build web --release` zijn groen.
+  `flutter build apk --release` kon vóór compilatie niet starten doordat de container geen Android
+  SDK bevat (`No Android SDK found`); er bleef geen proces of gedeeltelijke APK-build achter.

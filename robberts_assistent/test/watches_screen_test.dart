@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,6 +56,41 @@ class _FakeApiClient extends ApiClient {
     watches.removeWhere((watch) => watch.id == id);
   }
 }
+
+class _ControlledLoadApiClient extends ApiClient {
+  final loads = <Completer<List<Watch>>>[];
+
+  @override
+  Future<List<Watch>> listWatches() {
+    final load = Completer<List<Watch>>();
+    loads.add(load);
+    return load.future;
+  }
+}
+
+const _oldWatch = Watch(
+  id: '1',
+  title: 'Concertkaartjes',
+  url: 'https://example.com',
+  instruction: 'Zoek twee kaarten',
+  frequency: 'DAGELIJKS',
+  notifyOnFound: true,
+  status: 'NIET_GEVONDEN',
+  statusDescription: 'Nog niet beschikbaar.',
+  active: true,
+);
+
+const _currentWatch = Watch(
+  id: '1',
+  title: 'Concertkaartjes',
+  url: 'https://example.com',
+  instruction: 'Zoek twee kaarten',
+  frequency: 'DAGELIJKS',
+  notifyOnFound: true,
+  status: 'GEVONDEN',
+  statusDescription: 'Nu beschikbaar.',
+  active: false,
+);
 
 Widget _wrap(ApiClient api) => MaterialApp(home: WatchesScreen(api: api));
 
@@ -175,5 +212,27 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Opslaan'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Opslaan mislukt'), findsOneWidget);
+  });
+
+  testWidgets('een oudere load overschrijft een nieuwere pushrefresh niet', (
+    tester,
+  ) async {
+    final api = _ControlledLoadApiClient();
+    await tester.pumpWidget(MaterialApp(home: WatchesScreen(api: api)));
+    expect(api.loads, hasLength(1));
+
+    await tester.pumpWidget(
+      MaterialApp(home: WatchesScreen(api: api, reloadTrigger: 1)),
+    );
+    expect(api.loads, hasLength(2));
+
+    api.loads[1].complete([_currentWatch]);
+    await tester.pump();
+    expect(find.text('Nu beschikbaar.'), findsOneWidget);
+
+    api.loads[0].complete([_oldWatch]);
+    await tester.pump();
+    expect(find.text('Nu beschikbaar.'), findsOneWidget);
+    expect(find.text('Nog niet beschikbaar.'), findsNothing);
   });
 }
