@@ -24,7 +24,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _watchesTabIndex = 4;
+
   var _tab = 2;
+  var _watchesReloadTrigger = 0;
 
   @override
   void initState() {
@@ -51,7 +54,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final tab = FcmService.deepLinkTab.value;
     if (tab == null) return;
     FcmService.deepLinkTab.value = null;
-    if (mounted) setState(() => _tab = tab);
+    if (mounted) _selectTab(tab);
+  }
+
+  void _selectTab(int tab) {
+    setState(() {
+      _tab = tab;
+      if (tab == _watchesTabIndex) {
+        _watchesReloadTrigger++;
+      }
+    });
   }
 
   @override
@@ -61,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
       HealthCheckScreen(api: widget.api),
       ConversationsScreen(api: widget.api),
       SchedulesScreen(api: widget.api),
-      WatchesScreen(api: widget.api),
+      WatchesScreen(api: widget.api, reloadTrigger: _watchesReloadTrigger),
       MoreScreen(api: widget.api),
     ];
     return Scaffold(
@@ -87,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: IndexedStack(index: _tab, children: screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        onDestinationSelected: (index) => setState(() => _tab = index),
+        onDestinationSelected: _selectTab,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Upcoming'),
           NavigationDestination(icon: Icon(Icons.health_and_safety_outlined), selectedIcon: Icon(Icons.health_and_safety), label: 'Health check'),

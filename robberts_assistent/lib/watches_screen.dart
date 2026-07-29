@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 
 class WatchesScreen extends StatefulWidget {
-  const WatchesScreen({super.key, required this.api});
+  const WatchesScreen({super.key, required this.api, this.reloadTrigger = 0});
 
   final ApiClient api;
+  final int reloadTrigger;
 
   @override
   State<WatchesScreen> createState() => _WatchesScreenState();
@@ -20,6 +21,14 @@ class _WatchesScreenState extends State<WatchesScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant WatchesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.reloadTrigger != oldWidget.reloadTrigger) {
+      _load();
+    }
   }
 
   Future<void> _load() async {

@@ -18,6 +18,9 @@ import 'package:robberts_assistent/watches_screen.dart';
 /// Stub-ApiClient die alleen de door de vier hoofdschermen aangeroepen methodes overschrijft
 /// met lege/harmloze resultaten, zodat er geen echte netwerkcalls in de test plaatsvinden.
 class _FakeApiClient extends ApiClient {
+  var watchLoadCount = 0;
+  bool returnChangingWatch = false;
+
   @override
   Future<Map<String, dynamic>> getJson(String path) async => {'items': []};
 
@@ -35,7 +38,25 @@ class _FakeApiClient extends ApiClient {
   Future<List<Alarm>> listAlarms() async => [];
 
   @override
-  Future<List<Watch>> listWatches() async => [];
+  Future<List<Watch>> listWatches() async {
+    watchLoadCount++;
+    if (!returnChangingWatch) return [];
+    return [
+      Watch(
+        id: 'watch-1',
+        title: 'Concertkaartjes',
+        url: 'https://example.com',
+        instruction: 'Zoek twee kaarten',
+        frequency: 'DAGELIJKS',
+        notifyOnFound: true,
+        status: watchLoadCount == 1 ? 'NIET_GEVONDEN' : 'GEVONDEN',
+        statusDescription: watchLoadCount == 1
+            ? 'Nog niet beschikbaar.'
+            : 'Nu beschikbaar.',
+        active: watchLoadCount == 1,
+      ),
+    ];
+  }
 
   @override
   Future<List<Coupling>> listCouplings() async => [];
@@ -114,19 +135,26 @@ void main() {
     expect(FcmService.deepLinkTab.value, null);
   });
 
-  testWidgets('watch-push schakelt naar de Zoekopdrachten-tab', (tester) async {
+  testWidgets('watch-push schakelt naar Zoekopdrachten en herlaadt de bestaande lijst', (
+    tester,
+  ) async {
     addTearDown(() => FcmService.deepLinkTab.value = null);
+    final api = _FakeApiClient()..returnChangingWatch = true;
     await tester.pumpWidget(
-      MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
+      MaterialApp(home: HomeScreen(api: api, onLoggedOut: () {})),
     );
     await tester.pump();
+    expect(api.watchLoadCount, 1);
 
     FcmService.handlePushData({'type': 'watch'});
     await tester.pump();
+    await tester.pump();
 
+    expect(api.watchLoadCount, 2);
     expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 4);
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 4);
     expect(find.byType(WatchesScreen), findsOneWidget);
+    expect(find.text('Nu beschikbaar.'), findsOneWidget);
     expect(FcmService.deepLinkTab.value, null);
   });
 

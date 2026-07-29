@@ -9,6 +9,8 @@ Stappenplan:
 - [x] Flutter-API, Zoekopdrachten-tab, push-deeplink en widgettests implementeren.
 - [x] Relevante factory- en overzichtsdocumentatie bijwerken en zelfreview uitvoeren.
 - [x] Volledige backend- en Flutter-vangnetten zonder failures/errors afronden.
+- [x] Reviewbevinding oplossen: Zoekopdrachten bij tabactivatie/watch-push herladen en regressietest toevoegen.
+- [x] Volledige backend- en Flutter-vangnetten na de reviewfix opnieuw groen afronden.
 
 Uitvoering en keuzes:
 - De story heeft geen aanvullende PO-comments; de refined scope en acceptatiecriteria zijn leidend.
@@ -37,3 +39,15 @@ Review:
   bestaande `WatchesScreen` herlaadt niet. Daardoor kan een tik op een vondstmelding een verouderde
   status tonen totdat de gebruiker handmatig op herladen tikt. Herlaad bij activatie via de
   watch-deeplink/tab en dek af dat de pushroute opnieuw `listWatches()` uitvoert.
+
+Reviewfix:
+- De reviewerbevinding is leidend voor deze developer-run. De navigatieshell krijgt een expliciet
+  herlaadsignaal voor elke activatie van de Zoekopdrachten-tab, inclusief een watch-push terwijl
+  die tab al actief is; `WatchesScreen` reageert daarop zonder zijn overige state te verliezen.
+- De regressietest simuleert dat de eager geladen watch eerst een verouderde status heeft en
+  controleert dat de pushroute `listWatches()` opnieuw aanroept en de actuele status rendert.
+- Vangnet na de fix: `mvn -o test` (322 tests, 0 failures/errors/skips),
+  `mvn -o -DskipTests package`, `flutter analyze`, `flutter test` (41 tests) en
+  `flutter build web --release` zijn groen. `flutter build apk --release` stopte vóór compilatie
+  met `No Android SDK found`; dit is de bekende containerbeperking en liet geen proces of
+  gedeeltelijke APK-build achter.
