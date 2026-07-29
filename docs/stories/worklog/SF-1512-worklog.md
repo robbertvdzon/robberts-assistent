@@ -125,3 +125,23 @@ Finale reviewfix:
   `flutter build web --release` zijn groen. `flutter build apk --release` kon vóór compilatie
   niet starten doordat de container geen Android SDK bevat (`No Android SDK found`); er bleef
   geen proces of gedeeltelijke APK-build achter.
+
+Review na finale reviewfix:
+- Volledige story-diff tegen `main` beoordeeld. Het revisiongebonden volledige bewijs bevat
+  323 backendtests zonder failures/errors/skips en 43 groene Fluttertests plus groene analyse,
+  backend-package en web-releasebuild. Zelf gericht gedraaid:
+  `Watch*Test`, `ModulithArchitectureTest` en `BriefingControllerTest` (21 tests, alle groen).
+  De Fluttercode en widgettests zijn handmatig beoordeeld; conform de factory-regel is geen
+  volledig Flutter-vangnet opnieuw gestart in de reviewer-sandbox.
+- [bug] De conditionele repository-update voorkomt alleen dat een verwijderde watch opnieuw
+  verschijnt, maar claimt de gelezen versie niet atomisch. Twee overlappende pollers kunnen
+  dezelfde actieve snapshot lezen en beide succesvol `updateIfPresent` uitvoeren, omdat
+  `InMemoryWatchRepository.computeIfPresent` en de Firestore-transactie uitsluitend het bestaan
+  controleren. Bij twee gevonden resultaten versturen beide runners daardoor een push; als de
+  tweede controle faalt of `NIET_GEVONDEN` teruggeeft, kan die bovendien de al gevonden,
+  inactieve status weer met een stale actieve status overschrijven. Dit is reproduceerbaar door
+  twee `WatchRunner.poll`-aanroepen na `repository.all()` op een barrier te laten wachten en ze
+  daarna achtereenvolgens te voltooien. In productie kan overlap onder meer tijdens de standaard
+  rolling update van de backend-Deployment ontstaan. Maak de opslagoperatie een compare-and-set
+  op de verwachte actuele watch/versie (en laat alleen de winnaar de overgangspush uitvoeren) en
+  dek zowel de dubbele-vondst als een laat stale resultaat met een regressietest af.
