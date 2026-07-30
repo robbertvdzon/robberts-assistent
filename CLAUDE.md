@@ -55,8 +55,8 @@ robberts-assistent/
   firebase-admin (Firestore + Cloud Storage). JdbcTemplate + Flyway.
 - **Apps:** Flutter (stable), Dart `>=3.0.0 <4.0.0`. `wind/` heeft native Kotlin (App
   Actions-trampoline-activities). Web-apps draaien als nginx-container (Flutter web build).
-- **Data:** **Firestore** (notities, reminders, alarms, chat-conversaties, FCM-tokens — named
-  database `robberts-assistent` in Google-project `tuinbewatering`); **Firebase Storage**
+- **Data:** **Firestore** (notities, reminders, alarms, chat-conversaties, watches, FCM-tokens —
+  named database `robberts-assistent` in Google-project `tuinbewatering`); **Firebase Storage**
   (moestuin-foto's in map `moestuin/`, assistent-gespreksfoto's in map `assistent-chat/`, bucket
   `tuinbewatering.firebasestorage.app`). Geen SQL-database meer (Neon opgezegd).
 - **Auth:** Google-login → eigen HMAC-sessie-token (allowlist `robbert@vdzon.com`).
@@ -100,6 +100,7 @@ fallback (zie §5).
 | `push` | `PushService.sendToAll(title, body, data)`: FCM-push naar alle geregistreerde tokens (`FcmTokenStore`), no-op zonder Firebase/tokens; `data` gaat als extra FCM-data-payload mee (bv. `"type" to "briefing"`) zodat de app op basis daarvan kan deep-linken. `PushController` (token-registratie), `FcmCouplingProbe`. |
 | `couplings` | `CouplingProbe`-SPI + `CouplingsService`: elke module registreert een `@Component` die `CouplingProbe` implementeert (id/naam/omschrijving/configured/mode/test); Spring injecteert automatisch `List<CouplingProbe>`. Voedt het "Koppelingen"-scherm in de app — een nieuwe koppeling toevoegen betekent alleen een nieuwe `CouplingProbe`-implementatie in de eigen module, geen wijziging hier of in de app. |
 | `nightlychecks` | `NightlyCheck`-SPI + `NightlyCheckScheduler`/`NightlyChecksService`: net als `couplings`, maar voor achtergrondchecks — elke module registreert een `@Component` met een eigen cron-schema; resultaten (met historie) in Firestore/in-memory. Voedt de "Nachtchecks"-tab in de app + `summary.SummaryService` (dat endpoint heeft sinds de Morgen-briefing (SF-1163) geen app-consument meer, zie de `summary`-rij hieronder). Sinds SF-1164 heeft de Morgen-briefing ook een eigen, live (niet nachtelijk-historisch) systeem-checkrapport, zie de `briefing`-rij (`SystemStatusSectionProvider`) — dat gebruikt bewust een live check i.p.v. `NightlyCheckRepository`-historie. Zie `docs/nightly-checks.md`. |
+| `watches` | Langdurige zoekopdrachten ("watches"): periodiek een webpagina controleren op een bepaalde conditie. `Watch`-model met `id`, `title`, `url`, `instruction`, `frequency` (KANTOORUREN of DAGELIJKS), `status` (ONBEKEND/GEVONDEN/NIET_GEVONDEN), `statusText`, `lastChecked`, `active`. `WatchRepository`-poort (Firestore/in-memory fallback, zelfde patroon als `reminders`). `WatchesController` met REST-endpoints: `GET /api/v1/watches`, `POST /api/v1/watches`, `DELETE /api/v1/watches/{id}`. `WatchScheduler` met één `@Scheduled fixedDelay`-poller (configureerbaar via `ra.watches.poll-interval-ms`, default 5 min) die per actieve watch checkt of 'ie aan de beurt is: KANTOORUREN = ma-vr 09:00-17:00, max één check/uur; DAGELIJKS = max één check/24u. AI-beoordeling via een losse, tool-loze `watchChatClient` (`WatchAiConfig`, zelfde patroon als `briefing.BriefingAiConfig`): haalt de webpagina op, stuurt tekst + instructie naar de AI, parseert regel 1 als `GEVONDEN`/`NIET GEVONDEN`, regel 2 als statustekst. Bij transitie naar `GEVONDEN`: precies één `PushService.sendToAll(...)` met `data["type"] = "watch"`, daarna `active = false`. Onder `RA_MOCK_AI` geeft de AI-check status ONBEKEND (deterministisch). Eigen `htmlToPlainText()`-kopie in de module (de WindTools-variant is `internal`). |
 
 Twee `ChatClient`-beans: `assistantChatClient` (`@Primary`, met tools) en `gardenChatClient`
 (`@Qualifier`, vision, eigen system-prompt).
@@ -134,7 +135,7 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
 
 ## 6. Apps
 
-- **`robberts_assistent/`** — bottom-navigatie met 5 tabs. Eerste tab is **"Upcoming"**
+- **`robberts_assistent/`** — bottom-navigatie met 6 tabs. Eerste tab is **"Upcoming"**
   (`summary_screen.dart`, was "Morgen"/"Samenvatting"): dagelijkse briefing met alle secties van
   `briefing` (weerkaart, kite/strandfiets, agenda komende 7 dagen met per-afspraak een
   reminder-aanmaak-actie waar nodig, AI-weektakensamenvatting, moestuin-placeholder) **behalve**
@@ -165,7 +166,10 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
   gearchiveerde gesprekken alsnog zien. Plus Koppelingen-, Nachtchecks- en **Geheugen**-schermen
   (`memory_screen.dart`: één groot bewerkbaar tekstveld met de volledige geheugen-tekst,
   auto-save net als `notities/lib/notes_editor_screen.dart`) bereikbaar via
-  `more_screen.dart`. Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
+  `more_screen.dart`. Sinds SF-1491 een vijfde tab **"Watches"** (`watches_screen.dart`): lijst van
+  langdurige zoekopdrachten met per item titel, status-icoon en laatst gecheckt; CRUD via dialogen
+  (titel, URL, instructie, frequentie-dropdown Kantooruren/Dagelijks); swipe-to-delete met
+  bevestiging. De "Meer"-tab is nu de zesde tab. Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
   (`robberts-assistent.vdzonsoftware.nl`) + APK.
 - **`groentetuin/`** — moestuin-AI-chat: login → foto's maken/kiezen + tekst → vision-antwoord,
   multi-turn. `ApiClient.gardenChat` (multipart). Web op `moestuin.vdzonsoftware.nl` + APK.
@@ -486,6 +490,22 @@ crashen. Geen AI-call nodig — de tekst is deterministisch uit `WastePickup`-da
 `shortSummary()` geeft alleen bij een ophaalmoment morgen "Zet vanavond de \<bak(ken)\> buiten"
 terug (meerdere types op dezelfde dag samengevoegd in één zin), anders `null`, zodat
 `BriefingScheduler`'s bestaande `mapNotNull`-patroon de sectie in de 18:00-push overslaat.
+
+Nieuw (SF-1491): langdurige zoekopdrachten ("watches"). Nieuwe `watches`-module met een
+`Watch`-model (id, title, url, instruction, frequency, status, statusText, lastChecked, active),
+een `WatchRepository`-poort (Firestore/in-memory fallback, zelfde patroon als `reminders`),
+`WatchesService` voor CRUD, en `WatchesController` (`GET /api/v1/watches`, `POST /api/v1/watches`,
+`DELETE /api/v1/watches/{id}`). `WatchScheduler` is een `@Scheduled fixedDelay`-poller
+(configureerbaar via `ra.watches.poll-interval-ms`, default 5 min) die per actieve watch checkt of
+'ie aan de beurt is: `KANTOORUREN` = ma-vr 09:00-17:00, max één check/uur; `DAGELIJKS` = max één
+check/24u. AI-beoordeling via een losse, tool-loze `watchChatClient` (`WatchAiConfig`): haalt de
+webpagina op, stuurt tekst + instructie naar de AI, parseert regel 1 als `GEVONDEN`/`NIET GEVONDEN`,
+regel 2 als statustekst. Bij transitie naar `GEVONDEN`: `PushService.sendToAll(...)` met
+`data["type"] = "watch"`, daarna `active = false`. Onder `RA_MOCK_AI` geeft de AI-check status
+ONBEKEND (deterministische fallback). App-kant: nieuwe "Watches"-tab in de bottom-navigatie (vijfde
+tab, "Meer" schuift naar zesde) met een lijst van alle watches, titel/status/laatst-gecheckt; CRUD
+via dialogen (titel, URL, instructie, frequentie-dropdown Kantooruren/Dagelijks); swipe-to-delete
+met bevestiging.
 
 ---
 

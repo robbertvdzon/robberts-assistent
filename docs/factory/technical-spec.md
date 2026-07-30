@@ -37,9 +37,9 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient`), zodat mock/echt automatisch
   meeloopt met `AppSecrets.effectiveMockAi` zonder eigen schakelaar.
 - **Data:** notities in Postgres (JdbcTemplate + Flyway `V1`); reminders + chat-conversaties
-  (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
-  database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
-  (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
+  (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) + watches in Firestore
+  (named database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase
+  Storage (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
 
 ## Web-apps
 
