@@ -67,24 +67,35 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   "Health check"-tab met alleen het systeem-checkrapport in ruwe vorm). Sinds SF-1275 toont de
   Software Factory-check binnen het systeem-checkrapport alleen nog stories met een fout of een
   lopende (niet-gemergede) fase, i.p.v. alle stories.
+- **Zoekopdrachten (watches)** — de gebruiker maakt een zoekopdracht aan met titel, url,
+  instructie, check-frequentie (kantooruren of 1x/dag) en pushmelding-voorkeur; een
+  `@Scheduled`-poller checkt elke actieve zoekopdracht op zijn beurt, haalt de pagina op en laat
+  een AI beoordelen of aan de instructie is voldaan (status `ONBEKEND`/`NIET_GEVONDEN`/
+  `GEVONDEN` + een korte statuszin). Bij de transitie naar `GEVONDEN` gaat er (als gewenst)
+  precies één pushmelding uit en stopt de zoekopdracht met pollen tot de gebruiker 'm opnieuw
+  aanpast. Falen van de paginaophaal- of AI-stap voor één zoekopdracht crasht de poller niet en
+  raakt andere zoekopdrachten niet. CRUD via REST en zichtbaar in de app.
 
 ## Push / meldingen
 
 - **Telegram** (uitgaand): reminders/alerts gaan naar Robberts Telegram-groep.
-- **FCM**: push naar de app; gebruikt voor reminders/alarms én de dagelijkse
-  18:00-Morgen-briefingpush. App-kant (lokaal alarm, reminders-scherm, FCM-ontvangst,
-  deep-link naar de Upcoming-tab) is gebouwd.
+- **FCM**: push naar de app; gebruikt voor reminders/alarms, de dagelijkse
+  18:00-Morgen-briefingpush, en sinds SF-1526 de zoekopdrachten-melding
+  (`data["type"] = "watch"`) bij een transitie naar "gevonden". App-kant (lokaal alarm,
+  reminders-scherm, FCM-ontvangst, deep-link naar de Upcoming-tab) is gebouwd.
 
 ## Apps
 
-- **robberts_assistent** — bottom-nav met 5 tabs: dagelijkse Morgen-briefing zonder
+- **robberts_assistent** — bottom-nav met 6 tabs: dagelijkse Morgen-briefing zonder
   systeemstatus (eerste tab, "Upcoming"), systeem-checkrapport in ruwe, selecteerbare vorm
   (tweede tab, "Health check", sinds SF-1267/SF-1268) + chat met de assistent, in persistente,
   benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij). Gesprekken zijn
   te archiveren (reversibel) en te verwijderen (met bevestiging); de lijst toont eerst de 10
   meest recente, oudere onder een uitklapbare "Ouder"-sectie. Een gebruiker-breed geheugen
   (feiten/voorkeuren) wordt automatisch bijgewerkt na elke chat-beurt en gebruikt als context in
-  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". Google-login.
+  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". Sinds SF-1526 een
+  "Zoekopdrachten"-tab (CRUD-lijst + dialoog voor titel/url/instructie/frequentie/pushmelding,
+  zie de watches-skill hierboven). Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.
 - **notities** — één auto-opslaande notitie. Google-login.
