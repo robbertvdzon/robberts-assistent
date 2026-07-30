@@ -100,3 +100,35 @@ Code-review tegen de volledige story-diff (`git diff main...HEAD`), plus gericht
   AI-fouten per watch, tab-index 4 met "Meer" naar 5 (`home_screen.dart`), bestaande tabs/briefing-
   deep-link ongewijzigd. Patronen (repository-poort, controller-stijl, AI-config) volgen
   consistent `reminders`/`briefing`. Geen blockers gevonden.
+
+## Test (SF-1528)
+
+- Backend-vangnet: `mvn -o test` opnieuw gedraaid (start 2026-07-30T04:39:54Z, eind
+  2026-07-30T04:40:21Z) → 329 tests, 0 failures/errors, BUILD SUCCESS (incl.
+  `ModulithArchitectureTest`). Een stacktrace in de output is verwacht/gelogd gedrag van de
+  `WatchScheduler`-isolatietest (falende fetch/AI wordt met `runCatching` afgevangen en gelogd).
+- Frontend-vangnet: `flutter pub get` + `flutter analyze` (geen issues) + `flutter test`
+  (volledige suite) → 41/41 groen, inclusief `watches_screen_test.dart`/`home_screen_test.dart`.
+  Flutter-SDK was dit keer bruikbaar in de sandbox.
+- E2E op preview `robberts-assistent-pr-36`
+  (`https://robberts-assistent-frontend-robberts-assistent-pr-36.apps.sno.lab.vdzon.com`):
+  - `GET/POST/PUT/DELETE /api/v1/watches` via de frontend-proxy (geen auth-header nodig,
+    `RA_PREVIEW_SKIP_GOOGLE_AUTH`): create → list toont de nieuwe watch → PUT wijzigt
+    titel/instructie/frequentie/notifyOnFound → validatie geeft 400 bij ongeldige `frequency` en
+    bij een lege `title` → DELETE + list bevestigt opruiming. Alle tijdelijke testdata
+    (`tester-tijdelijk-aaltjes`, `tester-ui-check`) achteraf verwijderd, `GET /api/v1/watches`
+    geeft weer `{"watches":[]}`.
+  - Browser-screenshots (Playwright/Chromium, viewport 480x900,
+    `screenshots/00-initial.png`..`04-edit-dialog.png`): bottom-nav toont 6 tabs met
+    "Zoekopdrachten" op index 4 en "Meer" op index 5 (AC6); lege staat toont de verwachte tekst;
+    aanmaakdialoog bevat titel/url/instructie/frequentie-dropdown/pushmelding-switch (AC1); de
+    lijst toont titel + statustekst per zoekopdracht (AC2); tik op een item opent hetzelfde
+    dialoog vooraf ingevuld (bewerken, AC2).
+  - AC3 (poller haalt pagina op + AI-beoordeling) en AC4 (transitie naar GEVONDEN + precies één
+    push + `active=false`) zijn op preview niet forceerbaar binnen de poll-intervaltijd/onder
+    `RA_MOCK_AI` (geeft altijd een niet-`GEVONDEN`-uitkomst) — al eerder zo genoteerd voor de
+    vergelijkbare SF-1489-poller; deze paden zijn wel volledig gedekt door
+    `WatchSchedulerTest`/`WatchSchedulingTest`/`WatchVerdictTest` (backend-vangnet groen). AC5
+    (isolatie van fouten) idem gedekt door `WatchSchedulerTest`.
+- Geen bugs gevonden. Geen code/tests/infra gewijzigd; alleen dit worklog bijgewerkt en
+  tijdelijke testdata (met cleanup).
