@@ -83,3 +83,20 @@ Niet gedaan / bewust buiten scope:
 - Geen losse "activeren"-knop in de UI — reactiveren gebeurt impliciet via bewerken (zie boven),
   conform de story-aanname dat titel/url/instructie/frequentie/pushmelding de enige invoervelden
   van het dialoog zijn.
+
+## Review (SF-1527)
+
+Code-review tegen de volledige story-diff (`git diff main...HEAD`), plus gerichte verificatie:
+- Backend: `mvn -o test -Dtest='Watch*Test,ModulithArchitectureTest'` → 26 tests groen, incl.
+  module-grenzen bewaakt; extra `BriefingControllerTest` (bestaande `@SpringBootTest`) groen ter
+  bevestiging dat de nieuwe beans (`WatchAiConfig`, `WatchesController`, ...) de Spring-context
+  niet breken. Volledig backend-vangnet daarna herbevestigd: `mvn -o test` → 329 tests, 0
+  failures/errors, BUILD SUCCESS.
+- Frontend: `flutter analyze` (geen issues) en de volledige `flutter test`-suite (41/41 groen,
+  inclusief `watches_screen_test.dart`/`home_screen_test.dart`) daadwerkelijk gedraaid in de
+  reviewer-sandbox (flutter 3.44.x aanwezig) — geen blanco review nodig.
+- Inhoudelijk tegen de AC's gecontroleerd: CRUD + validatie (`WatchesController`), transitie-naar-
+  GEVONDEN met precies één push + `active=false` (`WatchScheduler`, getest), isolatie van fetch-/
+  AI-fouten per watch, tab-index 4 met "Meer" naar 5 (`home_screen.dart`), bestaande tabs/briefing-
+  deep-link ongewijzigd. Patronen (repository-poort, controller-stijl, AI-config) volgen
+  consistent `reminders`/`briefing`. Geen blockers gevonden.
