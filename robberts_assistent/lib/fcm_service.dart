@@ -8,9 +8,11 @@ import 'api_client.dart';
 
 // Moet gelijk zijn aan `BriefingScheduler.PUSH_TYPE` in de backend.
 const _briefingPushType = 'briefing';
+const _watchPushType = 'watch';
 
-// Index van de Upcoming-tab in HomeScreen's NavigationBar/IndexedStack.
+// Index van de tabs in HomeScreen's NavigationBar/IndexedStack.
 const _morgenTabIndex = 0;
+const _watchesTabIndex = 4;
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond
 /// of gesloten is toont Android de FCM-notification-payload zelf op het opgegeven kanaal.
@@ -35,8 +37,11 @@ class FcmService {
   static final deepLinkTab = ValueNotifier<int?>(null);
 
   static void _handleTap(RemoteMessage message) {
-    if (message.data['type'] == _briefingPushType) {
+    final type = message.data['type'];
+    if (type == _briefingPushType) {
       deepLinkTab.value = _morgenTabIndex;
+    } else if (type == _watchPushType) {
+      deepLinkTab.value = _watchesTabIndex;
     }
   }
 

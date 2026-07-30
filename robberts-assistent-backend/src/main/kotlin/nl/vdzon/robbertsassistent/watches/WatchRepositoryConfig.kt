@@ -1,0 +1,33 @@
+package nl.vdzon.robbertsassistent.watches
+
+import nl.vdzon.robbertsassistent.firebase.FirebaseProvider
+import org.slf4j.LoggerFactory
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+
+/**
+ * Kiest de watch-opslag: [FirestoreWatchRepository] zodra Firebase geconfigureerd is (zie
+ * [FirebaseProvider]), anders [InMemoryWatchRepository]. Zelfde stub-fallback-patroon als de
+ * reminder-repository: zonder secret draait alles in-memory.
+ */
+@Configuration
+class WatchRepositoryConfig {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
+    @Bean
+    fun watchPageFetcher(): WatchPageFetcher = WatchPageFetcher()
+
+    @Bean
+    fun watchRepository(firebase: FirebaseProvider): WatchRepository {
+        if (!firebase.isConfigured) {
+            logger.info("Watch-opslag: in-memory (geen Firebase-config)")
+            return InMemoryWatchRepository()
+        }
+        return runCatching { FirestoreWatchRepository(firebase.firestore()) }
+            .onSuccess { logger.info("Watch-opslag: Firestore") }
+            .getOrElse {
+                logger.error("Firestore-init faalde, val terug op in-memory watches", it)
+                InMemoryWatchRepository()
+            }
+    }
+}

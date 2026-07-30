@@ -277,6 +277,38 @@ class ApiClient {
     return (body['checks'] as List).map((e) => NightlyCheck.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  // -- Watches ----------------------------------------------------------------
+  /// Alle watches (`GET /api/v1/watches`).
+  Future<List<Watch>> listWatches() async {
+    final body = await getJson('/api/v1/watches');
+    return (body['watches'] as List).map((e) => Watch.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Maakt een nieuwe watch aan (`POST /api/v1/watches`).
+  Future<Watch> createWatch({
+    required String title,
+    required String url,
+    required String instruction,
+    required String frequency,
+  }) async {
+    final body = await postJson('/api/v1/watches', {
+      'title': title,
+      'url': url,
+      'instruction': instruction,
+      'frequency': frequency,
+    });
+    return Watch.fromJson(body);
+  }
+
+  /// Toggle actief/inactief (`PATCH /api/v1/watches/{id}/toggle`).
+  Future<Watch> toggleWatch(String id) async {
+    final body = await patchJson('/api/v1/watches/$id/toggle');
+    return Watch.fromJson(body);
+  }
+
+  /// Verwijdert een watch (`DELETE /api/v1/watches/{id}`).
+  Future<void> deleteWatch(String id) => _delete('/api/v1/watches/$id');
+
   /// Historie van één check, nieuwste eerst.
   Future<List<CheckRun>> nightlyCheckHistory(String id, {int limit = 30}) async {
     final body = await getJson('/api/v1/nightly-checks/$id/history?limit=$limit');
@@ -624,4 +656,66 @@ class NightlyCheck {
         cronSchedule: m['cronSchedule'] as String,
         lastRun: m['lastRun'] == null ? null : CheckRun.fromJson(m['lastRun'] as Map<String, dynamic>),
       );
+}
+
+/// Een langdurige zoekopdracht (watch).
+class Watch {
+  final String id;
+  final String title;
+  final String url;
+  final String instruction;
+  final String frequency;
+  final String status;
+  final bool active;
+  final DateTime? lastChecked;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const Watch({
+    required this.id,
+    required this.title,
+    required this.url,
+    required this.instruction,
+    required this.frequency,
+    required this.status,
+    required this.active,
+    this.lastChecked,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  static Watch fromJson(Map<String, dynamic> m) => Watch(
+        id: m['id'] as String,
+        title: m['title'] as String,
+        url: m['url'] as String,
+        instruction: m['instruction'] as String,
+        frequency: m['frequency'] as String,
+        status: m['status'] as String,
+        active: m['active'] as bool? ?? true,
+        lastChecked: m['lastChecked'] == null ? null : DateTime.parse(m['lastChecked'] as String).toLocal(),
+        createdAt: DateTime.parse(m['createdAt'] as String).toLocal(),
+        updatedAt: DateTime.parse(m['updatedAt'] as String).toLocal(),
+      );
+
+  String get statusLabel {
+    switch (status) {
+      case 'GEVONDEN':
+        return 'Gevonden';
+      case 'NIET_GEVONDEN':
+        return 'Niet gevonden';
+      default:
+        return 'Onbekend';
+    }
+  }
+
+  String get frequencyLabel {
+    switch (frequency) {
+      case 'KANTOORUREN':
+        return 'Kantooruren';
+      case 'DAGELIJKS':
+        return 'Dagelijks';
+      default:
+        return frequency;
+    }
+  }
 }
