@@ -55,7 +55,7 @@ robberts-assistent/
   firebase-admin (Firestore + Cloud Storage). JdbcTemplate + Flyway.
 - **Apps:** Flutter (stable), Dart `>=3.0.0 <4.0.0`. `wind/` heeft native Kotlin (App
   Actions-trampoline-activities). Web-apps draaien als nginx-container (Flutter web build).
-- **Data:** **Firestore** (notities, reminders, alarms, chat-conversaties, FCM-tokens — named
+- **Data:** **Firestore** (notities, reminders, alarms, chat-conversaties, FCM-tokens, watches — named
   database `robberts-assistent` in Google-project `tuinbewatering`); **Firebase Storage**
   (moestuin-foto's in map `moestuin/`, assistent-gespreksfoto's in map `assistent-chat/`, bucket
   `tuinbewatering.firebasestorage.app`). Geen SQL-database meer (Neon opgezegd).
@@ -97,7 +97,8 @@ fallback (zie §5).
 | `openshift` | `OpenShiftClient`: clustergezondheid (ClusterVersion/ClusterOperators) via de in-cluster ServiceAccount-token van de pod zelf (geen los secret — wel de expliciete vlag `RA_OPENSHIFT_HEALTH_ENABLED`, want de benodigde RBAC bestaat nog niet, zie `docs/nightly-checks.md`); `StubOpenShiftClient` anders. |
 | `firebase` | `FirebaseProvider`: gedeelde FirebaseApp → named Firestore-db + Storage-bucket. |
 | `notifier` | `Notifier`-port; `TelegramNotifier` (echt) of `LoggingNotifier` (fallback). |
-| `push` | `PushService.sendToAll(title, body, data)`: FCM-push naar alle geregistreerde tokens (`FcmTokenStore`), no-op zonder Firebase/tokens; `data` gaat als extra FCM-data-payload mee (bv. `"type" to "briefing"`) zodat de app op basis daarvan kan deep-linken. `PushController` (token-registratie), `FcmCouplingProbe`. |
+| `push` | `PushService.sendToAll(title, body, data)`: FCM-push naar alle geregistreerde tokens (`FcmTokenStore`), no-op zonder Firebase/tokens; `data` gaat als extra FCM-data-payload mee (bv. `"type" to "briefing"` of `"type" to "watch"`) zodat de app op basis daarvan kan deep-linken. `PushController` (token-registratie), `FcmCouplingProbe`. |
+| `watches` | Langdurige zoekopdrachten ("geef een seintje als X beschikbaar is"). Datamodel `Watch` (id, title, url, instruction, frequency KANTOORUREN/DAGELIJKS, status ONBEKEND/GEVONDEN/NIET_GEVONDEN, active, lastChecked, createdAt, updatedAt), `WatchRepository` (Firestore/in-memory fallback, zelfde patroon als `ReminderRepository`), `WatchesController` (CRUD: `GET/POST/DELETE /api/v1/watches`, `PATCH /{id}/toggle`), `WatchScheduler` (`@Scheduled(fixedDelayString = "${ra.watches.poll-interval-ms:300000}")` pollt actieve watches; pure `isDue()`-functie bepaalt of nu gecheckt moet worden — KANTOORUREN: ma-vr 09:00-17:00 elk uur, DAGELIJKS: eenmaal per 24u), `WatchPageFetcher` (haalt URL op + eigen `htmlToPlainText()`-kopie voor Modulith-bewaking), `watchChatClient` (tool-loos, `BriefingAiConfig`-patroon: ontvangt pagina-tekst + instructie, antwoordt met "GEVONDEN: <reden>" of "NIET GEVONDEN: <status>"), `WatchCouplingProbe` (Koppelingen-scherm, configured = !effectiveMockAi). Bij transitie NIET_GEVONDEN→GEVONDEN: `PushService.sendToAll` (`data["type"] = "watch"` voor app-deep-link) + `active = false`. Zonder AI-credentials (`RA_MOCK_AI`) krijgt een watch status ONBEKEND (geen crash). |
 | `couplings` | `CouplingProbe`-SPI + `CouplingsService`: elke module registreert een `@Component` die `CouplingProbe` implementeert (id/naam/omschrijving/configured/mode/test); Spring injecteert automatisch `List<CouplingProbe>`. Voedt het "Koppelingen"-scherm in de app — een nieuwe koppeling toevoegen betekent alleen een nieuwe `CouplingProbe`-implementatie in de eigen module, geen wijziging hier of in de app. |
 | `nightlychecks` | `NightlyCheck`-SPI + `NightlyCheckScheduler`/`NightlyChecksService`: net als `couplings`, maar voor achtergrondchecks — elke module registreert een `@Component` met een eigen cron-schema; resultaten (met historie) in Firestore/in-memory. Voedt de "Nachtchecks"-tab in de app + `summary.SummaryService` (dat endpoint heeft sinds de Morgen-briefing (SF-1163) geen app-consument meer, zie de `summary`-rij hieronder). Sinds SF-1164 heeft de Morgen-briefing ook een eigen, live (niet nachtelijk-historisch) systeem-checkrapport, zie de `briefing`-rij (`SystemStatusSectionProvider`) — dat gebruikt bewust een live check i.p.v. `NightlyCheckRepository`-historie. Zie `docs/nightly-checks.md`. |
 
@@ -134,7 +135,7 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
 
 ## 6. Apps
 
-- **`robberts_assistent/`** — bottom-navigatie met 5 tabs. Eerste tab is **"Upcoming"**
+- **`robberts_assistent/`** — bottom-navigatie met 6 tabs. Eerste tab is **"Upcoming"**
   (`summary_screen.dart`, was "Morgen"/"Samenvatting"): dagelijkse briefing met alle secties van
   `briefing` (weerkaart, kite/strandfiets, agenda komende 7 dagen met per-afspraak een
   reminder-aanmaak-actie waar nodig, AI-weektakensamenvatting, moestuin-placeholder) **behalve**
@@ -165,7 +166,12 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
   gearchiveerde gesprekken alsnog zien. Plus Koppelingen-, Nachtchecks- en **Geheugen**-schermen
   (`memory_screen.dart`: één groot bewerkbaar tekstveld met de volledige geheugen-tekst,
   auto-save net als `notities/lib/notes_editor_screen.dart`) bereikbaar via
-  `more_screen.dart`. Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
+  `more_screen.dart`. Sinds SF-1534 een vijfde tab **"Watches"** (`watches_screen.dart`):
+  langdurige zoekopdrachten ("geef een seintje als X beschikbaar is"); lijst met watches (titel +
+  status), FAB voor nieuwe watch (titel, URL, instructie, frequentie-dropdown Kantooruren/Dagelijks),
+  swipe-links via `flutter_slidable` voor Pauzeren/Hervatten en Verwijderen (met bevestigingsdialoog);
+  een tik op de FCM-push (`data['type'] == 'watch'`) opent deze tab automatisch
+  (`FcmService.deepLinkTab`, afgehandeld in `home_screen.dart`). Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
   (`robberts-assistent.vdzonsoftware.nl`) + APK.
 - **`groentetuin/`** — moestuin-AI-chat: login → foto's maken/kiezen + tekst → vision-antwoord,
   multi-turn. `ApiClient.gardenChat` (multipart). Web op `moestuin.vdzonsoftware.nl` + APK.
@@ -486,6 +492,27 @@ crashen. Geen AI-call nodig — de tekst is deterministisch uit `WastePickup`-da
 `shortSummary()` geeft alleen bij een ophaalmoment morgen "Zet vanavond de \<bak(ken)\> buiten"
 terug (meerdere types op dezelfde dag samengevoegd in één zin), anders `null`, zodat
 `BriefingScheduler`'s bestaande `mapNotNull`-patroon de sectie in de 18:00-push overslaat.
+
+Nieuw (SF-1534): **Watches** — langdurige zoekopdrachten ("geef een seintje als aaltjes tegen
+slakken weer beschikbaar zijn op deze webshop"). Nieuwe `watches`-module (zelfde structuur als
+`reminders`): datamodel `Watch` met velden id, title, url, instruction, frequency
+(KANTOORUREN/DAGELIJKS), status (ONBEKEND/GEVONDEN/NIET_GEVONDEN), active, lastChecked,
+createdAt, updatedAt. `WatchRepository` (Firestore/in-memory fallback, zelfde patroon als
+`ReminderRepository`), `WatchesController` (CRUD: `GET/POST/DELETE /api/v1/watches`, `PATCH
+/{id}/toggle`). `WatchScheduler` (`@Scheduled(fixedDelayString =
+"${ra.watches.poll-interval-ms:300000}")`, default 5 min) pollt actieve watches; pure
+`isDue()`-functie bepaalt of nu gecheckt moet worden — KANTOORUREN: ma-vr 09:00-17:00 elk uur,
+DAGELIJKS: eenmaal per 24u (interval sinds lastChecked). `WatchPageFetcher` haalt de pagina-HTML
+op en converteert naar platte tekst via een eigen `htmlToPlainText()`-kopie
+(ModulithArchitectureTest-bewaking). Een losse `watchChatClient` (tool-loos, `BriefingAiConfig`-
+patroon, `WatchAiConfig`) ontvangt pagina-tekst + instructie en antwoordt met "GEVONDEN: <reden>"
+of "NIET GEVONDEN: <status>". Bij transitie NIET_GEVONDEN→GEVONDEN: `PushService.sendToAll`
+(`data["type"] = "watch"` voor app-deep-link) + `active = false` (automatisch gepauzeerd na hit).
+`WatchCouplingProbe` (Koppelingen-scherm, configured = !effectiveMockAi). Zonder AI-credentials
+(`RA_MOCK_AI`) krijgt een watch status ONBEKEND (geen crash). App-kant: nieuw `watches_screen.dart`
+(lijst met watches, FAB voor aanmaak, swipe-acties via `flutter_slidable`), zesde tab in
+`home_screen.dart` (vóór "Meer", die naar index 5 schuift); een tik op de FCM-push (`data['type']
+== 'watch'`) opent de Watches-tab automatisch (`FcmService.deepLinkTab`).
 
 ---
 

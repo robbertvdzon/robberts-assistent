@@ -25,6 +25,14 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 - **Google Docs** (read-only) — de agent leest een doc op id en beantwoordt vragen eruit.
 - **Dagelijkse samenvatting** — oorspronkelijke samenvatting-skill (`summary`); sinds de
   Morgen-briefing (hieronder) niet meer aangesloten op een app-scherm.
+- **Watches** — langdurige zoekopdrachten ("geef een seintje als X weer beschikbaar is op deze
+  webshop"). De gebruiker geeft een titel, URL en instructie op, plus hoe vaak gecheckt moet
+  worden (kantooruren of dagelijks). KANTOORUREN checkt ma-vr 09:00-17:00 elk uur; DAGELIJKS
+  checkt eenmaal per 24 uur. De backend haalt de pagina-HTML op, converteert naar platte tekst
+  en laat de AI beoordelen of aan de instructie voldaan is. Bij een hit (transitie
+  NIET_GEVONDEN→GEVONDEN): pushmelding + watch wordt automatisch inactief. Zonder AI-credentials
+  krijgt een watch status ONBEKEND (geen crash). De watch-koppeling verschijnt op het
+  Koppelingen-scherm.
 - **Morgen-briefing** — dagelijks (pluggable) overzicht met acht secties: een weerkaart voor
   morgen (één kaartbeeld van de kust IJmuiden–Egmond met daarop twee gekleurde windpijlen,
   verticaal gestapeld aan de linkerkant — oranje = ochtend (07:00), blauw = avond (19:00) — elk
@@ -77,14 +85,16 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 
 ## Apps
 
-- **robberts_assistent** — bottom-nav met 5 tabs: dagelijkse Morgen-briefing zonder
+- **robberts_assistent** — bottom-nav met 6 tabs: dagelijkse Morgen-briefing zonder
   systeemstatus (eerste tab, "Upcoming"), systeem-checkrapport in ruwe, selecteerbare vorm
-  (tweede tab, "Health check", sinds SF-1267/SF-1268) + chat met de assistent, in persistente,
+  (tweede tab, "Health check", sinds SF-1267/SF-1268), chat met de assistent in persistente,
   benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij). Gesprekken zijn
   te archiveren (reversibel) en te verwijderen (met bevestiging); de lijst toont eerst de 10
   meest recente, oudere onder een uitklapbare "Ouder"-sectie. Een gebruiker-breed geheugen
   (feiten/voorkeuren) wordt automatisch bijgewerkt na elke chat-beurt en gebruikt als context in
-  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". Google-login.
+  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". Sinds SF-1534 een vijfde tab
+  "Watches" voor langdurige zoekopdrachten (aanmaken, lijst, swipe-acties pauzeren/verwijderen);
+  een tik op de watch-push opent deze tab automatisch. Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.
 - **notities** — één auto-opslaande notitie. Google-login.
