@@ -13,6 +13,7 @@ import 'package:robberts_assistent/more_screen.dart';
 import 'package:robberts_assistent/nightly_checks_screen.dart';
 import 'package:robberts_assistent/summary_screen.dart';
 import 'package:robberts_assistent/updates_screen.dart';
+import 'package:robberts_assistent/watches_screen.dart';
 
 /// Stub-ApiClient die alleen de door de vier hoofdschermen aangeroepen methodes overschrijft
 /// met lege/harmloze resultaten, zodat er geen echte netwerkcalls in de test plaatsvinden.
@@ -41,6 +42,9 @@ class _FakeApiClient extends ApiClient {
 
   @override
   Future<String> getMemoryText() async => '';
+
+  @override
+  Future<List<Watch>> listWatches() async => [];
 }
 
 void main() {
@@ -53,17 +57,18 @@ void main() {
     (call) async => -1,
   );
 
-  testWidgets('bottom-nav telt precies 5 tabs en Meer opent MoreScreen', (tester) async {
+  testWidgets('bottom-nav telt precies 6 tabs en Meer opent MoreScreen', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
     );
     await tester.pump();
 
-    expect(find.byType(NavigationDestination), findsNWidgets(5));
+    expect(find.byType(NavigationDestination), findsNWidgets(6));
     expect(find.text('Upcoming'), findsOneWidget);
     expect(find.text('Health check'), findsOneWidget);
     expect(find.text('Assistent'), findsOneWidget);
     expect(find.text('Herinneringen'), findsOneWidget);
+    expect(find.text('Watches'), findsOneWidget);
     expect(find.text('Meer'), findsOneWidget);
 
     await tester.tap(find.text('Meer'));

@@ -9,9 +9,10 @@ import 'more_screen.dart';
 import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
 import 'summary_screen.dart';
+import 'watches_screen.dart';
 
 /// App-shell na het inloggen: navigatie tussen Upcoming (briefing), Health check, de assistent,
-/// herinneringen en 'Meer'.
+/// herinneringen, watches en 'Meer'.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.api, required this.onLoggedOut});
 
@@ -60,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
       HealthCheckScreen(api: widget.api),
       ConversationsScreen(api: widget.api),
       SchedulesScreen(api: widget.api),
+      WatchesScreen(api: widget.api),
       MoreScreen(api: widget.api),
     ];
     return Scaffold(
@@ -91,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(icon: Icon(Icons.health_and_safety_outlined), selectedIcon: Icon(Icons.health_and_safety), label: 'Health check'),
           NavigationDestination(icon: Icon(Icons.assistant_outlined), selectedIcon: Icon(Icons.assistant), label: 'Assistent'),
           NavigationDestination(icon: Icon(Icons.alarm_outlined), selectedIcon: Icon(Icons.alarm), label: 'Herinneringen'),
+          NavigationDestination(icon: Icon(Icons.visibility_outlined), selectedIcon: Icon(Icons.visibility), label: 'Watches'),
           NavigationDestination(icon: Icon(Icons.more_horiz_outlined), selectedIcon: Icon(Icons.more_horiz), label: 'Meer'),
         ],
       ),

@@ -289,6 +289,32 @@ class ApiClient {
     return CheckRun.fromJson(body);
   }
 
+  // -- Watches ----------------------------------------------------------------
+  /// Alle watches (langdurige zoekopdrachten).
+  Future<List<Watch>> listWatches() async {
+    final body = await getJson('/api/v1/watches');
+    return (body['watches'] as List).map((e) => Watch.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Maakt een nieuwe watch aan.
+  Future<Watch> createWatch({
+    required String title,
+    required String url,
+    required String instruction,
+    required String frequency,
+  }) async {
+    final body = await postJson('/api/v1/watches', {
+      'title': title,
+      'url': url,
+      'instruction': instruction,
+      'frequency': frequency,
+    });
+    return Watch.fromJson(body);
+  }
+
+  /// Verwijdert een watch.
+  Future<void> deleteWatch(String id) => _delete('/api/v1/watches/$id');
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -623,5 +649,42 @@ class NightlyCheck {
         description: m['description'] as String,
         cronSchedule: m['cronSchedule'] as String,
         lastRun: m['lastRun'] == null ? null : CheckRun.fromJson(m['lastRun'] as Map<String, dynamic>),
+      );
+}
+
+/// Langdurige zoekopdracht die periodiek een webpagina controleert.
+class Watch {
+  final String id;
+  final String title;
+  final String url;
+  final String instruction;
+  final String frequency;
+  final String status;
+  final String? statusText;
+  final DateTime? lastChecked;
+  final bool active;
+
+  const Watch({
+    required this.id,
+    required this.title,
+    required this.url,
+    required this.instruction,
+    required this.frequency,
+    required this.status,
+    this.statusText,
+    this.lastChecked,
+    required this.active,
+  });
+
+  static Watch fromJson(Map<String, dynamic> m) => Watch(
+        id: m['id'] as String,
+        title: m['title'] as String,
+        url: m['url'] as String,
+        instruction: m['instruction'] as String,
+        frequency: m['frequency'] as String,
+        status: m['status'] as String,
+        statusText: m['statusText'] as String?,
+        lastChecked: m['lastChecked'] == null ? null : DateTime.parse(m['lastChecked'] as String).toLocal(),
+        active: m['active'] as bool? ?? true,
       );
 }
