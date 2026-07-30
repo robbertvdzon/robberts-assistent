@@ -257,6 +257,49 @@ class ApiClient {
 
   Future<void> deleteAlarm(String id) => _delete('/api/v1/alarms/$id');
 
+  // -- Zoekopdrachten (watches) -------------------------------------------------
+  Future<List<Watch>> listWatches() async {
+    final body = await getJson('/api/v1/watches');
+    return (body['watches'] as List).map((e) => Watch.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<Watch> createWatch({
+    required String title,
+    required String url,
+    required String instruction,
+    required WatchFrequency frequency,
+    required bool notifyOnFound,
+  }) async {
+    final body = await postJson('/api/v1/watches', {
+      'title': title,
+      'url': url,
+      'instruction': instruction,
+      'frequency': frequency.apiValue,
+      'notifyOnFound': notifyOnFound,
+    });
+    return Watch.fromJson(body);
+  }
+
+  Future<Watch> updateWatch({
+    required String id,
+    required String title,
+    required String url,
+    required String instruction,
+    required WatchFrequency frequency,
+    required bool notifyOnFound,
+  }) async {
+    final body = await putJson('/api/v1/watches/$id', {
+      'title': title,
+      'url': url,
+      'instruction': instruction,
+      'frequency': frequency.apiValue,
+      'notifyOnFound': notifyOnFound,
+    });
+    return Watch.fromJson(body);
+  }
+
+  Future<void> deleteWatch(String id) => _delete('/api/v1/watches/$id');
+
   // -- Koppelingen ------------------------------------------------------------
   /// Status van alle externe koppelingen (geconfigureerd + echt/fallback), zonder live-test.
   Future<List<Coupling>> listCouplings() async {
@@ -441,6 +484,80 @@ class Reminder {
         dueAt: DateTime.parse(m['dueAt'] as String).toLocal(),
         recurrence: Recurrence.fromJson(m['recurrence'] as Map<String, dynamic>?),
         active: m['active'] as bool? ?? true,
+      );
+}
+
+/// Hoe vaak een [Watch] gecontroleerd wordt.
+enum WatchFrequency {
+  kantooruren,
+  dagelijks;
+
+  static WatchFrequency fromJson(String value) => switch (value) {
+        'KANTOORUREN' => WatchFrequency.kantooruren,
+        _ => WatchFrequency.dagelijks,
+      };
+
+  /// Waarde zoals de backend 'm verwacht/teruggeeft (`WatchFrequency`-enum-naam).
+  String get apiValue =>
+      switch (this) { WatchFrequency.kantooruren => 'KANTOORUREN', WatchFrequency.dagelijks => 'DAGELIJKS' };
+
+  String get label => switch (this) {
+        WatchFrequency.kantooruren => 'Kantooruren (ma-vr 09:00-17:00, elk uur)',
+        WatchFrequency.dagelijks => '1 keer per dag',
+      };
+}
+
+/// Resultaat van de laatste AI-beoordeling van een [Watch].
+enum WatchStatus {
+  onbekend,
+  nietGevonden,
+  gevonden;
+
+  static WatchStatus fromJson(String value) => switch (value) {
+        'GEVONDEN' => WatchStatus.gevonden,
+        'NIET_GEVONDEN' => WatchStatus.nietGevonden,
+        _ => WatchStatus.onbekend,
+      };
+}
+
+/// Eén langlopende zoekopdracht (`GET/POST /api/v1/watches`, `PUT/DELETE .../{id}`): de backend
+/// controleert 'm periodiek en beoordeelt met AI of aan [instruction] is voldaan op [url].
+class Watch {
+  final String id;
+  final String title;
+  final String url;
+  final String instruction;
+  final WatchFrequency frequency;
+  final bool notifyOnFound;
+  final WatchStatus status;
+  final String statusText;
+  final bool active;
+  final DateTime? lastCheckedAt;
+
+  const Watch({
+    required this.id,
+    required this.title,
+    required this.url,
+    required this.instruction,
+    required this.frequency,
+    required this.notifyOnFound,
+    required this.status,
+    required this.statusText,
+    required this.active,
+    this.lastCheckedAt,
+  });
+
+  static Watch fromJson(Map<String, dynamic> m) => Watch(
+        id: m['id'] as String,
+        title: m['title'] as String,
+        url: m['url'] as String,
+        instruction: m['instruction'] as String,
+        frequency: WatchFrequency.fromJson(m['frequency'] as String),
+        notifyOnFound: m['notifyOnFound'] as bool? ?? true,
+        status: WatchStatus.fromJson(m['status'] as String),
+        statusText: m['statusText'] as String? ?? '',
+        active: m['active'] as bool? ?? true,
+        lastCheckedAt: m['lastCheckedAt'] == null ? null : DateTime.parse(m['lastCheckedAt'] as String).toLocal(),
       );
 }
 
