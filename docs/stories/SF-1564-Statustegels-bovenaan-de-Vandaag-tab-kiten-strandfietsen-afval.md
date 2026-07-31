@@ -62,7 +62,7 @@ Als er geen betrouwbare status beschikbaar is, blijft de bestaande sectie gewoon
 7. Een tik op een tegel opent de juiste bestaande sectie-inhoud. Een andere tegel openen sluit het vorige detail.
 8. Een getegelde sectie staat niet tevens permanent als losse kaart onderaan; niet-getegelde en foutsecties blijven wel als kaart zichtbaar.
 9. Backendtests dekken de nieuwe velden en selectiegevallen voor `KiteSectionProvider`, `BeachCycleSectionProvider` en `WasteSectionProvider`, inclusief fout- en leeggedrag.
-10. Fluttertests dekken JSON zonder/Met status, de tegelrij met 0, 1 en 3 tegels, gelijke breedte zonder overflow, de exacte statuskleuren, het tik-/uitklapgedrag en het ontbreken van permanente dubbele kaarten.
+10. Fluttertests dekken JSON zonder/met status, de tegelrij met 0, 1 en 3 tegels, gelijke breedte zonder overflow, de exacte statuskleuren, het tik-/uitklapgedrag en het ontbreken van permanente dubbele kaarten.
 11. Bestaande backend- en Fluttertests blijven behouden en worden waar nodig aangepast; `mvn test`, `flutter analyze` en `flutter test` zijn groen binnen de mogelijkheden van de factory-omgeving.
 12. De functionele en technische factory-documentatie wordt bijgewerkt met het uitgebreide briefingcontract en het tegelgedrag.
 
@@ -73,8 +73,6 @@ Als er geen betrouwbare status beschikbaar is, blijft de bestaande sectie gewoon
 - Alleen de eerste drie statussecties worden tegels. Dit houdt toekomstige extra statusproviders bruikbaar zonder informatie te verbergen.
 - Er komen geen nieuwe endpoints, cachelagen, databronnen of wijzigingen aan de dagelijkse push.
 - De bestaande lichte themastijl blijft leidend; deze story voegt geen dark mode of nieuw algemeen kaartthema toe.
-
-## Eindsamenvatting
 
 ## Eindsamenvatting SF-1564
 

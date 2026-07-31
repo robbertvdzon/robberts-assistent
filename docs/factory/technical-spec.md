@@ -90,10 +90,12 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   woord). `flutter_svg` rendert `assets/icon/logo.svg`; `flutter_launcher_icons` genereert de
   Android- en webiconen uit het overeenkomstige PNG.
 - De Vandaag-tab parseert onbekende briefingstatussen als `null` en rendert maximaal drie geldige
-  statussecties als even brede tegels. De exacte bolkleuren zijn `#0CA30C`, `#FAB219` en
-  `#D03B3B`; tegel-semantiek bevat statuswoord, titel en label. Eén geselecteerde tegel toont zijn
-  bestaande sectiekaart direct onder de rij en wordt zo nodig met `Scrollable.ensureVisible` in
-  beeld gebracht; getegelde secties worden uit de permanente kaartenlijst gefilterd.
+  statussecties met een niet-leeg `tileLabel` als even brede tegels. De exacte bolkleuren zijn
+  `#0CA30C`, `#FAB219` en `#D03B3B`; tegel-semantiek bevat statuswoord, titel, label en een
+  uitvoerbare tikactie. Eén geselecteerde tegel toont zijn bestaande sectiekaart direct onder de
+  rij en wordt zo nodig met `Scrollable.ensureVisible` in beeld gebracht; getegelde secties worden
+  uit de permanente kaartenlijst gefilterd. Geldige statussecties na de limiet blijven gewone
+  kaarten.
 - Pushnavigatie gebruikt `FcmService.deepLinkTarget`: `briefing` gaat naar de hoofdbestemming
   Vandaag en sluit eerst routes boven de app-shell; `watch` pusht een verse
   `WatchesScreen`-route. Daarmee zijn deeplinks niet gekoppeld aan veranderlijke tab-indexen.
