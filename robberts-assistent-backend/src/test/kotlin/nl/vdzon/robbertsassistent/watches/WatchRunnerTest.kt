@@ -293,6 +293,126 @@ class WatchRunnerTest {
     }
 
     @Test
+    fun `run-now controleert alle actieve watches ongeacht frequentie en laatste controle`() {
+        val repository = InMemoryWatchRepository().also {
+            it.save(
+                watch(frequency = WatchFrequency.DAGELIJKS)
+                    .copy(lastCheckedAt = instant("2026-08-01T01:00:00")),
+            )
+            it.save(
+                watch(frequency = WatchFrequency.KANTOORUREN)
+                    .copy(id = "2", lastCheckedAt = instant("2026-07-27T09:30:00")),
+            )
+        }
+        val fetcher = FakeFetcher()
+        val evaluator = FakeEvaluator()
+        val runner = WatchRunner(repository, fetcher, evaluator, FakePush())
+        // Zaterdagnacht, en vandaag al gecontroleerd: geen enkele watch is volgens
+        // WatchSchedule.isDue aan de beurt - run-now moet ze toch allebei controleren.
+        val now = instant("2026-08-01T03:00:00")
+        assertTrue(repository.all().none { WatchSchedule.isDue(it, now) })
+
+        runner.runNow(now)
+
+        assertEquals(2, fetcher.calls)
+        assertEquals(2, evaluator.calls)
+        repository.all().forEach {
+            assertEquals(WatchStatus.NIET_GEVONDEN, it.status)
+            assertEquals("Nog niet gevonden.", it.statusDescription)
+            assertEquals(now, it.lastCheckedAt)
+        }
+    }
+
+    @Test
+    fun `run-now slaat inactieve watches over en laat ze ongewijzigd`() {
+        val gevonden = watch().copy(
+            id = "2",
+            status = WatchStatus.GEVONDEN,
+            statusDescription = "Al gevonden.",
+            lastCheckedAt = instant("2026-07-27T09:00:00"),
+            active = false,
+        )
+        val repository = InMemoryWatchRepository().also {
+            it.save(watch())
+            it.save(gevonden)
+        }
+        val fetcher = FakeFetcher()
+        val evaluator = FakeEvaluator()
+        val push = FakePush()
+        val runner = WatchRunner(repository, fetcher, evaluator, push)
+
+        runner.runNow(instant("2026-08-01T03:00:00"))
+
+        assertEquals(1, fetcher.calls)
+        assertEquals(1, evaluator.calls)
+        assertEquals(gevonden, repository.findById("2"))
+        assertTrue(push.sent.isEmpty())
+    }
+
+    @Test
+    fun `run-now met een vondst deactiveert en pusht precies eenmaal`() {
+        val repository = InMemoryWatchRepository().also { it.save(watch()) }
+        val push = FakePush()
+        val runner = WatchRunner(
+            repository,
+            FakeFetcher(),
+            FakeEvaluator(WatchAssessment(true, "Twee kaarten beschikbaar.")),
+            push,
+        )
+        val now = instant("2026-08-01T03:00:00")
+
+        runner.runNow(now)
+        runner.runNow(instant("2026-08-01T04:00:00"))
+
+        val updated = repository.all().single()
+        assertEquals(WatchStatus.GEVONDEN, updated.status)
+        assertEquals("Twee kaarten beschikbaar.", updated.statusDescription)
+        assertEquals(now, updated.lastCheckedAt)
+        assertFalse(updated.active)
+        assertEquals(1, push.sent.size)
+    }
+
+    @Test
+    fun `run-now zonder meldingsvoorkeur deactiveert zonder push`() {
+        val repository = InMemoryWatchRepository().also { it.save(watch(notify = false)) }
+        val push = FakePush()
+        val runner = WatchRunner(
+            repository,
+            FakeFetcher(),
+            FakeEvaluator(WatchAssessment(true, "Gevonden.")),
+            push,
+        )
+
+        runner.runNow(instant("2026-08-01T03:00:00"))
+
+        assertFalse(repository.all().single().active)
+        assertTrue(push.sent.isEmpty())
+    }
+
+    @Test
+    fun `run-now gaat na een mislukte watch door met de overige watches`() {
+        val repository = InMemoryWatchRepository().also {
+            it.save(watch())
+            it.save(watch().copy(id = "2", url = "https://example.com/tweede"))
+        }
+        val fetcher = object : WatchPageFetcher {
+            override fun fetch(url: String): String {
+                if (url.endsWith("/tweede")) return "paginatekst"
+                error("netwerk/http-fout")
+            }
+        }
+        val runner = WatchRunner(repository, fetcher, FakeEvaluator(), FakePush())
+
+        runner.runNow(instant("2026-08-01T03:00:00"))
+
+        val eerste = repository.findById("1")!!
+        assertEquals(WatchStatus.ONBEKEND, eerste.status)
+        assertEquals("Controle mislukt; de opdracht wordt later opnieuw geprobeerd.", eerste.statusDescription)
+        assertTrue(eerste.active)
+        assertEquals(WatchStatus.NIET_GEVONDEN, repository.findById("2")!!.status)
+    }
+
+    @Test
     fun `pushadapter verstuurt watch-type voor deeplink`() {
         val pushService = mock(PushService::class.java)
         val found = watch().copy(

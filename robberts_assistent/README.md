@@ -31,7 +31,14 @@ actief op web/productie en wordt op PR-previews overgeslagen via
   HTTP(S)-URL, zoekinstructie, frequentie (`Dagelijks` of `Kantooruren`) en
   pushvoorkeur worden afzonderlijk ingevoerd. De backend valideert dezelfde
   velden opnieuw. Een tik op een watch-push opent deze tab en herlaadt de lijst;
-  ook handmatig openen en de reload-knop halen actuele gegevens op.
+  ook handmatig openen en de reload-knop halen actuele gegevens op. Naast de
+  reload-knop staat een "nu draaien"-knop (`Icons.play_circle_outline`, tooltip
+  "Alle zoekopdrachten nu controleren") die alle actieve opdrachten meteen laat
+  controleren zonder op het schema te wachten; tijdens de run toont die knop een
+  voortgangsindicatie en zijn de run-, reload- en toevoegknop uitgeschakeld (dus
+  geen tweede run), terwijl de bestaande lijst zichtbaar blijft. Na afloop toont
+  de lijst de teruggekomen statussen; faalt de call, dan verschijnt een
+  `SnackBar` met "Nu controleren mislukt: …" en blijft de lijst staan.
 - **Meer** — toegang tot Koppelingen, Nachtchecks, Updates en Geheugen.
 - **Geheugen** (`lib/memory_screen.dart`, via "Meer") — één groot bewerkbaar tekstveld met de
   volledige geheugen-tekst (feiten/voorkeuren over Robbert) die de assistent automatisch
@@ -58,6 +65,7 @@ Alle calls sturen het bestaande Bearer-sessietoken mee.
 | `POST` | `/api/v1/watches` | Maakt een opdracht met `title`, `url`, `instruction`, `frequency` en `notifyOnFound`. |
 | `PUT` | `/api/v1/watches/{id}` | Wijzigt dezelfde vijf velden en activeert de opdracht voor een nieuwe controle. |
 | `DELETE` | `/api/v1/watches/{id}` | Verwijdert de opdracht en geeft de resterende lijst terug. |
+| `POST` | `/api/v1/watches/run-now` | Controleert synchroon alle opdrachten met `active == true` (ongeacht frequentie en `lastCheckedAt`) en geeft daarna de bijgewerkte lijst in dezelfde vorm als `GET` terug. |
 
 Een watch-response bevat `id`, de vijf invoervelden, `status`,
 `statusDescription`, `lastCheckedAt` en `active`. Mogelijke statussen zijn

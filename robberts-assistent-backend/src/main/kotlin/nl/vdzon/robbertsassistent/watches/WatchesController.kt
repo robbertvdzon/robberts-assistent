@@ -42,6 +42,7 @@ data class WatchErrorResponse(val message: String)
 class WatchesController(
     private val authService: AuthService,
     private val watchService: WatchService,
+    private val watchRunner: WatchRunner,
 ) {
     @GetMapping("/api/v1/watches")
     fun list(@RequestHeader("Authorization", required = false) authorization: String?): WatchesResponse {
@@ -62,6 +63,14 @@ class WatchesController(
             request.frequency,
             request.notifyOnFound,
         ).toResponse()
+    }
+
+    /** Controleert nu meteen alle actieve zoekopdrachten (synchroon) en geeft daarna de bijgewerkte lijst terug. */
+    @PostMapping("/api/v1/watches/run-now")
+    fun runNow(@RequestHeader("Authorization", required = false) authorization: String?): WatchesResponse {
+        authService.requireAuthorization(authorization)
+        watchRunner.runNow()
+        return response()
     }
 
     @PutMapping("/api/v1/watches/{id}")

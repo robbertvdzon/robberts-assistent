@@ -41,13 +41,20 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
   database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
   (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
-- **Watches:** `GET`/`POST /api/v1/watches` en `PUT`/`DELETE /api/v1/watches/{id}` zijn
-  geauthenticeerd. `WatchStoreConfig` kiest de Firestore-collectie `watches` of
+- **Watches:** `GET`/`POST /api/v1/watches`, `PUT`/`DELETE /api/v1/watches/{id}` en
+  `POST /api/v1/watches/run-now` zijn geauthenticeerd. `WatchStoreConfig` kiest de Firestore-collectie `watches` of
   `InMemoryWatchRepository`. Bewerken valideert dezelfde vijf invoervelden als aanmaken en reset
   de opdracht naar actief en `NOG_NIET_GECONTROLEERD`, zodat de gewijzigde criteria opnieuw
   gecontroleerd worden. `WatchRunner` gebruikt één fixed-delay poller
   (`ra.watches.poll-interval-ms`, standaard 300000 ms); de pure
-  `WatchSchedule.isDue` rekent in `Europe/Amsterdam`. `JdkWatchPageFetcher`
+  `WatchSchedule.isDue` rekent in `Europe/Amsterdam`. Naast `poll(now)` heeft
+  `WatchRunner` een `runNow(now)` die de `isDue`-filtering overslaat en alle
+  opdrachten met `active == true` via dezelfde private `check(watch, now)`
+  controleert (inactieve — waaronder alles op `GEVONDEN` — worden overgeslagen);
+  `POST /api/v1/watches/run-now` draait die run synchroon af en geeft de
+  bijgewerkte lijst terug. Er is bewust geen server-side lock tegen gelijktijdige
+  runs: de `compareAndSet` hieronder dekt overlap met de poller af, dubbele runs
+  voorkomen is een UI-verantwoordelijkheid. `JdkWatchPageFetcher`
   accepteert alleen succesvolle HTTP-responses, begrenst de HTML op 1.000.000
   bytes en de geëxtraheerde tekst op 20.000 tekens. `watchChatClient` heeft geen
   tools en `WatchAssessmentParser` accepteert alleen `GEVONDEN` of `NIET

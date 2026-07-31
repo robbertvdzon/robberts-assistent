@@ -77,6 +77,10 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   Een vondst blijft zichtbaar, deactiveert de opdracht en geeft optioneel precies één watch-push.
   Een opdracht kan achteraf worden aangepast; de gewijzigde opdracht wordt actief, krijgt weer de
   status `NOG_NIET_GECONTROLEERD` en wordt volgens de gekozen frequentie opnieuw beoordeeld.
+  Naast het vaste schema kan de gebruiker vanuit de app alle nog lopende opdrachten in één keer
+  meteen laten controleren ("nu draaien"); dat gebruikt per opdracht exact hetzelfde gedrag als
+  een geplande controle, slaat gedeactiveerde (o.a. al gevonden) opdrachten over en is een no-op
+  als er niets actiefs is. Een mislukte controle stopt de rest van de run niet.
   Verwijderen haalt een opdracht blijvend uit overzicht en planning, ook wanneer er gelijktijdig
   nog een controle loopt. Pagina's achter login/cookies/captcha en uitsluitend via JavaScript
   geladen inhoud vallen buiten dit gedrag.
@@ -101,7 +105,9 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   vóór "Meer" beheert langdurige websitezoekopdrachten en toont hun leesbare actuele status.
   De aanmaak- en bewerkdialoog valideert titel, absolute HTTP(S)-URL en instructie vóór verzenden; de backend
   herhaalt die validatie. De lijst wordt herladen bij openen, via de reload-knop en na een
-  watch-push; een ouder, later voltooid laadverzoek mag nieuwere gegevens niet overschrijven.
+  watch-push; een knop ernaast laat alle actieve opdrachten meteen controleren, toont zolang
+  een voortgangsindicatie met uitgeschakelde knoppen (geen dubbele run) en meldt een fout in een
+  `SnackBar` zonder de lijst kwijt te raken; een ouder, later voltooid laadverzoek mag nieuwere gegevens niet overschrijven.
   Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.

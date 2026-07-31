@@ -35,6 +35,18 @@ class WatchRunner(
             .forEach { watch -> check(watch, now) }
     }
 
+    /**
+     * Handmatige "nu draaien": controleert alle actieve zoekopdrachten, ongeacht [WatchSchedule.isDue]
+     * (dus los van frequentie en `lastCheckedAt`). Inactieve opdrachten — waaronder alles wat al op
+     * [WatchStatus.GEVONDEN] staat — worden overgeslagen. Per opdracht geldt exact hetzelfde gedrag
+     * als bij de geplande run, want dezelfde [check] wordt hergebruikt.
+     */
+    fun runNow(now: Instant = Instant.now()) {
+        repository.all()
+            .filter { it.active }
+            .forEach { watch -> check(watch, now) }
+    }
+
     private fun check(watch: Watch, now: Instant) {
         val assessment = runCatching {
             evaluator.assess(watch.instruction, pageFetcher.fetch(watch.url))
