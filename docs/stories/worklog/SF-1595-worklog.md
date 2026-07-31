@@ -78,3 +78,33 @@ Review (SF-1622, reviewer):
   `update()` verdwijnt; alleen `WatchValidationException` wordt afgevangen. Zeer smalle race,
   geen actie nodig.
 - Conclusie: akkoord.
+
+Test (SF-1623, tester):
+- Volledig vangnet: `mvn -o -B test` vanuit `robberts-assistent-backend/` → **350 tests, 0 failures,
+  0 errors, BUILD SUCCESS (exit 0)**, inclusief `WatchToolsTest` (9/9) en `ModulithArchitectureTest`
+  (bevestigt dat `assistant` → `watches` een toegestane module-afhankelijkheid is).
+- Code-review tegen de acceptatiecriteria: `listWatches` (lege lijst → één melding; per regel titel,
+  url, instructie, frequentie, `status.name` + `statusDescription`, actief-vlag, `lastCheckedAt` met
+  dezelfde `EEEE d MMMM HH:mm`/Europe-Amsterdam-formatter als `ReminderTools` en "nog niet
+  gecontroleerd" bij `null`, id-prefix van 8 tekens), `createWatch` (frequentie-parsing
+  case-insensitive, onbekend/leeg → DAGELIJKS, `WatchValidationException` → Nederlandse melding),
+  `updateWatch` (prefix-match zoals `deleteReminder`, blanco velden nemen de bestaande waarde over,
+  driewaardige `notifyOnFound`, bevestiging meldt expliciet "weer op actief" + "opnieuw
+  gecontroleerd"). Alles conform de story.
+- Preview `robberts-assistent-pr-41` (= PR-head `74d081e`, dus deze branch): backend `/healthz` ok en
+  `POST /api/v1/assistant/chat` geeft netjes antwoord — bevestigt dat de Spring-context met de nieuwe
+  `WatchTools`-bean in `assistantChatClient` opstart. Een echte tool-aanroep via de chat is op preview
+  niet te forceren: daar staat `RA_MOCK_AI=true` en `MockChatModel` roept per ontwerp géén tools aan
+  (zie de KDoc van `MockChatModel`); dat pad is daarom via `WatchToolsTest` geverifieerd.
+- E2E op preview: een zoekopdracht aangemaakt via `POST /api/v1/watches` (dezelfde `WatchService` die
+  `WatchTools` gebruikt) is ongewijzigd zichtbaar in het Zoekopdrachten-scherm van de Flutter-web-app
+  (screenshot `SF-1623-zoekopdrachten.png`); daarna weer verwijderd (`DELETE`, lijst weer leeg — geen
+  testdata achtergelaten).
+- Nuance (geen blocker, wel goed om te weten): Spring AI 1.1.5 geeft bij een weggelaten
+  `required = false`-argument `null` door aan `Method.invoke` (geverifieerd in
+  `MethodToolCallback.buildTypedArgument`), dus Kotlin-defaults zoals `notifyOnFound: Boolean = true`
+  en `frequency: String = ""` worden dan niet toegepast — de tool-call levert in dat geval een
+  `ToolExecutionException`-melding terug aan het model (dat opnieuw kan proberen) i.p.v. de default.
+  Identiek aan het bestaande, in productie gebruikte `ReminderTools`-patroon en expliciet zo in de
+  story voorgeschreven; daarom geaccepteerd.
+- Werkende boom verder ongewijzigd gelaten (alleen deze worklog-aanvulling).
