@@ -64,3 +64,27 @@ Done / rationale:
 
 `rm -rf target && mvn -o test` in `robberts-assistent-backend/`: **Tests run: 359, Failures: 0,
 Errors: 0** — BUILD SUCCESS. Bestaande verwachtingen zijn niet aangepast.
+
+### Review SF-1628 (reviewer)
+
+Akkoord. Volledige story-diff t.o.v. `main` beoordeeld (16 bestanden, alleen backend + worklog);
+alle 12 acceptatiecriteria terug te vinden in code én test. Eigen gerichte verificatie:
+`mvn -o test -Dtest='OpenMeteoWeatherClientTest,OpenMeteoWindForecastClientTest,
+KiteSectionProviderTest,BeachCycleSectionProviderTest,WeatherMapSectionProviderTest,
+WeatherCallSharingTest,BriefingServiceTest,ModulithArchitectureTest,BriefingControllerTest'` —
+groen, 0 failures/errors; `BriefingControllerTest` boot de volledige Spring-context, dus de extra
+Kotlin-default-constructorparameters (`now`/`sleeper`/`retryDelaysMs`) wiren gewoon.
+
+Aandachtspunten (niet blokkerend, meegegeven voor een eventuele vervolgstory):
+
+- [suggestie] Er wordt geen "recent mislukt"-status gecachet. Bij een echte Open-Meteo-storing
+  doet elk van de drie weersecties opnieuw de volledige retry-reeks (3 pogingen + ~2,5 s pauze),
+  ook als er al een last-known-good is teruggegeven — dus ~3× de worst case per briefing-opbouw
+  per client, i.p.v. de 1× die de story-aanname beschrijft. Functioneel correct (de secties tonen
+  dezelfde LKG-data), alleen trager bij de reload-knop en de uurlijkse scheduler. Op te lossen
+  door bij een definitieve mislukking het faalmoment kort te onthouden en binnen de TTL direct
+  LKG/fout terug te geven.
+- [info] `staleNotice()` toont alleen `HH:MM` zonder datum (story-conform), terwijl een
+  last-known-good tot 12 uur oud mag zijn; over een dagovergang is het tijdstip dus ambigu.
+- [info] Verouderde data raakt bewust niet de tegels (`status`/`tileLabel`) en de 18:00-push —
+  conform de story-aannames, maar dus geen signaal richting gebruiker buiten de sectietekst.
