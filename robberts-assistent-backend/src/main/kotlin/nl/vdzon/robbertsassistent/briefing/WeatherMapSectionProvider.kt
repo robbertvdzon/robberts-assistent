@@ -77,8 +77,11 @@ class WeatherMapSectionProvider(
 
         val png = coastMapImageBuilder.build(mapSlots, dayWeatherCode, tideExtremes)
         weatherMapStorage.store(STORAGE_KEY, png)
+        // De sectietekst zelf is hier leeg (de kaart is de inhoud), dus de verouderd-melding hangt
+        // aan de tekst van het bestaande item.
+        val staleSince = oldestStaleMoment(wind, weather)
         val item = BriefingItem(
-            text = descriptions.joinToString(" · "),
+            text = descriptions.joinToString(" · ") + (staleSince?.let { " · ${staleNotice(it)}" } ?: ""),
             imageUrl = "/api/v1/briefing/weather-map/$STORAGE_KEY",
         )
         return BriefingSection(key = KEY, title = TITLE, text = "", items = listOf(item))

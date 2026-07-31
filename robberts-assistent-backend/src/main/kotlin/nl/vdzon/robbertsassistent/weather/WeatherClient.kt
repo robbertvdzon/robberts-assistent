@@ -15,10 +15,18 @@ data class HourlyWeather(
  * Resultaat van een voorspelling-ophaal-poging. Bij een netwerk-/serverfout is [hours] leeg en
  * [error] gezet — de aanroeper (zie `WeatherTools`) degradeert dan netjes naar een duidelijke
  * melding in plaats van te crashen.
+ *
+ * [fetchedAt] is het moment waarop de onderliggende respons daadwerkelijk is opgehaald, en
+ * [stale] is alleen `true` als de gegevens uit de last-known-good komen (alle ophaalpogingen
+ * faalden, zie `ForecastFetcher`). Een verse call en een TTL-cachehit zijn dus niet verouderd.
+ * Beide velden hebben een `null`/`false`-default, zodat stubs en bestaande aanroepen ongewijzigd
+ * blijven werken.
  */
 data class WeatherForecast(
     val hours: List<HourlyWeather>,
     val error: String? = null,
+    val fetchedAt: Instant? = null,
+    val stale: Boolean = false,
 )
 
 /**

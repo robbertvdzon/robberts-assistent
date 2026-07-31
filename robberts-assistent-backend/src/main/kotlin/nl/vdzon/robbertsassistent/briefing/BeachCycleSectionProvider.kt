@@ -40,7 +40,7 @@ class BeachCycleSectionProvider(
                     text = result.slots.joinToString("\n") { item ->
                         "${item.label}: ${item.beach.emoji} (${item.windText}, " +
                             "${rainText(item.precipitationMm)}, ${tideText(item)})"
-                    },
+                    } + (result.staleSince?.let { "\n${staleNotice(it)}" } ?: ""),
                     status = slot?.beach?.toBriefingStatus(),
                     tileLabel = slot?.beach?.let(::tileLabel),
                 )

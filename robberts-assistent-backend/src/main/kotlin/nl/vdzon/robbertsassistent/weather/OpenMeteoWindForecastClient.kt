@@ -2,12 +2,10 @@ package nl.vdzon.robbertsassistent.weather
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.net.URI
 import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.time.Duration
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -15,25 +13,43 @@ import java.time.ZoneId
  * Echte windvoorspelling via de Open-Meteo forecast-API (gratis, geen API-key), zelfde bron als
  * `assistant.ai.WindTools` maar dan gestructureerd (kn + graden i.p.v. platte tekst). Coördinaten:
  * Wijk aan Zee-strand, relevant voor de aanlandige-wind-check in de kite-briefingsectie.
+ *
+ * Het ophalen zelf (TTL-cache, retry bij een tijdelijke fout en last-known-good) zit in
+ * [ForecastFetcher]; deze klasse doet alleen de parse en het afkappen op `hours`.
  */
 @Component
-class OpenMeteoWindForecastClient(private val httpClient: HttpClient = HttpClient.newHttpClient()) : WindForecastClient {
+class OpenMeteoWindForecastClient(
+    httpClient: HttpClient = HttpClient.newHttpClient(),
+    now: () -> Instant = { Instant.now() },
+    sleeper: (Long) -> Unit = { Thread.sleep(it) },
+    retryDelaysMs: List<Long> = ForecastFetcher.DEFAULT_RETRY_DELAYS_MS,
+) : WindForecastClient {
 
     private val objectMapper = jacksonObjectMapper()
 
+    private val fetcher = ForecastFetcher(
+        httpClient = httpClient,
+        url = FORECAST_URL,
+        logger = LoggerFactory.getLogger(OpenMeteoWindForecastClient::class.java),
+        statusError = { status -> "Kon Open-Meteo-wind niet ophalen (HTTP $status)." },
+        exceptionError = { e -> "Kon Open-Meteo-wind niet ophalen: ${e.message}" },
+        now = now,
+        sleeper = sleeper,
+        retryDelaysMs = retryDelaysMs,
+    )
+
     override fun hourlyForecast(hours: Int): WindForecast =
-        runCatching {
-            val request = HttpRequest.newBuilder(URI.create(FORECAST_URL))
-                .timeout(Duration.ofSeconds(10))
-                .GET()
-                .build()
-            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-            if (response.statusCode() !in 200..299) {
-                WindForecast(emptyList(), "Kon Open-Meteo-wind niet ophalen (HTTP ${response.statusCode()}).")
-            } else {
-                parseForecast(objectMapper.readTree(response.body())).let { it.copy(hours = it.hours.take(hours)) }
-            }
-        }.getOrElse { WindForecast(emptyList(), "Kon Open-Meteo-wind niet ophalen: ${it.message}") }
+        when (val result = fetcher.fetch()) {
+            is ForecastFetcher.Result.Failure -> WindForecast(emptyList(), result.message)
+            is ForecastFetcher.Result.Body -> runCatching {
+                val parsed = parseForecast(objectMapper.readTree(result.body))
+                parsed.copy(
+                    hours = parsed.hours.take(hours),
+                    fetchedAt = result.fetchedAt,
+                    stale = result.stale && parsed.error == null,
+                )
+            }.getOrElse { WindForecast(emptyList(), "Kon Open-Meteo-wind niet ophalen: ${it.message}") }
+        }
 
     internal companion object {
         // Wijk aan Zee (strand). Gratis, geen API-key nodig.

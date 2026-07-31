@@ -53,6 +53,18 @@ class KiteSectionProviderTest {
         }
     }
 
+    /** Wind uit de last-known-good: zelfde data, maar met ophaalmoment en verouderd-markering. */
+    private class StaleWindClient(private val fetchedAt: Instant) : WindForecastClient {
+        private val delegate = StubWindForecastClient(speedKn = 24.0, directionDeg = 270.0)
+        override fun hourlyForecast(hours: Int): WindForecast =
+            delegate.hourlyForecast(hours).copy(fetchedAt = fetchedAt, stale = true)
+    }
+
+    private class StaleWeatherClient(private val fetchedAt: Instant) : WeatherClient {
+        override fun hourlyForecast(hours: Int): WeatherForecast =
+            DryWeatherClient().hourlyForecast(hours).copy(fetchedAt = fetchedAt, stale = true)
+    }
+
     // --- Pure functies ---
 
     @Test
@@ -139,6 +151,41 @@ class KiteSectionProviderTest {
         assertEquals(BriefingStatus.GOED, section.status)
         assertEquals("24 kn W", section.tileLabel)
         assertEquals(1, windClient.calls, "sectietekst en tegel gebruiken dezelfde beoordeling")
+        assertFalse(section.text.contains("gegevens van"), "verse data krijgt geen verouderd-melding")
+    }
+
+    @Test
+    fun `section meldt verouderde data met het oudste ophaalmoment van wind en weer`() {
+        // 06:05Z = 08:05 in Europe/Amsterdam (zomertijd), 07:05Z = 09:05 — het oudste telt.
+        val provider = KiteSectionProvider(
+            windForecastClient = StaleWindClient(Instant.parse("2026-07-31T06:05:00Z")),
+            weatherClient = StaleWeatherClient(Instant.parse("2026-07-31T07:05:00Z")),
+            tideClient = StubTideClient(),
+            calendarClient = EmptyCalendarClient(),
+        )
+
+        val section = provider.section()
+
+        assertTrue(section.text.contains("24 kn"), "de normale inhoud blijft staan")
+        assertTrue(section.text.contains("(gegevens van 08:05)"), "werkelijke tekst: ${section.text}")
+        assertEquals(BriefingStatus.GOED, section.status, "verouderde data levert gewoon een tegel op")
+    }
+
+    @Test
+    fun `section meldt geen verouderde data als alleen het ophaalmoment bekend is`() {
+        val provider = KiteSectionProvider(
+            windForecastClient = object : WindForecastClient {
+                override fun hourlyForecast(hours: Int) =
+                    StubWindForecastClient(speedKn = 24.0, directionDeg = 270.0)
+                        .hourlyForecast(hours)
+                        .copy(fetchedAt = Instant.parse("2026-07-31T06:05:00Z"))
+            },
+            weatherClient = DryWeatherClient(),
+            tideClient = StubTideClient(),
+            calendarClient = EmptyCalendarClient(),
+        )
+
+        assertFalse(provider.section().text.contains("gegevens van"))
     }
 
     @Test

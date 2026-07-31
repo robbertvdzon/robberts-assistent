@@ -9,6 +9,7 @@ import nl.vdzon.robbertsassistent.weather.WeatherClient
 import nl.vdzon.robbertsassistent.weather.WeatherForecast
 import nl.vdzon.robbertsassistent.weather.WindForecast
 import nl.vdzon.robbertsassistent.weather.WindForecastClient
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -81,5 +82,26 @@ class WeatherMapSectionProviderTest {
 
         assertTrue(section.items[0].text.contains("Avond"))
         assertTrue(!section.items[0].text.contains("Middag"))
+    }
+
+    @Test
+    fun `section meldt verouderde data in de itemtekst en bouwt de kaart gewoon op`() {
+        val storage = InMemoryWeatherMapStorage()
+        // 06:05Z = 08:05 in Europe/Amsterdam (zomertijd).
+        val staleWind = object : WindForecastClient {
+            override fun hourlyForecast(hours: Int) = StubWindForecastClient().hourlyForecast(hours)
+                .copy(fetchedAt = Instant.parse("2026-07-31T06:05:00Z"), stale = true)
+        }
+
+        val section = provider(wind = staleWind, storage = storage).section()
+
+        assertEquals(1, section.items.size)
+        assertTrue(section.items[0].text.contains("(gegevens van 08:05)"), "werkelijke tekst: ${section.items[0].text}")
+        assertTrue(storage.load("morgen") != null, "de PNG wordt ook bij verouderde data opgebouwd")
+    }
+
+    @Test
+    fun `section meldt geen verouderde data bij verse voorspellingen`() {
+        assertTrue(!provider().section().items[0].text.contains("gegevens van"))
     }
 }

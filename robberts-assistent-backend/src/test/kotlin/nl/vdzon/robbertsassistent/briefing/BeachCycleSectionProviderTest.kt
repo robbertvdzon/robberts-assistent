@@ -118,6 +118,27 @@ class BeachCycleSectionProviderTest {
     }
 
     @Test
+    fun `section meldt verouderde data met het ophaalmoment`() {
+        // 06:05Z = 08:05 in Europe/Amsterdam (zomertijd).
+        val provider = BeachCycleSectionProvider(
+            windForecastClient = object : WindForecastClient {
+                override fun hourlyForecast(hours: Int) =
+                    StubWindForecastClient(speedKn = 10.0, directionDeg = 270.0).hourlyForecast(hours)
+                        .copy(fetchedAt = Instant.parse("2026-07-31T06:05:00Z"), stale = true)
+            },
+            weatherClient = DryWeatherClient(),
+            tideClient = StubTideClient(),
+            calendarClient = EmptyCalendarClient(),
+        )
+
+        val section = provider.section()
+
+        assertTrue(section.text.contains("10 kn"), "de normale onderbouwing blijft staan")
+        assertTrue(section.text.contains("(gegevens van 08:05)"), "werkelijke tekst: ${section.text}")
+        assertTrue(section.tileLabel != null, "verouderde data levert gewoon een tegel op")
+    }
+
+    @Test
     fun `beste strandfietsslot kiest gunstigste beoordeling en vroegste bij gelijkstand`() {
         val firstYellow = slot("Ochtend", RatingColor.YELLOW)
         val secondYellow = slot("Middag", RatingColor.YELLOW)

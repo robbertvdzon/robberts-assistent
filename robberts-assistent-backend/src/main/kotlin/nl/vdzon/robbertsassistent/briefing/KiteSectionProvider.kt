@@ -14,6 +14,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /** Kleurbeoordeling voor de kite-/strandfiets-briefingsecties. */
 enum class RatingColor(val emoji: String) { GREEN("🟢"), YELLOW("🟡"), RED("🔴") }
@@ -33,6 +34,22 @@ private fun RatingColor.priority(): Int = when (this) {
 /** [slots] staat in dagdeelvolgorde; `minByOrNull` houdt bij gelijke prioriteit het eerste slot. */
 internal fun bestSlot(slots: List<SlotAssessment>, rating: (SlotAssessment) -> RatingColor): SlotAssessment? =
     slots.minByOrNull { rating(it).priority() }
+
+private val STALE_TIME_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Europe/Amsterdam"))
+
+/**
+ * Toevoeging voor de sectieteksten als de onderliggende weer-/winddata uit de last-known-good komt
+ * (zie `weather.ForecastFetcher`): de normale inhoud blijft staan, met erachter het ophaalmoment.
+ */
+internal fun staleNotice(fetchedAt: Instant): String = "(gegevens van ${STALE_TIME_FORMATTER.format(fetchedAt)})"
+
+/** Het oudste ophaalmoment van de verouderde bronnen, of `null` als geen van beide verouderd is. */
+internal fun oldestStaleMoment(wind: WindForecast, weather: WeatherForecast): Instant? =
+    listOfNotNull(
+        wind.fetchedAt.takeIf { wind.stale },
+        weather.fetchedAt.takeIf { weather.stale },
+    ).minOrNull()
 
 /**
  * Gedeelde dagdeel-beoordeling voor de kite- en strandfiets-briefingsecties ([KiteSectionProvider],
@@ -65,7 +82,7 @@ internal class SlotAssessmentProvider(
 
         val assessed = slots.mapNotNull { slot -> assessSlot(slot, wind, weather, tide) }
         if (assessed.isEmpty()) return AssessmentResult.Error("geen voorspellingsdata beschikbaar.")
-        return AssessmentResult.Ok(assessed)
+        return AssessmentResult.Ok(assessed, staleSince = oldestStaleMoment(wind, weather))
     }
 
     private fun isVacationDay(date: LocalDate, zone: ZoneId): Boolean {
@@ -134,7 +151,12 @@ internal data class SlotAssessment(
 )
 
 internal sealed interface AssessmentResult {
-    data class Ok(val slots: List<SlotAssessment>) : AssessmentResult
+    /**
+     * [staleSince] is gezet als de wind- en/of weerdata uit de last-known-good komt: het oudste
+     * ophaalmoment van de twee, zodat kiten en strandfietsen allebei `(gegevens van HH:MM)` kunnen
+     * tonen. Bij verse of TTL-gecachete data is het `null`.
+     */
+    data class Ok(val slots: List<SlotAssessment>, val staleSince: Instant? = null) : AssessmentResult
     data class Error(val message: String) : AssessmentResult
 }
 
@@ -170,7 +192,7 @@ class KiteSectionProvider(
                     title = "Kiten",
                     text = result.slots.joinToString("\n") { item ->
                         "${item.label}: ${item.kite.emoji} ${item.windText}"
-                    },
+                    } + (result.staleSince?.let { "\n${staleNotice(it)}" } ?: ""),
                     status = slot?.kite?.toBriefingStatus(),
                     tileLabel = slot?.let { "${it.windKn} kn ${it.windDirection}" },
                 )

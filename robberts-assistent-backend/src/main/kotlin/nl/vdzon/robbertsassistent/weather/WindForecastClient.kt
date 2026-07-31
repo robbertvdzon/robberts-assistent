@@ -11,11 +11,15 @@ data class HourlyWind(
 
 /**
  * Resultaat van een windvoorspelling-ophaal-poging. Bij een netwerk-/serverfout is [hours] leeg en
- * [error] gezet, zelfde patroon als [WeatherForecast]/`TideForecast`.
+ * [error] gezet, zelfde patroon als [WeatherForecast]/`TideForecast`. [fetchedAt] en [stale]
+ * hebben dezelfde betekenis als bij [WeatherForecast]: [stale] is alleen `true` bij een
+ * last-known-good-teruggave.
  */
 data class WindForecast(
     val hours: List<HourlyWind>,
     val error: String? = null,
+    val fetchedAt: Instant? = null,
+    val stale: Boolean = false,
 )
 
 /**
