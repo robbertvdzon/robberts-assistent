@@ -1,39 +1,48 @@
 # robberts-assistent
 
-Repository voor Robberts persoonlijke assistent. De uiteindelijke opzet omvat
-meerdere apps en een backend; die worden stap voor stap (per story) opgebouwd.
+Monorepo voor Robberts persoonlijke assistent: één Kotlin/Spring Boot-backend en
+vier Flutter/Android-apps.
 
 ## Huidige inhoud
 
-- **`wind/`** — PoC-app **"Wind"** (Flutter/Android). Bewijst dat de keten
-  **"Hey Google" → Android App Actions → eigen app** werkt met een hands-free
-  gevoel: het antwoord wordt uitgesproken (TextToSpeech) én als notificatie
-  gepost, zónder zichtbaar scherm. Nog géén backend of echte weerdata.
-  Zie [`wind/README.md`](wind/README.md).
+- **`robberts-assistent-backend/`** — Spring Modulith-backend voor authenticatie,
+  assistentgesprekken, reminders, briefings, langdurige websitezoekopdrachten en
+  de overige koppelingen. Externe opslag en diensten hebben waar mogelijk een
+  stub- of in-memory fallback.
+- **`robberts_assistent/`** — hoofdapp als Android-APK en web-app. De zes tabs
+  zijn Upcoming, Health check, Assistent, Herinneringen, Zoekopdrachten en Meer.
+  Via Zoekopdrachten kan de gebruiker een website periodiek laten beoordelen en
+  optioneel een push ontvangen zodra het gezochte is gevonden.
+- **`groentetuin/`** — moestuin-chat met tekst en foto's, als APK en web-app.
+- **`notities/`** — auto-opslaande notitie-app, als APK.
+- **`wind/`** — handsfree Wind-app: Android App Actions starten een
+  backendvraag, waarna het antwoord wordt uitgesproken en als notificatie wordt
+  getoond. Zie [`wind/README.md`](wind/README.md).
 
-## Build & installatie (Wind)
+## Bouwen en testen
 
-De belangrijkste commando's draaien vanuit `wind/` (Flutter + Android SDK nodig):
+Backend, vanuit `robberts-assistent-backend/`:
 
 ```bash
-cd wind
+mvn test
+mvn -DskipTests package
+```
+
+Flutter-app, vanuit de betreffende app-map:
+
+```bash
 flutter pub get
 flutter test
+flutter analyze
 flutter build apk --release
 ```
 
-Bij elke push naar `main` bouwt de workflow
-[`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml) een
-release-APK en publiceert die als downloadbare GitHub Release, zodat de app
-zonder Play Store of lokale build-omgeving te installeren is.
+Zie [`docs/factory/development.md`](docs/factory/development.md) voor de
+volledige lokale werkwijze en bekende omgevingsbeperkingen.
 
 ## Documentatie
 
+- [`CLAUDE.md`](CLAUDE.md) — volledig functioneel en technisch repo-overzicht.
 - `docs/factory/` — repo-context voor de software factory (stack, build/test,
   functionele en technische specificatie, deploy-info, agent-instructies).
 - `docs/stories/` — worklogs en handmatige testinstructies per story.
-
-## Buiten scope (latere stories)
-
-Backend, OpenShift, Postgres, echte weerdata, Todo-app, Assistent-app en
-Telegram-koppeling volgen in latere stories.

@@ -9,9 +9,10 @@ import 'more_screen.dart';
 import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
 import 'summary_screen.dart';
+import 'watches_screen.dart';
 
 /// App-shell na het inloggen: navigatie tussen Upcoming (briefing), Health check, de assistent,
-/// herinneringen en 'Meer'.
+/// herinneringen, langdurige zoekopdrachten en 'Meer'.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.api, required this.onLoggedOut});
 
@@ -23,7 +24,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _watchesTabIndex = 4;
+
   var _tab = 2;
+  var _watchesReloadTrigger = 0;
 
   @override
   void initState() {
@@ -35,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) maybePromptSelfUpdate(context);
       });
     }
-    // Tik op de dagelijkse Morgen-briefing-push (of koude start via die push) → deze tab tonen.
+    // Tik op een briefing- of watch-push (ook bij koude start) → de bijbehorende tab tonen.
     FcmService.deepLinkTab.addListener(_onDeepLinkTab);
     _onDeepLinkTab();
   }
@@ -50,7 +54,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final tab = FcmService.deepLinkTab.value;
     if (tab == null) return;
     FcmService.deepLinkTab.value = null;
-    if (mounted) setState(() => _tab = tab);
+    if (mounted) _selectTab(tab);
+  }
+
+  void _selectTab(int tab) {
+    setState(() {
+      _tab = tab;
+      if (tab == _watchesTabIndex) {
+        _watchesReloadTrigger++;
+      }
+    });
   }
 
   @override
@@ -60,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
       HealthCheckScreen(api: widget.api),
       ConversationsScreen(api: widget.api),
       SchedulesScreen(api: widget.api),
+      WatchesScreen(api: widget.api, reloadTrigger: _watchesReloadTrigger),
       MoreScreen(api: widget.api),
     ];
     return Scaffold(
@@ -85,12 +99,13 @@ class _HomeScreenState extends State<HomeScreen> {
       body: IndexedStack(index: _tab, children: screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        onDestinationSelected: (index) => setState(() => _tab = index),
+        onDestinationSelected: _selectTab,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Upcoming'),
           NavigationDestination(icon: Icon(Icons.health_and_safety_outlined), selectedIcon: Icon(Icons.health_and_safety), label: 'Health check'),
           NavigationDestination(icon: Icon(Icons.assistant_outlined), selectedIcon: Icon(Icons.assistant), label: 'Assistent'),
           NavigationDestination(icon: Icon(Icons.alarm_outlined), selectedIcon: Icon(Icons.alarm), label: 'Herinneringen'),
+          NavigationDestination(icon: Icon(Icons.travel_explore_outlined), selectedIcon: Icon(Icons.travel_explore), label: 'Zoekopdrachten'),
           NavigationDestination(icon: Icon(Icons.more_horiz_outlined), selectedIcon: Icon(Icons.more_horiz), label: 'Meer'),
         ],
       ),

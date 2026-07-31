@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'package:robberts_assistent/api_client.dart';
 import 'package:robberts_assistent/conversations_screen.dart';
@@ -13,10 +15,14 @@ import 'package:robberts_assistent/more_screen.dart';
 import 'package:robberts_assistent/nightly_checks_screen.dart';
 import 'package:robberts_assistent/summary_screen.dart';
 import 'package:robberts_assistent/updates_screen.dart';
+import 'package:robberts_assistent/watches_screen.dart';
 
 /// Stub-ApiClient die alleen de door de vier hoofdschermen aangeroepen methodes overschrijft
 /// met lege/harmloze resultaten, zodat er geen echte netwerkcalls in de test plaatsvinden.
 class _FakeApiClient extends ApiClient {
+  var watchLoadCount = 0;
+  bool returnChangingWatch = false;
+
   @override
   Future<Map<String, dynamic>> getJson(String path) async => {'items': []};
 
@@ -32,6 +38,27 @@ class _FakeApiClient extends ApiClient {
 
   @override
   Future<List<Alarm>> listAlarms() async => [];
+
+  @override
+  Future<List<Watch>> listWatches() async {
+    watchLoadCount++;
+    if (!returnChangingWatch) return [];
+    return [
+      Watch(
+        id: 'watch-1',
+        title: 'Concertkaartjes',
+        url: 'https://example.com',
+        instruction: 'Zoek twee kaarten',
+        frequency: 'DAGELIJKS',
+        notifyOnFound: true,
+        status: watchLoadCount == 1 ? 'NIET_GEVONDEN' : 'GEVONDEN',
+        statusDescription: watchLoadCount == 1
+            ? 'Nog niet beschikbaar.'
+            : 'Nu beschikbaar.',
+        active: watchLoadCount == 1,
+      ),
+    ];
+  }
 
   @override
   Future<List<Coupling>> listCouplings() async => [];
@@ -53,17 +80,18 @@ void main() {
     (call) async => -1,
   );
 
-  testWidgets('bottom-nav telt precies 5 tabs en Meer opent MoreScreen', (tester) async {
+  testWidgets('bottom-nav telt precies 6 tabs en Meer opent MoreScreen', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
     );
     await tester.pump();
 
-    expect(find.byType(NavigationDestination), findsNWidgets(5));
+    expect(find.byType(NavigationDestination), findsNWidgets(6));
     expect(find.text('Upcoming'), findsOneWidget);
     expect(find.text('Health check'), findsOneWidget);
     expect(find.text('Assistent'), findsOneWidget);
     expect(find.text('Herinneringen'), findsOneWidget);
+    expect(find.text('Zoekopdrachten'), findsOneWidget);
     expect(find.text('Meer'), findsOneWidget);
 
     await tester.tap(find.text('Meer'));
@@ -106,6 +134,74 @@ void main() {
 
     expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 0);
     expect(find.byType(SummaryScreen), findsOneWidget);
+    expect(FcmService.deepLinkTab.value, null);
+  });
+
+  testWidgets('watch-push schakelt naar Zoekopdrachten en herlaadt de bestaande lijst', (
+    tester,
+  ) async {
+    addTearDown(() => FcmService.deepLinkTab.value = null);
+    final api = _FakeApiClient()..returnChangingWatch = true;
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(api: api, onLoggedOut: () {})),
+    );
+    await tester.pump();
+    expect(api.watchLoadCount, 1);
+
+    FcmService.handlePushData({'type': 'watch'});
+    await tester.pump();
+    await tester.pump();
+
+    expect(api.watchLoadCount, 2);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 4);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 4);
+    expect(find.byType(WatchesScreen), findsOneWidget);
+    expect(find.text('Nu beschikbaar.'), findsOneWidget);
+    expect(FcmService.deepLinkTab.value, null);
+  });
+
+  testWidgets('lokale watch-notificatie opent Zoekopdrachten bij een koude start', (
+    tester,
+  ) async {
+    const notificationsChannel = MethodChannel(
+      'dexterous.com/flutter/local_notifications',
+    );
+    addTearDown(() {
+      FcmService.deepLinkTab.value = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(notificationsChannel, null);
+      debugDefaultTargetPlatformOverride = null;
+    });
+    AndroidFlutterLocalNotificationsPlugin.registerWith();
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationsChannel, (call) async {
+          expect(call.method, 'getNotificationAppLaunchDetails');
+          return {
+            'notificationLaunchedApp': true,
+            'notificationResponse': {
+              'notificationId': 1,
+              'notificationResponseType': 0,
+              'payload': 'watch',
+            },
+          };
+        });
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {})),
+    );
+    await tester.pump();
+
+    try {
+      await FcmService.handleInitialLocalNotification(
+        FlutterLocalNotificationsPlugin(),
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+    await tester.pump();
+
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 4);
+    expect(find.byType(WatchesScreen), findsOneWidget);
     expect(FcmService.deepLinkTab.value, null);
   });
 

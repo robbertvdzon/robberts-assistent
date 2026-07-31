@@ -33,13 +33,36 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
 - **AI-agent:** twee `ChatClient`-beans in `assistant/ai/AiConfig` — `assistantChatClient`
   (`@Primary`, met alle `@Tool`-beans) en `gardenChatClient` (`@Qualifier`, vision, eigen
   system-prompt). `MockChatModel` in preview/tests (deterministisch, geen kosten/netwerk).
-  Andere modules kunnen een eigen lichte `ChatClient`-bean toevoegen die de gedeelde `ChatModel`
-  hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient`), zodat mock/echt automatisch
+  Andere modules kunnen een eigen lichte, tool-loze `ChatClient`-bean toevoegen die de gedeelde
+  `ChatModel` hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient` en
+  `watches.WatchAiConfig.watchChatClient`), zodat mock/echt automatisch
   meeloopt met `AppSecrets.effectiveMockAi` zonder eigen schakelaar.
-- **Data:** notities in Postgres (JdbcTemplate + Flyway `V1`); reminders + chat-conversaties
+- **Data:** notities, reminders, langdurige zoekopdrachten (`watches`) + chat-conversaties
   (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
   database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
   (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
+- **Watches:** `GET`/`POST /api/v1/watches` en `PUT`/`DELETE /api/v1/watches/{id}` zijn
+  geauthenticeerd. `WatchStoreConfig` kiest de Firestore-collectie `watches` of
+  `InMemoryWatchRepository`. Bewerken valideert dezelfde vijf invoervelden als aanmaken en reset
+  de opdracht naar actief en `NOG_NIET_GECONTROLEERD`, zodat de gewijzigde criteria opnieuw
+  gecontroleerd worden. `WatchRunner` gebruikt één fixed-delay poller
+  (`ra.watches.poll-interval-ms`, standaard 300000 ms); de pure
+  `WatchSchedule.isDue` rekent in `Europe/Amsterdam`. `JdkWatchPageFetcher`
+  accepteert alleen succesvolle HTTP-responses, begrenst de HTML op 1.000.000
+  bytes en de geëxtraheerde tekst op 20.000 tekens. `watchChatClient` heeft geen
+  tools en `WatchAssessmentParser` accepteert alleen `GEVONDEN` of `NIET
+  GEVONDEN` plus een omschrijving. Netwerk-, HTTP-, AI- en parsefouten worden
+  als `ONBEKEND` opgeslagen en bij een volgende geplande beurt opnieuw
+  geprobeerd.
+- **Gelijktijdigheid watches:** een pollresultaat wordt met
+  `WatchRepository.compareAndSet(expected, updated)` alleen opgeslagen wanneer
+  de actuele opdracht nog exact gelijk is aan het gelezen snapshot. In-memory
+  gebeurt dit atomisch met `ConcurrentHashMap.replace`; Firestore gebruikt een
+  transactie. Ook een gebruikerswijziging gebruikt deze CAS. Daardoor kunnen overlappende pollers
+  geen gevonden status terugdraaien of dubbele push versturen en kan een lopende controle een
+  tussentijds gewijzigde of verwijderde opdracht niet overschrijven/herstellen. Alleen de winnende
+  overgang naar `GEVONDEN` mag de optionele FCM-push met `data.type=watch`
+  versturen.
 
 ## Web-apps
 
