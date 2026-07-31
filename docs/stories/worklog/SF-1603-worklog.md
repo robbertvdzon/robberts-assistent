@@ -58,3 +58,12 @@ Gedaan / rationale developer-herstel daggrens:
   net als in de eerdere developer-run, niet lokaal gebouwd. De relevante webbuild is wel groen.
 - Zelfreview: volledige story-bestandscope en huidige diff gecontroleerd; geen conflictmarkers,
   whitespacefouten, onbedoelde gegenereerde bestanden of aanvullende bevindingen aangetroffen.
+
+Finale herreview (2026-07-31):
+- Volledige story-diff `main...HEAD` beoordeeld tegen de refined story, PO-comments en factoryspecificaties.
+- [info] Geen blockers, bugs, regressies of scope-afwijkingen gevonden; de eerdere semantiek- en
+  Amsterdamse-daggrensbevindingen zijn correct opgelost en afgedekt.
+- Actueel volledig developerbewijs geaccepteerd: 341 backendtests zonder failures/errors/skips,
+  backend-package, 61 Fluttertests, analyze, formatcheck en webbuild zijn groen.
+- Eigen gerichte verificatie groen: 32 backendtests (contract, drie providers en Spring-wiring) en
+  alle 17 tests in `test/summary_screen_test.dart`; `git diff --check main...HEAD` is eveneens groen.
