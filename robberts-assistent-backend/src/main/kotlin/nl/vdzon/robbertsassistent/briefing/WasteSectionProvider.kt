@@ -3,8 +3,11 @@ package nl.vdzon.robbertsassistent.briefing
 import nl.vdzon.robbertsassistent.waste.WasteClient
 import nl.vdzon.robbertsassistent.waste.WastePickup
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
@@ -13,9 +16,13 @@ import java.time.format.DateTimeFormatter
  * tekst is deterministisch op te bouwen uit [WastePickup]-data (zie [WasteClient]).
  */
 @Component
-class WasteSectionProvider(
+class WasteSectionProvider internal constructor(
     private val wasteClient: WasteClient,
+    private val clock: Clock,
 ) : BriefingSectionProvider {
+
+    @Autowired
+    constructor(wasteClient: WasteClient) : this(wasteClient, Clock.system(AMSTERDAM_ZONE))
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -34,7 +41,7 @@ class WasteSectionProvider(
         if (schedule.error != null) {
             return null
         }
-        val tomorrow = LocalDate.now().plusDays(1)
+        val tomorrow = localToday().plusDays(1)
         val types = schedule.pickups.filter { it.date == tomorrow }.map { it.type }
         if (types.isEmpty()) {
             return null
@@ -51,7 +58,7 @@ class WasteSectionProvider(
                 text = "Kon de afvalkalender niet ophalen: ${schedule.error}",
             )
         }
-        val today = LocalDate.now()
+        val today = localToday()
         val until = today.plusDays(6)
         val upcoming = schedule.pickups.filter { !it.date.isBefore(today) && !it.date.isAfter(until) }
         val text = if (upcoming.isEmpty()) {
@@ -87,5 +94,11 @@ class WasteSectionProvider(
             "rest" in normalized -> "rest"
             else -> normalized
         }
+    }
+
+    private fun localToday(): LocalDate = LocalDate.now(clock.withZone(AMSTERDAM_ZONE))
+
+    private companion object {
+        val AMSTERDAM_ZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
     }
 }

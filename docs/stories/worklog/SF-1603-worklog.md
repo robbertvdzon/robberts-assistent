@@ -38,3 +38,23 @@ Gedaan / rationale developer-herstel:
 Herreview (2026-07-31):
 - Volledige story-diff `main...HEAD` opnieuw beoordeeld. Gerichte verificatie groen: 30 tests in `BriefingSectionContractTest`, `KiteSectionProviderTest`, `BeachCycleSectionProviderTest` en `WasteSectionProviderTest`; daarnaast alle 17 tests in `test/summary_screen_test.dart`.
 - [bug] `WasteSectionProvider.kt:54`: de nieuwe vandaag/morgen-status gebruikt `LocalDate.now()` in de JVM-defaulttijdzone. De productie-image stelt geen `TZ`/`user.timezone` in en draait standaard op UTC, terwijl briefingdatumlogica elders expliciet `Europe/Amsterdam` gebruikt. Tussen 00:00 en 02:00 Amsterdam-zomertijd ziet de backend nog de vorige UTC-datum; een ophaalmoment van de lokale volgende dag valt dan in `+2` en krijgt onterecht `GOED` in plaats van `LET_OP`. Gebruik voor afval consequent de Amsterdam-datum (bij voorkeur via een injecteerbare `Clock`) en dek de UTC/Amsterdam-datumgrens af met een test.
+
+Developer-herstel daggrens (2026-07-31):
+- [x] Taakcontext, factoryrichtlijnen, agenttips en reviewbevinding opnieuw lezen.
+- [x] Afvaldatumberekeningen op een injecteerbare klok in `Europe/Amsterdam` baseren.
+- [x] De UTC/Amsterdam-datumgrens met een deterministische unit-test afdekken.
+- [x] Zelfreview uitvoeren en het volledige developer-vangnet groen afronden.
+
+Gedaan / rationale developer-herstel daggrens:
+- `section()` en `shortSummary()` gebruiken nu dezelfde klokgestuurde Amsterdamse kalenderdatum,
+  zodat de status en avondmelding rond lokale middernacht niet door de UTC-datum verschuiven.
+- Alle afvalprovidertests gebruiken vaste datums; de nieuwe grensgevaltest zet de klok op 22:30 UTC
+  in de zomertijd en verifieert dat een lokale ophaaldatum van morgen `LET_OP` oplevert.
+- De technische factoryspecificatie noemt de expliciete Amsterdamse daggrens.
+- Vangnet na de daggrensfix: `mvn -o test` (341 tests, 0 failures/errors/skips),
+  `mvn -o -DskipTests package`, `flutter analyze`, `flutter test` (61 tests),
+  `dart format --output=none --set-exit-if-changed lib test` en `flutter build web` zijn groen.
+- `flutter doctor -v` bevestigt dat de Android SDK nog steeds ontbreekt; daarom is de release-APK,
+  net als in de eerdere developer-run, niet lokaal gebouwd. De relevante webbuild is wel groen.
+- Zelfreview: volledige story-bestandscope en huidige diff gecontroleerd; geen conflictmarkers,
+  whitespacefouten, onbedoelde gegenereerde bestanden of aanvullende bevindingen aangetroffen.

@@ -32,8 +32,8 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   `status` (`GOED`, `LET_OP`, `NIET`) en `tileLabel`; ontbrekende velden in bestaande
   Firestore-cache-JSON deserialiseren als `null`. Kite en strandfietsen kiezen uit hun ene
   `AssessmentResult` groen boven geel boven rood (bij gelijkstand het vroegste dagdeel). Afval
-  leidt tekst en tegel af uit dezelfde eenmalig opgehaalde zevendagenplanning. Bronfouten leveren
-  bewust beide tegelvelden als `null`.
+  leidt tekst en tegel af uit dezelfde eenmalig opgehaalde zevendagenplanning, met daggrenzen in
+  `Europe/Amsterdam`. Bronfouten leveren bewust beide tegelvelden als `null`.
 - **Config:** `AppSecrets` + `AppSecretsLoader` lezen `secrets.env` (lokaal) of env-vars (prod,
   uit de Sealed Secret via `envFrom`). Ontbrekende secret ⇒ fallback (zie `effectiveMockAi`).
 - **AI-agent:** twee `ChatClient`-beans in `assistant/ai/AiConfig` — `assistantChatClient`
