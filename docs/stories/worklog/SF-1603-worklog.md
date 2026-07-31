@@ -25,3 +25,12 @@ Gedaan / rationale:
 Review (2026-07-31):
 - Volledige story-diff `main...HEAD` beoordeeld; aanvullend zijn de vier gewijzigde backend-testklassen en `test/summary_screen_test.dart` gericht groen gedraaid.
 - [bug] `summary_screen.dart:178-187`: de buitenste `Semantics` zet alleen `button` en `label`, terwijl `ExcludeSemantics` de semantische tapactie van de onderliggende `InkWell` verwijdert. De tegel wordt dus wel uitgesproken, maar heeft geen `SemanticsAction.tap` en kan met een screenreader niet worden geactiveerd. Registreer dezelfde toggle ook als semantische `onTap` (of behoud de `InkWell`-actie in de semantics tree) en voeg een widgettest toe die de tapactie op de semantieknode controleert en uitvoert.
+
+Developer-herstel (2026-07-31):
+- [x] De semantische tapactie van een Vandaag-tegel herstellen en met een widgettest afdekken.
+- [x] Zelfreview en het volledige developer-vangnet opnieuw groen afronden.
+
+Gedaan / rationale developer-herstel:
+- De buitenste `Semantics` roept nu dezelfde tegel-toggle aan als de visuele `InkWell`, zodat een screenreader de uitgesproken knop ook daadwerkelijk kan activeren.
+- De bestaande één-tegeltest verifieert expliciet `SemanticsAction.tap`, voert die actie via de semantics-tree uit en controleert dat het volledige kite-detail opent.
+- Vangnet opnieuw groen: `mvn -o test` (340 tests, 0 failures/errors), `mvn -o -DskipTests package`, `flutter test` (61 tests), `flutter analyze` en `flutter build web`, allemaal exitcode 0.

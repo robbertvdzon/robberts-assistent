@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -142,10 +143,22 @@ void main() {
           .getSize(find.byKey(const ValueKey('status-tile-kite')))
           .width;
       expect(tileWidth, closeTo(rowWidth, 0.01));
-      expect(find.bySemanticsLabel('goed, Kiten, 24 kn W'), findsOneWidget);
+      final semanticsFinder = find.semantics.byLabel('goed, Kiten, 24 kn W');
+      expect(semanticsFinder, findsOne);
+      final semanticsNode = semanticsFinder.evaluate().single;
+      expect(
+        semanticsNode.getSemanticsData().hasAction(SemanticsAction.tap),
+        isTrue,
+      );
       expect(find.byIcon(Icons.air), findsOneWidget);
       expect(find.text('Volledige kite-details.'), findsNothing);
       expect(find.text('KITEN'), findsNothing);
+
+      tester.semantics.tap(semanticsFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Volledige kite-details.'), findsOneWidget);
+      expect(find.text('KITEN'), findsOneWidget);
     },
   );
 

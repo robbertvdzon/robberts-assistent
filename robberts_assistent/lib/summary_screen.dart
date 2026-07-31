@@ -178,6 +178,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     return Semantics(
       button: true,
       label: '${status.label}, ${section.title}, $tileLabel',
+      onTap: () => _toggleTile(section),
       child: ExcludeSemantics(
         child: Card(
           margin: EdgeInsets.zero,
