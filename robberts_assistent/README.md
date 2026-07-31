@@ -5,15 +5,30 @@ langdurige zoekopdrachten van `robberts-assistent-backend`. Google-login is
 actief op web/productie en wordt op PR-previews overgeslagen via
 `SKIP_GOOGLE_AUTH`; zie [`../docs/factory/deployment.md`](../docs/factory/deployment.md).
 
+## Navigatie en vormgeving
+
+De bottom-navigation bevat vier hoofdbestemmingen: **Vandaag**, **Assistent**, **Taken** en
+**Meer**. De app opent standaard Assistent. Health check, Zoekopdrachten, Koppelingen,
+Nachtchecks, Geheugen en Updates blijven bereikbaar als losse routes vanuit Meer.
+
+De app gebruikt alleen een rustig licht thema: een lichtgrijze achtergrond, witte kaarten met
+een dunne rand en zonder schaduw, en teal als accentkleur. Het teal-witte robotbeeldmerk staat in
+de app-header, op het loginscherm en in de Android- en webiconen. Status wordt nooit alleen met
+kleur aangeduid: Koppelingen, Nachtchecks en Zoekopdrachten gebruiken gedeelde pillen met
+**goed**, **let op**, **kritiek** of **neutraal**. De groene, gele en rode backend-emoji's in
+kite- en strandfietsregels worden op Vandaag client-side naar dezelfde woordelijke pillen
+vertaald; API-responses blijven ongewijzigd.
+
 ## Schermen
 
-- **Upcoming** — dagelijkse briefing uit de backend (`GET /api/v1/briefing`): twee losse kaarten
+- **Vandaag** — dagelijkse briefing uit de backend (`GET /api/v1/briefing`): twee losse kaarten
   voor kite-kans (per dagdeel wind + richting) en strandfietskans (per dagdeel een bolletje met
   onderbouwing: wind, regen, getij) voor morgen — sinds SF-1192 gesplitst, was voorheen één
   samengevoegde kaart —, afspraken komende 7 dagen met per afspraak een reminder-status en,
   indien nog geen reminder staat, een één-tap-actie om er één ~1u vooraf aan te maken, een
   AI-weektakensamenvatting en een moestuin-placeholder. Een tik op de dagelijkse 18:00-FCM-push
-  opent dit scherm automatisch (`lib/fcm_service.dart`, `FcmService.deepLinkTab`).
+  sluit eventueel openstaande Meer-routes en opent dit scherm automatisch
+  (`lib/fcm_service.dart`, `FcmService.deepLinkTarget`).
 - **Health check** — het ruwe systeem-checkrapport uit de onafhankelijke
   Health-check-cache (`GET /api/v1/briefing/health`), met eigen timestamp en
   reload-actie.
@@ -25,12 +40,13 @@ actief op web/productie en wordt op PR-previews overgeslagen via
   bevestiging), een AppBar-toggle toont ook gearchiveerde gesprekken. Chat met de backend's AI
   (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda, Google Docs en
   windmetingen/-voorspellingen bij IJmuiden (`robberts-assistent-backend/.../assistant/ai/`).
-- **Herinneringen** — overzicht en beheer van reminders en alarmen.
+- **Taken** — hoofdnavigatielabel voor het bestaande scherm **Herinneringen**, met overzicht en
+  beheer van reminders en alarmen.
 - **Zoekopdrachten** — maakt, bewerkt en verwijdert langdurige websitezoekopdrachten en
   toont per opdracht de meest recente leesbare status. Titel, absolute
   HTTP(S)-URL, zoekinstructie, frequentie (`Dagelijks` of `Kantooruren`) en
   pushvoorkeur worden afzonderlijk ingevoerd. De backend valideert dezelfde
-  velden opnieuw. Een tik op een watch-push opent deze tab en herlaadt de lijst;
+  velden opnieuw. Een tik op een watch-push opent dit scherm als verse route en herlaadt de lijst;
   ook handmatig openen en de reload-knop halen actuele gegevens op. Naast de
   reload-knop staat een "nu draaien"-knop (`Icons.play_circle_outline`, tooltip
   "Alle zoekopdrachten nu controleren") die alle actieve opdrachten meteen laat
@@ -39,7 +55,8 @@ actief op web/productie en wordt op PR-previews overgeslagen via
   geen tweede run), terwijl de bestaande lijst zichtbaar blijft. Na afloop toont
   de lijst de teruggekomen statussen; faalt de call, dan verschijnt een
   `SnackBar` met "Nu controleren mislukt: …" en blijft de lijst staan.
-- **Meer** — toegang tot Koppelingen, Nachtchecks, Updates en Geheugen.
+- **Meer** — toegang tot Health check, Zoekopdrachten, Koppelingen, Nachtchecks, Geheugen en
+  Updates.
 - **Geheugen** (`lib/memory_screen.dart`, via "Meer") — één groot bewerkbaar tekstveld met de
   volledige geheugen-tekst (feiten/voorkeuren over Robbert) die de assistent automatisch
   bijhoudt na elke chat-beurt en als context gebruikt in latere gesprekken; auto-save (zelfde
@@ -51,9 +68,8 @@ actief op web/productie en wordt op PR-previews overgeslagen via
 Bij opstarten checkt de app ook zichzelf (async, niet-blokkerend) en vraagt een
 dialoogje om bij te werken als er een nieuwere versie is (`lib/self_update_prompt.dart`).
 
-De bottom-navigation bevat precies zes bestemmingen in bovenstaande volgorde.
-De app opent standaard Assistent (index 2); briefing-pushes openen Upcoming
-(index 0) en watch-pushes openen Zoekopdrachten (index 4).
+Briefing-pushes openen Vandaag (index 0); watch-pushes openen rechtstreeks een nieuwe
+Zoekopdrachten-route. De deeplink geeft daarom een doel door en geen tab-index.
 
 ## Zoekopdrachten-API
 

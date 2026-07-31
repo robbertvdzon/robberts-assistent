@@ -5,8 +5,9 @@ Deze repo bevat vier Flutter/Android-apps en één Kotlin/Spring-Boot-backend:
 - **wind/** — PoC-app zonder backend-afhankelijkheid voor eigen bestaan (wel een
   chat-assistent-call voor de wind-/voorspellingstekst, zie hieronder). Alleen
   APK, geen web-deploy.
-- **robberts_assistent/** — Upcoming-/Health-check-briefings,
-  chat-assistent, reminders en langdurige zoekopdrachten, met Google-login.
+- **robberts_assistent/** — Vandaag-/Health-check-briefings,
+  chat-assistent, reminders en langdurige zoekopdrachten, met Google-login. De vier
+  hoofdtabs zijn Vandaag, Assistent, Taken en Meer; Health check en Zoekopdrachten staan onder Meer.
   Draait als APK én als web-app op OpenShift.
 - **groentetuin/** — moestuin-AI-chat (tekst + foto's → vision-antwoord), Google-
   login. Draait als APK én als web-app (`moestuin.vdzonsoftware.nl`).
