@@ -38,3 +38,18 @@ en laden daardoor verse data.
   `ANDROID_HOME` in deze container. `flutter doctor -v` bevestigt dit; de host is linux/arm64 en er is
   lokaal geen Android SDK gevonden. Daardoor kan het verplichte APK-deel van het volledige vangnet in
   deze run niet met exitcode 0 worden bewezen.
+
+## Review
+
+- Gerichte reviewverificatie op HEAD `449b404`: alle 54 Flutter-tests zijn groen; `git diff --check`
+  en de scopecontrole zijn eveneens groen. Het ontbrekende APK-buildbewijs is geen testfailure en
+  acceptance criterion 10 vereist voor deze Flutter-only story groen `flutter analyze` en
+  `flutter test`; beide zijn bewezen.
+- [bug] `HomeScreen._onDeepLinkTarget()` selecteert voor een briefing-push alleen tab 0
+  (`lib/home_screen.dart:49-56`). Staat op dat moment een vanuit Meer gepushte route open, zoals
+  Koppelingen of Zoekopdrachten, dan blijft die route boven de HomeScreen-route zichtbaar en opent
+  de tik dus niet daadwerkelijk Vandaag. Reproductie: open Meer → Koppelingen, roep
+  `FcmService.handlePushData({'type': 'briefing'})` aan en constateer dat Koppelingen zichtbaar
+  blijft. Laat de briefing-deeplink eerst terugnavigeren naar de home-route en selecteer daarna
+  Vandaag. Breid `test/home_screen_test.dart` uit met deze route-op-de-stack-situatie; de bestaande
+  briefingtest op regels 142-164 dekt alleen HomeScreen als bovenste route.
