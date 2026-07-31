@@ -89,6 +89,14 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   meteen laten controleren ("nu draaien"); dat gebruikt per opdracht exact hetzelfde gedrag als
   een geplande controle, slaat gedeactiveerde (o.a. al gevonden) opdrachten over en is een no-op
   als er niets actiefs is. Een mislukte controle stopt de rest van de run niet.
+  Sinds SF-1595 kan de gebruiker de zoekopdrachten ook via de assistent-chat in gewone taal
+  opvragen ("welke zoekopdrachten lopen er?"), aanmaken ("houd deze pagina in de gaten en zeg het
+  als er X op staat, elke dag") en aanpassen ("zet zoekopdracht \<titel\> op kantooruren"), met
+  dezelfde regels en dezelfde gegevens als het Zoekopdrachten-scherm; zonder zoekopdrachten volgt
+  een nette melding in plaats van een lege lijst, en een ongeldige URL of lege instructie levert een
+  leesbare Nederlandse foutmelding op in plaats van een fout. Een via de chat aangepaste opdracht
+  wordt — net als bij bewerken in de app — weer actief en opnieuw gecontroleerd; het antwoord meldt
+  dat expliciet. Verwijderen via de chat kan bewust niet, dat blijft het Zoekopdrachten-scherm.
   Verwijderen haalt een opdracht blijvend uit overzicht en planning, ook wanneer er gelijktijdig
   nog een controle loopt. Pagina's achter login/cookies/captcha en uitsluitend via JavaScript
   geladen inhoud vallen buiten dit gedrag.
