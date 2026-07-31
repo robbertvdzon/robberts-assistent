@@ -11,6 +11,7 @@ interface WatchRepository {
      */
     fun compareAndSet(expected: Watch, updated: Watch): Watch?
 
+    fun findById(id: String): Watch?
     fun all(): List<Watch>
     fun delete(id: String)
 }
@@ -27,6 +28,8 @@ class InMemoryWatchRepository : WatchRepository {
         require(expected.id == updated.id)
         return if (watches.replace(expected.id, expected, updated)) updated else null
     }
+
+    override fun findById(id: String): Watch? = watches[id]
 
     override fun all(): List<Watch> = watches.values.toList()
 

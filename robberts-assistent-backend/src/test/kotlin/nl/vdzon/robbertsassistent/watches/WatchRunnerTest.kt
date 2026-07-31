@@ -160,6 +160,53 @@ class WatchRunnerTest {
     }
 
     @Test
+    fun `lopende controle overschrijft een gelijktijdig gewijzigde watch niet`() {
+        val repository = InMemoryWatchRepository().also { it.save(watch()) }
+        val fetchStarted = CountDownLatch(1)
+        val continueFetch = CountDownLatch(1)
+        val fetcher = object : WatchPageFetcher {
+            override fun fetch(url: String): String {
+                fetchStarted.countDown()
+                assertTrue(continueFetch.await(5, TimeUnit.SECONDS))
+                return "paginatekst"
+            }
+        }
+        val push = FakePush()
+        val runner = WatchRunner(
+            repository,
+            fetcher,
+            FakeEvaluator(WatchAssessment(true, "Gevonden.")),
+            push,
+        )
+        val executor = Executors.newSingleThreadExecutor()
+        val poll = executor.submit { runner.poll(instant("2026-07-27T09:00:00")) }
+
+        try {
+            assertTrue(fetchStarted.await(5, TimeUnit.SECONDS))
+            WatchService(repository).update(
+                "1",
+                "Nieuwe kaarten",
+                "https://example.com/nieuw",
+                "zoek drie kaarten",
+                WatchFrequency.DAGELIJKS,
+                false,
+            )
+            continueFetch.countDown()
+            poll.get(5, TimeUnit.SECONDS)
+        } finally {
+            continueFetch.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+
+        val updated = repository.all().single()
+        assertEquals("Nieuwe kaarten", updated.title)
+        assertEquals(WatchStatus.NOG_NIET_GECONTROLEERD, updated.status)
+        assertTrue(updated.active)
+        assertTrue(push.sent.isEmpty())
+    }
+
+    @Test
     fun `twee overlappende vondsten slaan eenmaal op en pushen eenmaal`() {
         val repository = InMemoryWatchRepository().also { it.save(watch()) }
         val firstFetch = BlockingFetcher()

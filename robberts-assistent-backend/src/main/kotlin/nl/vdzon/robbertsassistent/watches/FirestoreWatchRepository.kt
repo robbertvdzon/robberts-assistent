@@ -26,6 +26,8 @@ class FirestoreWatchRepository(private val firestore: Firestore) : WatchReposito
         }.get()
     }
 
+    override fun findById(id: String): Watch? = collection.document(id).get().get().toWatch()
+
     override fun all(): List<Watch> =
         collection.get().get().documents.mapNotNull { it.toWatch() }
 

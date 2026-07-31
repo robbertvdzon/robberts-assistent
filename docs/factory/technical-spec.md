@@ -41,9 +41,11 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
   database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
   (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
-- **Watches:** `GET`/`POST /api/v1/watches` en `DELETE /api/v1/watches/{id}` zijn
+- **Watches:** `GET`/`POST /api/v1/watches` en `PUT`/`DELETE /api/v1/watches/{id}` zijn
   geauthenticeerd. `WatchStoreConfig` kiest de Firestore-collectie `watches` of
-  `InMemoryWatchRepository`. `WatchRunner` gebruikt één fixed-delay poller
+  `InMemoryWatchRepository`. Bewerken valideert dezelfde vijf invoervelden als aanmaken en reset
+  de opdracht naar actief en `NOG_NIET_GECONTROLEERD`, zodat de gewijzigde criteria opnieuw
+  gecontroleerd worden. `WatchRunner` gebruikt één fixed-delay poller
   (`ra.watches.poll-interval-ms`, standaard 300000 ms); de pure
   `WatchSchedule.isDue` rekent in `Europe/Amsterdam`. `JdkWatchPageFetcher`
   accepteert alleen succesvolle HTTP-responses, begrenst de HTML op 1.000.000
@@ -56,9 +58,9 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   `WatchRepository.compareAndSet(expected, updated)` alleen opgeslagen wanneer
   de actuele opdracht nog exact gelijk is aan het gelezen snapshot. In-memory
   gebeurt dit atomisch met `ConcurrentHashMap.replace`; Firestore gebruikt een
-  transactie. Daardoor kunnen overlappende pollers geen gevonden status
-  terugdraaien of dubbele push versturen en kan een lopende controle een
-  tussentijds verwijderde opdracht niet herstellen. Alleen de winnende
+  transactie. Ook een gebruikerswijziging gebruikt deze CAS. Daardoor kunnen overlappende pollers
+  geen gevonden status terugdraaien of dubbele push versturen en kan een lopende controle een
+  tussentijds gewijzigde of verwijderde opdracht niet overschrijven/herstellen. Alleen de winnende
   overgang naar `GEVONDEN` mag de optionele FCM-push met `data.type=watch`
   versturen.
 

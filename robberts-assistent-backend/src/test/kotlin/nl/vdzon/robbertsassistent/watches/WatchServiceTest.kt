@@ -6,7 +6,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import java.time.Instant
 
 class WatchServiceTest {
     private val repository = InMemoryWatchRepository()
@@ -61,6 +63,68 @@ class WatchServiceTest {
         service.delete(watch.id)
 
         assertTrue(service.list().isEmpty())
+    }
+
+    @Test
+    fun `wijzigen bewaart invoervelden en activeert een nieuwe controle`() {
+        val existing = repository.save(
+            Watch(
+                id = "watch-1",
+                title = "Oude titel",
+                url = "https://example.com/oud",
+                instruction = "oude instructie",
+                frequency = WatchFrequency.DAGELIJKS,
+                notifyOnFound = false,
+                status = WatchStatus.GEVONDEN,
+                statusDescription = "Eerder gevonden.",
+                lastCheckedAt = Instant.parse("2026-07-30T10:00:00Z"),
+                active = false,
+            ),
+        )
+
+        val updated = service.update(
+            existing.id,
+            " Nieuwe titel ",
+            " https://example.com/nieuw ",
+            " nieuwe instructie ",
+            WatchFrequency.KANTOORUREN,
+            true,
+        )
+
+        assertEquals("Nieuwe titel", updated.title)
+        assertEquals("https://example.com/nieuw", updated.url)
+        assertEquals("nieuwe instructie", updated.instruction)
+        assertEquals(WatchFrequency.KANTOORUREN, updated.frequency)
+        assertTrue(updated.notifyOnFound)
+        assertEquals(WatchStatus.NOG_NIET_GECONTROLEERD, updated.status)
+        assertEquals("Nog niet gecontroleerd.", updated.statusDescription)
+        assertNull(updated.lastCheckedAt)
+        assertTrue(updated.active)
+        assertEquals(updated, repository.findById(existing.id))
+    }
+
+    @Test
+    fun `wijzigen valideert invoer en weigert een onbekende id`() {
+        assertFailsWith<WatchValidationException> {
+            service.update(
+                "watch-1",
+                "Titel",
+                "geen-url",
+                "zoek",
+                WatchFrequency.DAGELIJKS,
+                false,
+            )
+        }
+        assertFailsWith<WatchNotFoundException> {
+            service.update(
+                "onbekend",
+                "Titel",
+                "https://example.com",
+                "zoek",
+                WatchFrequency.DAGELIJKS,
+                false,
+            )
+        }
     }
 
     @Test

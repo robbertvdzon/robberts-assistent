@@ -279,6 +279,23 @@ class ApiClient {
     });
   }
 
+  Future<void> updateWatch({
+    required String id,
+    required String title,
+    required String url,
+    required String instruction,
+    required String frequency,
+    required bool notifyOnFound,
+  }) async {
+    await putJson('/api/v1/watches/$id', {
+      'title': title,
+      'url': url,
+      'instruction': instruction,
+      'frequency': frequency,
+      'notifyOnFound': notifyOnFound,
+    });
+  }
+
   Future<void> deleteWatch(String id) => _delete('/api/v1/watches/$id');
 
   // -- Koppelingen ------------------------------------------------------------

@@ -6,6 +6,7 @@ import java.time.Instant
 import java.util.UUID
 
 class WatchValidationException(message: String) : IllegalArgumentException(message)
+class WatchNotFoundException(id: String) : NoSuchElementException("Zoekopdracht $id bestaat niet.")
 
 @Service
 class WatchService(private val repository: WatchRepository) {
@@ -35,6 +36,36 @@ class WatchService(private val repository: WatchRepository) {
     fun list(): List<Watch> = repository.all().sortedWith(
         compareByDescending<Watch> { it.active }.thenBy { it.title.lowercase() },
     )
+
+    fun update(
+        id: String,
+        title: String,
+        url: String,
+        instruction: String,
+        frequency: WatchFrequency,
+        notifyOnFound: Boolean,
+    ): Watch {
+        val cleanTitle = title.trim()
+        val cleanUrl = url.trim()
+        val cleanInstruction = instruction.trim()
+        validate(cleanTitle, cleanUrl, cleanInstruction)
+
+        while (true) {
+            val current = repository.findById(id) ?: throw WatchNotFoundException(id)
+            val updated = current.copy(
+                title = cleanTitle,
+                url = cleanUrl,
+                instruction = cleanInstruction,
+                frequency = frequency,
+                notifyOnFound = notifyOnFound,
+                status = WatchStatus.NOG_NIET_GECONTROLEERD,
+                statusDescription = "Nog niet gecontroleerd.",
+                lastCheckedAt = null,
+                active = true,
+            )
+            repository.compareAndSet(current, updated)?.let { return it }
+        }
+    }
 
     fun delete(id: String) = repository.delete(id)
 

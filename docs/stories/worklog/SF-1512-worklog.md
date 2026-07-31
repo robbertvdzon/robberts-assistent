@@ -20,6 +20,9 @@ Stappenplan:
 - [x] Reviewbevinding oplossen: pollresultaten met compare-and-set tegen de gelezen watch opslaan.
 - [x] Regressietests toevoegen voor dubbele vondst en een laat verouderd pollresultaat.
 - [x] Volledige backend- en Flutter-vangnetten opnieuw groen afronden.
+- [x] Handmatige afkeur oplossen: bestaande zoekopdrachten via backend en app bewerkbaar maken.
+- [x] Backend- en Flutter-regressietests voor wijzigen en statusreset toevoegen.
+- [x] Documentatie bijwerken en het volledige factory-vangnet opnieuw groen afronden.
 
 Uitvoering en keuzes:
 - De story heeft geen aanvullende PO-comments; de refined scope en acceptatiecriteria zijn leidend.
@@ -178,3 +181,26 @@ Review na CAS-fix:
   `ModulithArchitectureTest` en `BriefingControllerTest`), 11 relevante Flutter-widgettests en
   analyse van de zes gewijzigde Flutterbron-/testbestanden.
 - [info] Geen resterende blockers, bugs of scope-afwijkingen gevonden; review akkoord.
+
+Handmatige afkeur:
+- De PO-feedback is leidend: een eenmaal aangemaakte zoekopdracht kan nu alleen worden verwijderd,
+  maar moet ook achteraf aangepast kunnen worden.
+- Een wijziging zal dezelfde vijf invoervelden valideren en de controletoestand resetten naar
+  `NOG_NIET_GECONTROLEERD`/actief. Zo worden gewijzigde URL's of zoekinstructies opnieuw beoordeeld
+  en kan ook een eerder gevonden, inactieve opdracht zinvol worden aangepast.
+
+Handmatige-afkeurfix:
+- De backend biedt nu geauthenticeerd `PUT /api/v1/watches/{id}`. De service trimt en valideert
+  dezelfde vijf invoervelden als bij aanmaken, geeft 404 voor een onbekende id en slaat de reset
+  conditioneel op via de bestaande compare-and-set. Daardoor kan een lopende controle een
+  gebruikerswijziging niet alsnog overschrijven.
+- Elke lijstregel in de app heeft een expliciete bewerkknop. De gedeelde dialoog vult titel, URL,
+  instructie, frequentie en pushvoorkeur vooraf in, toont dezelfde validatie en herlaadt de lijst
+  na opslaan. Backendfouten bij wijzigen worden als snackbar getoond.
+- Regressietests dekken veldopslag/statusreset, validatie/onbekende id, wijziging tijdens een
+  lopende poll, vooraf ingevuld bewerken en foutweergave in Flutter.
+- Vangnet: `mvn -o test` (328 tests, 0 failures/errors/skips),
+  `mvn -o -DskipTests package`, `flutter analyze`, `flutter test` (45 tests) en
+  `flutter build web --release` zijn groen. `flutter build apk --release` kon vóór compilatie
+  niet starten doordat deze container geen Android SDK bevat (`No Android SDK found`); er bleef
+  geen proces of gedeeltelijke APK-build achter.

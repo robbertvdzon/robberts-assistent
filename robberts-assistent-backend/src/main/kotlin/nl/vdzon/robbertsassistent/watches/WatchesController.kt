@@ -7,13 +7,14 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
 
-data class CreateWatchRequest(
+data class SaveWatchRequest(
     val title: String,
     val url: String,
     val instruction: String,
@@ -51,10 +52,27 @@ class WatchesController(
     @PostMapping("/api/v1/watches")
     fun create(
         @RequestHeader("Authorization", required = false) authorization: String?,
-        @RequestBody request: CreateWatchRequest,
+        @RequestBody request: SaveWatchRequest,
     ): WatchResponse {
         authService.requireAuthorization(authorization)
         return watchService.create(
+            request.title,
+            request.url,
+            request.instruction,
+            request.frequency,
+            request.notifyOnFound,
+        ).toResponse()
+    }
+
+    @PutMapping("/api/v1/watches/{id}")
+    fun update(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+        @RequestBody request: SaveWatchRequest,
+    ): WatchResponse {
+        authService.requireAuthorization(authorization)
+        return watchService.update(
+            id,
             request.title,
             request.url,
             request.instruction,
@@ -76,6 +94,10 @@ class WatchesController(
     @ExceptionHandler(WatchValidationException::class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun invalid(ex: WatchValidationException) = WatchErrorResponse(ex.message ?: "Ongeldige zoekopdracht.")
+
+    @ExceptionHandler(WatchNotFoundException::class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    fun notFound(ex: WatchNotFoundException) = WatchErrorResponse(ex.message ?: "Zoekopdracht niet gevonden.")
 
     private fun response() = WatchesResponse(watchService.list().map { it.toResponse() })
 }

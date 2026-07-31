@@ -26,7 +26,7 @@ actief op web/productie en wordt op PR-previews overgeslagen via
   (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda, Google Docs en
   windmetingen/-voorspellingen bij IJmuiden (`robberts-assistent-backend/.../assistant/ai/`).
 - **Herinneringen** — overzicht en beheer van reminders en alarmen.
-- **Zoekopdrachten** — maakt en verwijdert langdurige websitezoekopdrachten en
+- **Zoekopdrachten** — maakt, bewerkt en verwijdert langdurige websitezoekopdrachten en
   toont per opdracht de meest recente leesbare status. Titel, absolute
   HTTP(S)-URL, zoekinstructie, frequentie (`Dagelijks` of `Kantooruren`) en
   pushvoorkeur worden afzonderlijk ingevoerd. De backend valideert dezelfde
@@ -56,12 +56,15 @@ Alle calls sturen het bestaande Bearer-sessietoken mee.
 |---|---|---|
 | `GET` | `/api/v1/watches` | Geeft `{"watches":[...]}` terug; actieve opdrachten eerst, daarna op titel. |
 | `POST` | `/api/v1/watches` | Maakt een opdracht met `title`, `url`, `instruction`, `frequency` en `notifyOnFound`. |
+| `PUT` | `/api/v1/watches/{id}` | Wijzigt dezelfde vijf velden en activeert de opdracht voor een nieuwe controle. |
 | `DELETE` | `/api/v1/watches/{id}` | Verwijdert de opdracht en geeft de resterende lijst terug. |
 
 Een watch-response bevat `id`, de vijf invoervelden, `status`,
 `statusDescription`, `lastCheckedAt` en `active`. Mogelijke statussen zijn
 `NOG_NIET_GECONTROLEERD`, `NIET_GEVONDEN`, `GEVONDEN` en `ONBEKEND`.
-Validatiefouten op `POST` geven HTTP 400 met een Nederlandstalig `message`.
+Na wijzigen zijn status en omschrijving weer `NOG_NIET_GECONTROLEERD`/`Nog niet gecontroleerd.`,
+is `lastCheckedAt` leeg en is de opdracht actief. Validatiefouten op `POST` en `PUT` geven HTTP 400
+met een Nederlandstalig `message`; wijzigen van een onbekende id geeft HTTP 404.
 
 ## Build & test
 

@@ -10,16 +10,53 @@ class _FakeApiClient extends ApiClient {
   final watches = <Watch>[];
   bool loadFails = false;
   bool createFails = false;
+  bool updateFails = false;
   String? createdTitle;
   String? createdUrl;
   String? createdInstruction;
   String? createdFrequency;
   bool? createdNotify;
+  String? updatedId;
+  String? updatedTitle;
+  String? updatedUrl;
+  String? updatedInstruction;
+  String? updatedFrequency;
+  bool? updatedNotify;
 
   @override
   Future<List<Watch>> listWatches() async {
     if (loadFails) throw Exception('backend niet bereikbaar');
     return List.of(watches);
+  }
+
+  @override
+  Future<void> updateWatch({
+    required String id,
+    required String title,
+    required String url,
+    required String instruction,
+    required String frequency,
+    required bool notifyOnFound,
+  }) async {
+    if (updateFails) throw Exception('wijzigen kapot');
+    updatedId = id;
+    updatedTitle = title;
+    updatedUrl = url;
+    updatedInstruction = instruction;
+    updatedFrequency = frequency;
+    updatedNotify = notifyOnFound;
+    final index = watches.indexWhere((watch) => watch.id == id);
+    watches[index] = Watch(
+      id: id,
+      title: title,
+      url: url,
+      instruction: instruction,
+      frequency: frequency,
+      notifyOnFound: notifyOnFound,
+      status: 'NOG_NIET_GECONTROLEERD',
+      statusDescription: 'Nog niet gecontroleerd.',
+      active: true,
+    );
   }
 
   @override
@@ -159,6 +196,44 @@ void main() {
     },
   );
 
+  testWidgets('bewerkt een bestaande watch met vooraf ingevulde velden', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeApiClient()..watches.add(_currentWatch);
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Bewerk Concertkaartjes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoekopdracht bewerken'), findsOneWidget);
+    final fields = find.byType(TextField);
+    expect(tester.widget<TextField>(fields.at(0)).controller?.text, 'Concertkaartjes');
+    expect(tester.widget<TextField>(fields.at(1)).controller?.text, 'https://example.com');
+    expect(tester.widget<TextField>(fields.at(2)).controller?.text, 'Zoek twee kaarten');
+
+    await tester.enterText(fields.at(0), 'Drie concertkaartjes');
+    await tester.enterText(fields.at(1), 'https://example.com/nieuw');
+    await tester.enterText(fields.at(2), 'Zoek drie kaarten naast elkaar');
+    await tester.tap(find.text('Dagelijks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kantooruren').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Switch));
+    await tester.tap(find.widgetWithText(FilledButton, 'Opslaan'));
+    await tester.pumpAndSettle();
+
+    expect(api.updatedId, '1');
+    expect(api.updatedTitle, 'Drie concertkaartjes');
+    expect(api.updatedUrl, 'https://example.com/nieuw');
+    expect(api.updatedInstruction, 'Zoek drie kaarten naast elkaar');
+    expect(api.updatedFrequency, 'KANTOORUREN');
+    expect(api.updatedNotify, isFalse);
+    expect(find.text('Drie concertkaartjes'), findsOneWidget);
+    expect(find.text('Nog niet gecontroleerd.'), findsOneWidget);
+  });
+
   testWidgets('weigert lege velden en ongeldige url met duidelijke melding', (
     tester,
   ) async {
@@ -212,6 +287,23 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Opslaan'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Opslaan mislukt'), findsOneWidget);
+  });
+
+  testWidgets('toont een backendfout bij wijzigen', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeApiClient()
+      ..updateFails = true
+      ..watches.add(_oldWatch);
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Bewerk Concertkaartjes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Opslaan'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Wijzigen mislukt'), findsOneWidget);
   });
 
   testWidgets('een oudere load overschrijft een nieuwere pushrefresh niet', (

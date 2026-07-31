@@ -57,7 +57,7 @@ class _WatchesScreenState extends State<WatchesScreen> {
   Future<void> _add() async {
     final input = await showDialog<_WatchInput>(
       context: context,
-      builder: (_) => const _AddWatchDialog(),
+      builder: (_) => const _WatchDialog(),
     );
     if (input == null) return;
     try {
@@ -74,6 +74,31 @@ class _WatchesScreenState extends State<WatchesScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Opslaan mislukt: $e')));
+      }
+    }
+  }
+
+  Future<void> _edit(Watch watch) async {
+    final input = await showDialog<_WatchInput>(
+      context: context,
+      builder: (_) => _WatchDialog(watch: watch),
+    );
+    if (input == null) return;
+    try {
+      await widget.api.updateWatch(
+        id: watch.id,
+        title: input.title,
+        url: input.url,
+        instruction: input.instruction,
+        frequency: input.frequency,
+        notifyOnFound: input.notifyOnFound,
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Wijzigen mislukt: $e')));
       }
     }
   }
@@ -136,10 +161,20 @@ class _WatchesScreenState extends State<WatchesScreen> {
                     ),
                     title: Text(watch.title),
                     subtitle: Text(watch.statusDescription),
-                    trailing: IconButton(
-                      tooltip: 'Verwijder ${watch.title}',
-                      onPressed: () => _delete(watch),
-                      icon: const Icon(Icons.delete_outline),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Bewerk ${watch.title}',
+                          onPressed: () => _edit(watch),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Verwijder ${watch.title}',
+                          onPressed: () => _delete(watch),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ],
                     ),
                   ),
                 )
@@ -169,20 +204,33 @@ class _WatchInput {
   );
 }
 
-class _AddWatchDialog extends StatefulWidget {
-  const _AddWatchDialog();
+class _WatchDialog extends StatefulWidget {
+  const _WatchDialog({this.watch});
+
+  final Watch? watch;
 
   @override
-  State<_AddWatchDialog> createState() => _AddWatchDialogState();
+  State<_WatchDialog> createState() => _WatchDialogState();
 }
 
-class _AddWatchDialogState extends State<_AddWatchDialog> {
-  final _title = TextEditingController();
-  final _url = TextEditingController();
-  final _instruction = TextEditingController();
-  var _frequency = 'DAGELIJKS';
-  var _notify = true;
+class _WatchDialogState extends State<_WatchDialog> {
+  late final TextEditingController _title;
+  late final TextEditingController _url;
+  late final TextEditingController _instruction;
+  late String _frequency;
+  late bool _notify;
   String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    final watch = widget.watch;
+    _title = TextEditingController(text: watch?.title);
+    _url = TextEditingController(text: watch?.url);
+    _instruction = TextEditingController(text: watch?.instruction);
+    _frequency = watch?.frequency ?? 'DAGELIJKS';
+    _notify = watch?.notifyOnFound ?? true;
+  }
 
   @override
   void dispose() {
@@ -220,7 +268,7 @@ class _AddWatchDialogState extends State<_AddWatchDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Nieuwe zoekopdracht'),
+    title: Text(widget.watch == null ? 'Nieuwe zoekopdracht' : 'Zoekopdracht bewerken'),
     content: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -244,6 +292,7 @@ class _AddWatchDialogState extends State<_AddWatchDialog> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _frequency,
+            isExpanded: true,
             decoration: const InputDecoration(labelText: 'Controlefrequentie'),
             items: const [
               DropdownMenuItem(value: 'DAGELIJKS', child: Text('Dagelijks')),
