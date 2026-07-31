@@ -115,3 +115,23 @@ omdat `_add` intern `await _load()` doet en zo het runresultaat kon wegdrukken.
 - App: `flutter analyze` → "No issues found!"; `flutter test` → 50 tests, all passed.
 - Backend: `rm -rf target && mvn -o test` → 333 tests, 0 failures, 0 errors, 0 skipped
   (backend ongewijzigd in deze ronde).
+
+## Review SF-1554 (ronde 2) — akkoord
+
+Volledige story-diff t.o.v. `main` beoordeeld (`git diff main...HEAD`): `WatchRunner.runNow`,
+`POST /api/v1/watches/run-now`, `ApiClient.runWatchesNow()`, `watches_screen.dart` + tests.
+
+- Scope gerespecteerd: `Watch`, `WatchRepository`, `WatchSchedule`, `WatchEvaluator`,
+  `WatchPageFetcher` en de `@Scheduled poll()` zijn ongewijzigd; `runNow` hergebruikt de
+  ongewijzigde private `check(watch, now)`, dus compareAndSet/push/ONBEKEND-gedrag is identiek.
+- De laadspinner-regressie uit ronde 1 is opgelost en getest; de `_loadSequence`-teller wordt
+  niet meer onder een lopende `_load()` opgehoogd.
+- Eigen verificatie in deze review-sandbox:
+  - Backend gericht: `mvn -o test -Dtest='Watch*Test,ModulithArchitectureTest,BriefingControllerTest'`
+    → WatchRunnerTest 14, WatchServiceTest 7, WatchScheduleTest 4, WatchEvaluatorTest 2,
+    WatchPageFetcherTest 2, ModulithArchitectureTest 1, BriefingControllerTest 1 — 0 failures/errors.
+    (De extra `WatchRunner`-injectie in `WatchesController` wiret aantoonbaar in een echte
+    Spring-context.)
+  - App: `flutter analyze` → "No issues found!"; `flutter test` → 50 tests, all passed.
+- [info] AC 6 (auth) heeft geen automatische test; er bestaat geen `WatchesControllerTest` in deze
+  module en het endpoint volgt exact het bestaande `requireAuthorization`-patroon. Geen blocker.
