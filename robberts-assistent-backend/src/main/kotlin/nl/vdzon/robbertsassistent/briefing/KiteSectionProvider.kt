@@ -18,6 +18,22 @@ import java.time.ZoneId
 /** Kleurbeoordeling voor de kite-/strandfiets-briefingsecties. */
 enum class RatingColor(val emoji: String) { GREEN("🟢"), YELLOW("🟡"), RED("🔴") }
 
+internal fun RatingColor.toBriefingStatus(): BriefingStatus = when (this) {
+    RatingColor.GREEN -> BriefingStatus.GOED
+    RatingColor.YELLOW -> BriefingStatus.LET_OP
+    RatingColor.RED -> BriefingStatus.NIET
+}
+
+private fun RatingColor.priority(): Int = when (this) {
+    RatingColor.GREEN -> 0
+    RatingColor.YELLOW -> 1
+    RatingColor.RED -> 2
+}
+
+/** [slots] staat in dagdeelvolgorde; `minByOrNull` houdt bij gelijke prioriteit het eerste slot. */
+internal fun bestSlot(slots: List<SlotAssessment>, rating: (SlotAssessment) -> RatingColor): SlotAssessment? =
+    slots.minByOrNull { rating(it).priority() }
+
 /**
  * Gedeelde dagdeel-beoordeling voor de kite- en strandfiets-briefingsecties ([KiteSectionProvider],
  * [BeachCycleSectionProvider]): combineert een gestructureerde windvoorspelling
@@ -88,6 +104,7 @@ internal class SlotAssessmentProvider(
         return SlotAssessment(
             label = slot.label,
             windKn = speedKn.toInt(),
+            windDirection = direction,
             windText = "${speedKn.toInt()} kn ($direction)",
             precipitationMm = precipitationMm,
             nearLowTide = nearLowTide,
@@ -107,6 +124,7 @@ internal class SlotAssessmentProvider(
 internal data class SlotAssessment(
     val label: String,
     val windKn: Int,
+    val windDirection: String,
     val windText: String,
     val precipitationMm: Double,
     val nearLowTide: Boolean,
@@ -139,13 +157,25 @@ class KiteSectionProvider(
 
     override fun section(): BriefingSection {
         val result = assessmentProvider.buildAssessments()
-        val text = when (result) {
-            is AssessmentResult.Error -> "Kon de kite-inschatting voor morgen niet maken: ${result.message}"
-            is AssessmentResult.Ok -> result.slots.joinToString("\n") { slot ->
-                "${slot.label}: ${slot.kite.emoji} ${slot.windText}"
+        return when (result) {
+            is AssessmentResult.Error -> BriefingSection(
+                key = "kite",
+                title = "Kiten",
+                text = "Kon de kite-inschatting voor morgen niet maken: ${result.message}",
+            )
+            is AssessmentResult.Ok -> {
+                val slot = bestSlot(result.slots) { it.kite }
+                BriefingSection(
+                    key = "kite",
+                    title = "Kiten",
+                    text = result.slots.joinToString("\n") { item ->
+                        "${item.label}: ${item.kite.emoji} ${item.windText}"
+                    },
+                    status = slot?.kite?.toBriefingStatus(),
+                    tileLabel = slot?.let { "${it.windKn} kn ${it.windDirection}" },
+                )
             }
         }
-        return BriefingSection(key = "kite", title = "Kiten", text = text)
     }
 
     /** Compacte one-liner voor de 18:00-push, gebaseerd op de laatste beoordeelde tijdsslot (avond, of het enige slot). */

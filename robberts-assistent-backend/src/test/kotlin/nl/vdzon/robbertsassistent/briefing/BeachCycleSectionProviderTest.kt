@@ -7,6 +7,8 @@ import nl.vdzon.robbertsassistent.weather.HourlyWeather
 import nl.vdzon.robbertsassistent.weather.StubWindForecastClient
 import nl.vdzon.robbertsassistent.weather.WeatherClient
 import nl.vdzon.robbertsassistent.weather.WeatherForecast
+import nl.vdzon.robbertsassistent.weather.WindForecast
+import nl.vdzon.robbertsassistent.weather.WindForecastClient
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.Test
@@ -37,10 +39,21 @@ class BeachCycleSectionProviderTest {
         }
     }
 
+    private class CountingWindClient : WindForecastClient {
+        var calls = 0
+        private val delegate = StubWindForecastClient(speedKn = 10.0, directionDeg = 270.0)
+
+        override fun hourlyForecast(hours: Int): WindForecast {
+            calls++
+            return delegate.hourlyForecast(hours)
+        }
+    }
+
     @Test
     fun `section bouwt tekst op met onderbouwing`() {
+        val windClient = CountingWindClient()
         val provider = BeachCycleSectionProvider(
-            windForecastClient = StubWindForecastClient(speedKn = 10.0, directionDeg = 270.0),
+            windForecastClient = windClient,
             weatherClient = DryWeatherClient(),
             tideClient = StubTideClient(),
             calendarClient = EmptyCalendarClient(),
@@ -54,6 +67,9 @@ class BeachCycleSectionProviderTest {
         assertTrue(section.text.contains("droog"))
         assertTrue(section.text.contains("laagwater"))
         assertTrue(!Regex("laagwater om \\d{2}:\\d{2}").containsMatchIn(section.text), "geen laagwatertijd meer in de tekst")
+        assertTrue(section.status != null)
+        assertTrue(section.tileLabel in setOf("goed", "let op", "niet"))
+        assertEquals(1, windClient.calls, "sectietekst en tegel gebruiken dezelfde beoordeling")
     }
 
     @Test
@@ -97,6 +113,17 @@ class BeachCycleSectionProviderTest {
         val section = provider.section()
 
         assertTrue(section.text.contains("kapot"))
+        assertNull(section.status)
+        assertNull(section.tileLabel)
+    }
+
+    @Test
+    fun `beste strandfietsslot kiest gunstigste beoordeling en vroegste bij gelijkstand`() {
+        val firstYellow = slot("Ochtend", RatingColor.YELLOW)
+        val secondYellow = slot("Middag", RatingColor.YELLOW)
+        val red = slot("Avond", RatingColor.RED)
+
+        assertEquals(firstYellow, bestSlot(listOf(firstYellow, secondYellow, red)) { it.beach })
     }
 
     @Test
@@ -110,4 +137,16 @@ class BeachCycleSectionProviderTest {
 
         assertNull(provider.shortSummary())
     }
+
+    private fun slot(label: String, beach: RatingColor) = SlotAssessment(
+        label = label,
+        windKn = 10,
+        windDirection = "W",
+        windText = "10 kn (W)",
+        precipitationMm = 0.0,
+        nearLowTide = true,
+        nearestLowTideAt = null,
+        kite = RatingColor.GREEN,
+        beach = beach,
+    )
 }

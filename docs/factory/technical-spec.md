@@ -28,6 +28,12 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   een `@Component`-implementatie ervan, en Spring injecteert automatisch de volledige
   `List<...>` in de verzamelende service. Nieuwe leverancier toevoegen ⇒ nieuwe `@Component`,
   geen wijziging in de verzamelende service.
+- **Briefingstatuscontract:** `BriefingSection` heeft achterwaarts compatibele optionele velden
+  `status` (`GOED`, `LET_OP`, `NIET`) en `tileLabel`; ontbrekende velden in bestaande
+  Firestore-cache-JSON deserialiseren als `null`. Kite en strandfietsen kiezen uit hun ene
+  `AssessmentResult` groen boven geel boven rood (bij gelijkstand het vroegste dagdeel). Afval
+  leidt tekst en tegel af uit dezelfde eenmalig opgehaalde zevendagenplanning, met daggrenzen in
+  `Europe/Amsterdam`. Bronfouten leveren bewust beide tegelvelden als `null`.
 - **Config:** `AppSecrets` + `AppSecretsLoader` lezen `secrets.env` (lokaal) of env-vars (prod,
   uit de Sealed Secret via `envFrom`). Ontbrekende secret ⇒ fallback (zie `effectiveMockAi`).
 - **AI-agent:** twee `ChatClient`-beans in `assistant/ai/AiConfig` — `assistantChatClient`
@@ -83,6 +89,13 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   respectievelijk het SVG-beeldmerk, sectiekoppen en toegankelijke statusweergave (kleur plus
   woord). `flutter_svg` rendert `assets/icon/logo.svg`; `flutter_launcher_icons` genereert de
   Android- en webiconen uit het overeenkomstige PNG.
+- De Vandaag-tab parseert onbekende briefingstatussen als `null` en rendert maximaal drie geldige
+  statussecties met een niet-leeg `tileLabel` als even brede tegels. De exacte bolkleuren zijn
+  `#0CA30C`, `#FAB219` en `#D03B3B`; tegel-semantiek bevat statuswoord, titel, label en een
+  uitvoerbare tikactie. Eén geselecteerde tegel toont zijn bestaande sectiekaart direct onder de
+  rij en wordt zo nodig met `Scrollable.ensureVisible` in beeld gebracht; getegelde secties worden
+  uit de permanente kaartenlijst gefilterd. Geldige statussecties na de limiet blijven gewone
+  kaarten.
 - Pushnavigatie gebruikt `FcmService.deepLinkTarget`: `briefing` gaat naar de hoofdbestemming
   Vandaag en sluit eerst routes boven de app-shell; `watch` pusht een verse
   `WatchesScreen`-route. Daarmee zijn deeplinks niet gekoppeld aan veranderlijke tab-indexen.

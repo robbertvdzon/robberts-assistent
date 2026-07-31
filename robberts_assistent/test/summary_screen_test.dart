@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +45,39 @@ Widget _wrap(ApiClient api) => MaterialApp(
 );
 
 void main() {
+  test('briefing-JSON zonder of met onbekende status blijft compatibel', () {
+    final oldSection = BriefingSection.fromJson({
+      'key': 'agenda',
+      'title': 'Agenda',
+      'text': 'Geen afspraken.',
+    });
+    final unknownSection = BriefingSection.fromJson({
+      'key': 'later',
+      'title': 'Later',
+      'text': 'Details',
+      'status': 'ONBEKEND',
+      'tileLabel': 'waarde',
+    });
+
+    expect(oldSection.status, isNull);
+    expect(oldSection.tileLabel, isNull);
+    expect(unknownSection.status, isNull);
+  });
+
+  test('briefing-JSON leest alle afgesproken statussen', () {
+    BriefingSection parse(String status) => BriefingSection.fromJson({
+      'key': 'status',
+      'title': 'Status',
+      'text': 'Details',
+      'status': status,
+      'tileLabel': 'waarde',
+    });
+
+    expect(parse('GOED').status, BriefingStatus.goed);
+    expect(parse('LET_OP').status, BriefingStatus.letOp);
+    expect(parse('NIET').status, BriefingStatus.niet);
+  });
+
   testWidgets('toont de titel en tekst van elke briefingsectie', (
     tester,
   ) async {
@@ -81,6 +115,198 @@ void main() {
     expect(find.text('(10 kn, droog, laagwater om 08:00)'), findsOneWidget);
     expect(find.textContaining('🟢'), findsNothing);
     expect(find.text('Alles goed.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('status-tile-row')), findsNothing);
+  });
+
+  testWidgets(
+    'één geldige statustegel vult de rij en heeft toegankelijke semantiek',
+    (tester) async {
+      final api = _FakeApiClient()
+        ..sections = const [
+          BriefingSection(
+            key: 'kite',
+            title: 'Kiten',
+            text: 'Volledige kite-details.',
+            items: [],
+            status: BriefingStatus.goed,
+            tileLabel: '24 kn W',
+          ),
+        ];
+
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
+
+      final rowWidth = tester
+          .getSize(find.byKey(const ValueKey('status-tile-row')))
+          .width;
+      final tileWidth = tester
+          .getSize(find.byKey(const ValueKey('status-tile-kite')))
+          .width;
+      expect(tileWidth, closeTo(rowWidth, 0.01));
+      final semanticsFinder = find.semantics.byLabel('goed, Kiten, 24 kn W');
+      expect(semanticsFinder, findsOne);
+      final semanticsNode = semanticsFinder.evaluate().single;
+      expect(
+        semanticsNode.getSemanticsData().hasAction(SemanticsAction.tap),
+        isTrue,
+      );
+      expect(find.byIcon(Icons.air), findsOneWidget);
+      expect(find.text('Volledige kite-details.'), findsNothing);
+      expect(find.text('KITEN'), findsNothing);
+
+      tester.semantics.tap(semanticsFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Volledige kite-details.'), findsOneWidget);
+      expect(find.text('KITEN'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'drie tegels zijn even breed, kappen lange tekst af en gebruiken exacte kleuren',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _FakeApiClient()
+        ..sections = const [
+          BriefingSection(
+            key: 'kite',
+            title: 'Een buitengewoon lange titel voor kiten',
+            text: 'Kite-details',
+            items: [],
+            status: BriefingStatus.goed,
+            tileLabel: 'Een buitengewoon lang groen tegellabel',
+          ),
+          BriefingSection(
+            key: 'beach',
+            title: 'Strandfietsen met een erg lange titel',
+            text: 'Strandfiets-details',
+            items: [],
+            status: BriefingStatus.letOp,
+            tileLabel: 'let op met een buitengewoon lange toelichting',
+          ),
+          BriefingSection(
+            key: 'waste',
+            title: 'Afval met een erg lange titel',
+            text: 'Afvaldetails',
+            items: [],
+            status: BriefingStatus.niet,
+            tileLabel: 'gft + pbd + papier + rest',
+          ),
+        ];
+
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
+
+      final widths = ['kite', 'beach', 'waste']
+          .map(
+            (key) =>
+                tester.getSize(find.byKey(ValueKey('status-tile-$key'))).width,
+          )
+          .toList();
+      expect(widths[0], closeTo(widths[1], 0.01));
+      expect(widths[1], closeTo(widths[2], 0.01));
+      expect(tester.takeException(), isNull);
+      expect(_dotColor(tester, 'kite'), const Color(0xFF0CA30C));
+      expect(_dotColor(tester, 'beach'), const Color(0xFFFAB219));
+      expect(_dotColor(tester, 'waste'), const Color(0xFFD03B3B));
+      expect(find.byIcon(Icons.air), findsOneWidget);
+      expect(find.byIcon(Icons.pedal_bike), findsOneWidget);
+      expect(find.byIcon(Icons.recycling), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'alleen de eerste drie statussen zijn tegels en een vierde blijft kaart',
+    (tester) async {
+      final api = _FakeApiClient()
+        ..sections = const [
+          BriefingSection(
+            key: 'een',
+            title: 'Een',
+            text: 'Detail een',
+            items: [],
+            status: BriefingStatus.goed,
+            tileLabel: '1',
+          ),
+          BriefingSection(
+            key: 'twee',
+            title: 'Twee',
+            text: 'Detail twee',
+            items: [],
+            status: BriefingStatus.goed,
+            tileLabel: '2',
+          ),
+          BriefingSection(
+            key: 'drie',
+            title: 'Drie',
+            text: 'Detail drie',
+            items: [],
+            status: BriefingStatus.goed,
+            tileLabel: '3',
+          ),
+          BriefingSection(
+            key: 'vier',
+            title: 'Vier',
+            text: 'Detail vier',
+            items: [],
+            status: BriefingStatus.goed,
+            tileLabel: '4',
+          ),
+        ];
+
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('status-tile-een')), findsOneWidget);
+      expect(find.byKey(const ValueKey('status-tile-twee')), findsOneWidget);
+      expect(find.byKey(const ValueKey('status-tile-drie')), findsOneWidget);
+      expect(find.byKey(const ValueKey('status-tile-vier')), findsNothing);
+      expect(find.text('VIER'), findsOneWidget);
+      expect(find.text('Detail vier'), findsOneWidget);
+    },
+  );
+
+  testWidgets('tik opent één detail tegelijk zonder permanente dubbele kaart', (
+    tester,
+  ) async {
+    final api = _FakeApiClient()
+      ..sections = const [
+        BriefingSection(
+          key: 'kite',
+          title: 'Kiten',
+          text: 'Eerste detail.',
+          items: [],
+          status: BriefingStatus.goed,
+          tileLabel: '24 kn W',
+        ),
+        BriefingSection(
+          key: 'beach',
+          title: 'Strandfietsen',
+          text: 'Tweede detail.',
+          items: [],
+          status: BriefingStatus.letOp,
+          tileLabel: 'let op',
+        ),
+      ];
+
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+
+    expect(find.text('Eerste detail.'), findsNothing);
+    expect(find.text('Tweede detail.'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('status-tile-kite')));
+    await tester.pumpAndSettle();
+    expect(find.text('Eerste detail.'), findsOneWidget);
+    expect(find.text('Tweede detail.'), findsNothing);
+    expect(find.text('KITEN'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('status-tile-beach')));
+    await tester.pumpAndSettle();
+    expect(find.text('Eerste detail.'), findsNothing);
+    expect(find.text('Tweede detail.'), findsOneWidget);
+    expect(find.text('KITEN'), findsNothing);
+    expect(find.text('STRANDFIETSEN'), findsOneWidget);
   });
 
   testWidgets('toont de updatedAt-tijdstip van de (gecachete) briefing', (
@@ -336,6 +562,13 @@ void main() {
 
     expect(find.textContaining('kapot'), findsOneWidget);
   });
+}
+
+Color? _dotColor(WidgetTester tester, String key) {
+  final container = tester.widget<Container>(
+    find.byKey(ValueKey('status-dot-$key')),
+  );
+  return (container.decoration as BoxDecoration).color;
 }
 
 class _FailingApiClient extends ApiClient {

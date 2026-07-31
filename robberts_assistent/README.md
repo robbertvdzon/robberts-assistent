@@ -17,18 +17,20 @@ de app-header, op het loginscherm en in de Android- en webiconen. Status wordt n
 kleur aangeduid: Koppelingen, Nachtchecks en Zoekopdrachten gebruiken gedeelde pillen met
 **goed**, **let op**, **kritiek** of **neutraal**. De groene, gele en rode backend-emoji's in
 kite- en strandfietsregels worden op Vandaag client-side naar dezelfde woordelijke pillen
-vertaald; API-responses blijven ongewijzigd.
+vertaald. De compacte briefingtegels tonen hun backendstatus daarnaast met een exact gekleurd
+bolletje én het woord **goed**, **let op** of **niet**.
 
 ## Schermen
 
-- **Vandaag** — dagelijkse briefing uit de backend (`GET /api/v1/briefing`): twee losse kaarten
-  voor kite-kans (per dagdeel wind + richting) en strandfietskans (per dagdeel een bolletje met
-  onderbouwing: wind, regen, getij) voor morgen — sinds SF-1192 gesplitst, was voorheen één
-  samengevoegde kaart —, afspraken komende 7 dagen met per afspraak een reminder-status en,
-  indien nog geen reminder staat, een één-tap-actie om er één ~1u vooraf aan te maken, een
-  AI-weektakensamenvatting en een moestuin-placeholder. Een tik op de dagelijkse 18:00-FCM-push
-  sluit eventueel openstaande Meer-routes en opent dit scherm automatisch
-  (`lib/fcm_service.dart`, `FcmService.deepLinkTarget`).
+- **Vandaag** — dagelijkse briefing uit de backend (`GET /api/v1/briefing`) met weerkaart,
+  kite- en strandfietskans voor morgen, afspraken voor de komende 7 dagen, afvalplanning,
+  AI-weektakensamenvatting en een moestuin-placeholder. Direct onder het bijgewerkt-tijdstip
+  staan maximaal de eerste drie geldige statussecties als even brede tegels: kiten toont wind,
+  strandfietsen het beste oordeel en afval het eerstvolgende korte baktype. Een tik opent precies
+  één volledig sectiedetail onder de tegelrij; de getegelde sectie staat niet ook permanent als
+  kaart. Secties zonder betrouwbare tegelstatus en statussecties na de eerste drie blijven gewone
+  kaarten. Een tik op de dagelijkse 18:00-FCM-push sluit eventueel openstaande Meer-routes en
+  opent dit scherm automatisch (`lib/fcm_service.dart`, `FcmService.deepLinkTarget`).
 - **Health check** — het ruwe systeem-checkrapport uit de onafhankelijke
   Health-check-cache (`GET /api/v1/briefing/health`), met eigen timestamp en
   reload-actie.
@@ -70,6 +72,23 @@ dialoogje om bij te werken als er een nieuwere versie is (`lib/self_update_promp
 
 Briefing-pushes openen Vandaag (index 0); watch-pushes openen rechtstreeks een nieuwe
 Zoekopdrachten-route. De deeplink geeft daarom een doel door en geen tab-index.
+
+## Briefing-API
+
+`GET /api/v1/briefing` en `POST /api/v1/briefing/refresh` leveren dezelfde
+`BriefingResponse` met `sections` en `updatedAt`. Een sectie bevat `key`, `title`, `text`,
+`items` en optioneel:
+
+- `status`: `GOED`, `LET_OP` of `NIET`;
+- `tileLabel`: de korte hoofdwaarde van de tegel.
+
+Beide velden mogen ontbreken of `null` zijn, zodat bestaande cachedata leesbaar blijft. De app
+maakt alleen een tegel als de status bekend is en `tileLabel` niet leeg is; een onbekende status
+wordt zonder parsefout als ontbrekend behandeld. Kiten en strandfietsen gebruiken het gunstigste
+dagdeel (bij gelijkstand het vroegste). Afval gebruikt de kalenderdatum in `Europe/Amsterdam`:
+vandaag of morgen is `LET_OP`, later in het zevendagenvenster of geen ophaalmoment is `GOED`.
+Bronfouten leveren geen tegel op. Er zijn hiervoor geen nieuwe endpoints en de 18:00-push is
+ongewijzigd.
 
 ## Zoekopdrachten-API
 

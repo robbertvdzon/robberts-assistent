@@ -511,16 +511,42 @@ class BriefingData {
 }
 
 /// Eén sectie van de 'Morgen'-briefing (weerkaart, kite/strandfiets, agenda, weektaken, moestuin, ...).
+enum BriefingStatus {
+  goed('goed'),
+  letOp('let op'),
+  niet('niet');
+
+  const BriefingStatus(this.label);
+  final String label;
+
+  static BriefingStatus? fromJson(Object? value) {
+    switch (value) {
+      case 'GOED':
+        return BriefingStatus.goed;
+      case 'LET_OP':
+        return BriefingStatus.letOp;
+      case 'NIET':
+        return BriefingStatus.niet;
+      default:
+        return null;
+    }
+  }
+}
+
 class BriefingSection {
   final String key;
   final String title;
   final String text;
   final List<BriefingItem> items;
+  final BriefingStatus? status;
+  final String? tileLabel;
   const BriefingSection({
     required this.key,
     required this.title,
     required this.text,
     required this.items,
+    this.status,
+    this.tileLabel,
   });
 
   static BriefingSection fromJson(Map<String, dynamic> m) => BriefingSection(
@@ -530,6 +556,8 @@ class BriefingSection {
     items: (m['items'] as List? ?? [])
         .map((e) => BriefingItem.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList(),
+    status: BriefingStatus.fromJson(m['status']),
+    tileLabel: m['tileLabel'] as String?,
   );
 }
 

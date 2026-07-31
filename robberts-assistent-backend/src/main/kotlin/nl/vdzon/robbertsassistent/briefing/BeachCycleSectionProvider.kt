@@ -26,13 +26,32 @@ class BeachCycleSectionProvider(
 
     override fun section(): BriefingSection {
         val result = assessmentProvider.buildAssessments()
-        val text = when (result) {
-            is AssessmentResult.Error -> "Kon de strandfietsinschatting voor morgen niet maken: ${result.message}"
-            is AssessmentResult.Ok -> result.slots.joinToString("\n") { slot ->
-                "${slot.label}: ${slot.beach.emoji} (${slot.windText}, ${rainText(slot.precipitationMm)}, ${tideText(slot)})"
+        return when (result) {
+            is AssessmentResult.Error -> BriefingSection(
+                key = "beach",
+                title = "Strandfietsen",
+                text = "Kon de strandfietsinschatting voor morgen niet maken: ${result.message}",
+            )
+            is AssessmentResult.Ok -> {
+                val slot = bestSlot(result.slots) { it.beach }
+                BriefingSection(
+                    key = "beach",
+                    title = "Strandfietsen",
+                    text = result.slots.joinToString("\n") { item ->
+                        "${item.label}: ${item.beach.emoji} (${item.windText}, " +
+                            "${rainText(item.precipitationMm)}, ${tideText(item)})"
+                    },
+                    status = slot?.beach?.toBriefingStatus(),
+                    tileLabel = slot?.beach?.let(::tileLabel),
+                )
             }
         }
-        return BriefingSection(key = "beach", title = "Strandfietsen", text = text)
+    }
+
+    private fun tileLabel(color: RatingColor): String = when (color) {
+        RatingColor.GREEN -> "goed"
+        RatingColor.YELLOW -> "let op"
+        RatingColor.RED -> "niet"
     }
 
     private fun rainText(precipitationMm: Double): String =

@@ -3,8 +3,11 @@ package nl.vdzon.robbertsassistent.briefing
 import nl.vdzon.robbertsassistent.waste.WasteClient
 import nl.vdzon.robbertsassistent.waste.WastePickup
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
@@ -13,21 +16,24 @@ import java.time.format.DateTimeFormatter
  * tekst is deterministisch op te bouwen uit [WastePickup]-data (zie [WasteClient]).
  */
 @Component
-class WasteSectionProvider(
+class WasteSectionProvider internal constructor(
     private val wasteClient: WasteClient,
+    private val clock: Clock,
 ) : BriefingSectionProvider {
+
+    @Autowired
+    constructor(wasteClient: WasteClient) : this(wasteClient, Clock.system(AMSTERDAM_ZONE))
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override val order = 15
 
     override fun section(): BriefingSection {
-        val text = runCatching { buildText() }
+        return runCatching { buildSection() }
             .getOrElse {
                 logger.warn("Afvalkalender ophalen mislukt", it)
-                "Kon de afvalkalender niet ophalen."
+                BriefingSection(key = "waste", title = "Afval", text = "Kon de afvalkalender niet ophalen.")
             }
-        return BriefingSection(key = "waste", title = "Afval", text = text)
     }
 
     override fun shortSummary(): String? {
@@ -35,7 +41,7 @@ class WasteSectionProvider(
         if (schedule.error != null) {
             return null
         }
-        val tomorrow = LocalDate.now().plusDays(1)
+        val tomorrow = localToday().plusDays(1)
         val types = schedule.pickups.filter { it.date == tomorrow }.map { it.type }
         if (types.isEmpty()) {
             return null
@@ -43,18 +49,56 @@ class WasteSectionProvider(
         return "Zet vanavond de ${types.joinToString(" & ")} buiten"
     }
 
-    private fun buildText(): String {
+    private fun buildSection(): BriefingSection {
         val schedule = wasteClient.upcomingPickups()
         if (schedule.error != null) {
-            return "Kon de afvalkalender niet ophalen: ${schedule.error}"
+            return BriefingSection(
+                key = "waste",
+                title = "Afval",
+                text = "Kon de afvalkalender niet ophalen: ${schedule.error}",
+            )
         }
-        val today = LocalDate.now()
+        val today = localToday()
         val until = today.plusDays(6)
         val upcoming = schedule.pickups.filter { !it.date.isBefore(today) && !it.date.isAfter(until) }
-        if (upcoming.isEmpty()) {
-            return "Geen ophaalmomenten deze week."
+        val text = if (upcoming.isEmpty()) {
+            "Geen ophaalmomenten deze week."
+        } else {
+            val formatter = DateTimeFormatter.ofPattern("dd-MM")
+            upcoming.joinToString("\n") { "${formatter.format(it.date)}: ${it.type}" }
         }
-        val formatter = DateTimeFormatter.ofPattern("dd-MM")
-        return upcoming.joinToString("\n") { "${formatter.format(it.date)}: ${it.type}" }
+        val firstDate = upcoming.minOfOrNull { it.date }
+        val label = if (firstDate == null) {
+            "geen"
+        } else {
+            upcoming.asSequence()
+                .filter { it.date == firstDate }
+                .map { shortType(it.type) }
+                .distinct()
+                .joinToString(" + ")
+        }
+        val status = if (firstDate != null && !firstDate.isAfter(today.plusDays(1))) {
+            BriefingStatus.LET_OP
+        } else {
+            BriefingStatus.GOED
+        }
+        return BriefingSection(key = "waste", title = "Afval", text = text, status = status, tileLabel = label)
+    }
+
+    private fun shortType(type: String): String {
+        val normalized = type.lowercase()
+        return when {
+            "gft" in normalized -> "gft"
+            "pbd" in normalized || "plastic" in normalized || "drinkpakken" in normalized -> "pbd"
+            "papier" in normalized -> "papier"
+            "rest" in normalized -> "rest"
+            else -> normalized
+        }
+    }
+
+    private fun localToday(): LocalDate = LocalDate.now(clock.withZone(AMSTERDAM_ZONE))
+
+    private companion object {
+        val AMSTERDAM_ZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
     }
 }

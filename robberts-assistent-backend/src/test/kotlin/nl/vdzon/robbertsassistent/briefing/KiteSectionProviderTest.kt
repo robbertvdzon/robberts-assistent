@@ -10,11 +10,14 @@ import nl.vdzon.robbertsassistent.weather.StubWeatherClient
 import nl.vdzon.robbertsassistent.weather.StubWindForecastClient
 import nl.vdzon.robbertsassistent.weather.WeatherClient
 import nl.vdzon.robbertsassistent.weather.WeatherForecast
+import nl.vdzon.robbertsassistent.weather.WindForecast
+import nl.vdzon.robbertsassistent.weather.WindForecastClient
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class KiteSectionProviderTest {
@@ -37,6 +40,16 @@ class KiteSectionProviderTest {
                     weatherCode = 0,
                 )
             })
+        }
+    }
+
+    private class CountingWindClient : WindForecastClient {
+        var calls = 0
+        private val delegate = StubWindForecastClient(speedKn = 24.0, directionDeg = 270.0)
+
+        override fun hourlyForecast(hours: Int): WindForecast {
+            calls++
+            return delegate.hourlyForecast(hours)
         }
     }
 
@@ -97,12 +110,22 @@ class KiteSectionProviderTest {
         assertEquals("NW", KiteSectionProvider.compassPoint(315.0))
     }
 
+    @Test
+    fun `beste kiteslot kiest groen boven geel en rood en bij gelijkstand het vroegste`() {
+        val red = slot(label = "Ochtend", kite = RatingColor.RED)
+        val firstGreen = slot(label = "Middag", kite = RatingColor.GREEN)
+        val secondGreen = slot(label = "Avond", kite = RatingColor.GREEN)
+
+        assertEquals(firstGreen, bestSlot(listOf(red, firstGreen, secondGreen)) { it.kite })
+    }
+
     // --- section()/shortSummary() ---
 
     @Test
     fun `section bouwt tekst op basis van de gestubde bronnen`() {
+        val windClient = CountingWindClient()
         val provider = KiteSectionProvider(
-            windForecastClient = StubWindForecastClient(speedKn = 24.0, directionDeg = 270.0),
+            windForecastClient = windClient,
             weatherClient = DryWeatherClient(),
             tideClient = StubTideClient(),
             calendarClient = EmptyCalendarClient(),
@@ -113,6 +136,9 @@ class KiteSectionProviderTest {
         assertEquals("kite", section.key)
         assertEquals("Kiten", section.title)
         assertTrue(section.text.contains("24 kn"))
+        assertEquals(BriefingStatus.GOED, section.status)
+        assertEquals("24 kn W", section.tileLabel)
+        assertEquals(1, windClient.calls, "sectietekst en tegel gebruiken dezelfde beoordeling")
     }
 
     @Test
@@ -143,5 +169,19 @@ class KiteSectionProviderTest {
         val section = provider.section()
 
         assertTrue(section.text.contains("kapot"))
+        assertNull(section.status)
+        assertNull(section.tileLabel)
     }
+
+    private fun slot(label: String, kite: RatingColor) = SlotAssessment(
+        label = label,
+        windKn = 24,
+        windDirection = "W",
+        windText = "24 kn (W)",
+        precipitationMm = 0.0,
+        nearLowTide = true,
+        nearestLowTideAt = null,
+        kite = kite,
+        beach = RatingColor.GREEN,
+    )
 }

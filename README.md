@@ -9,11 +9,13 @@ vier Flutter/Android-apps.
   assistentgesprekken, reminders, briefings, langdurige websitezoekopdrachten en
   de overige koppelingen. Externe opslag en diensten hebben waar mogelijk een
   stub- of in-memory fallback.
-- **`robberts_assistent/`** — hoofdapp als Android-APK en web-app. De zes tabs
-  zijn Upcoming, Health check, Assistent, Herinneringen, Zoekopdrachten en Meer.
-  Via Zoekopdrachten kan de gebruiker een website periodiek laten beoordelen en
-  optioneel een push ontvangen zodra het gezochte is gevonden; een knop bovenin
-  laat alle lopende zoekopdrachten meteen controleren.
+- **`robberts_assistent/`** — hoofdapp als Android-APK en web-app. De vier
+  hoofdbestemmingen zijn Vandaag, Assistent, Taken en Meer; onder Meer staan onder
+  meer Health check en Zoekopdrachten. Vandaag vat kiten, strandfietsen en afval
+  samen in maximaal drie interactieve statustegels. Via Zoekopdrachten kan de
+  gebruiker een website periodiek laten beoordelen en optioneel een push ontvangen
+  zodra het gezochte is gevonden; een knop bovenin laat alle lopende zoekopdrachten
+  meteen controleren.
 - **`groentetuin/`** — moestuin-chat met tekst en foto's, als APK en web-app.
 - **`notities/`** — auto-opslaande notitie-app, als APK.
 - **`wind/`** — handsfree Wind-app: Android App Actions starten een

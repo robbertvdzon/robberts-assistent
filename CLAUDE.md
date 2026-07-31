@@ -106,6 +106,13 @@ fallback (zie §5).
 | `couplings` | `CouplingProbe`-SPI + `CouplingsService`: elke module registreert een `@Component` die `CouplingProbe` implementeert (id/naam/omschrijving/configured/mode/test); Spring injecteert automatisch `List<CouplingProbe>`. Voedt het "Koppelingen"-scherm in de app — een nieuwe koppeling toevoegen betekent alleen een nieuwe `CouplingProbe`-implementatie in de eigen module, geen wijziging hier of in de app. |
 | `nightlychecks` | `NightlyCheck`-SPI + `NightlyCheckScheduler`/`NightlyChecksService`: net als `couplings`, maar voor achtergrondchecks — elke module registreert een `@Component` met een eigen cron-schema; resultaten (met historie) in Firestore/in-memory. Voedt de "Nachtchecks"-tab in de app + `summary.SummaryService` (dat endpoint heeft sinds de Morgen-briefing (SF-1163) geen app-consument meer, zie de `summary`-rij hieronder). Sinds SF-1164 heeft de Morgen-briefing ook een eigen, live (niet nachtelijk-historisch) systeem-checkrapport, zie de `briefing`-rij (`SystemStatusSectionProvider`) — dat gebruikt bewust een live check i.p.v. `NightlyCheckRepository`-historie. Zie `docs/nightly-checks.md`. |
 
+Sinds SF-1564 heeft `BriefingSection` twee achterwaarts compatibele, optionele velden voor de
+Vandaag-tegels: `status` (`GOED`, `LET_OP`, `NIET`) en `tileLabel`. Oude cache-JSON zonder deze
+velden blijft deserialiseren. Kite en strandfietsen kiezen uit hetzelfde `AssessmentResult` als
+hun detailtekst het gunstigste dagdeel (groen vóór geel vóór rood, bij gelijkstand het vroegste),
+zonder extra broncalls. Afval leidt tekst en tegel uit dezelfde planning af en rekent vandaag/
+morgen expliciet volgens `Europe/Amsterdam`; een bronfout levert bij alle drie geen tegelvelden.
+
 De gedeelde `ChatModel` voedt meerdere doelgerichte `ChatClient`-beans.
 `assistantChatClient` is `@Primary` en heeft alle tools; `gardenChatClient`
 ondersteunt vision met een eigen prompt. Andere modules gebruiken gekwalificeerde,
@@ -166,6 +173,12 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
   `_refresh()`/`_refreshing`/`_buildHeaderRow()`-patroon als `summary_screen.dart`, maar met een
   eigen cache: verversen op Health check raakt Vandaag's `updatedAt` niet en omgekeerd. Beide
   caches worden daarnaast backend-side elk uur automatisch ververst (zie `briefing`-module hierboven).
+  Vandaag toont direct onder dat tijdstip maximaal de eerste drie secties met een bekende status
+  en niet-leeg `tileLabel` als even brede tegels in backendvolgorde. De tegel toont icoon, titel,
+  label en status met kleur én woord; de volledige combinatie is ook toegankelijk uitgesproken en
+  activeerbaar. Eén tegeldetail kan tegelijk openstaan. Getegelde secties verdwijnen uit de vaste
+  kaartenlijst; statussecties na de limiet en secties zonder betrouwbare tegeldata blijven daar
+  wel staan. Onbekende statuswaarden worden client-side veilig als `null` geparseerd.
   Ook **"Zoekopdrachten"** staat onder Meer en toont de titel en actuele statusomschrijving van alle
   langdurige zoekopdrachten en ondersteunt aanmaken, bewerken en verwijderen, plus (sinds
   SF-1553) een "nu draaien"-knop in de AppBar die alle actieve opdrachten meteen laat controleren. Titel, webadres, zoekinstructie,
@@ -533,6 +546,16 @@ Zoekopdrachten, Koppelingen, Nachtchecks, Geheugen en Updates zijn losse routes 
 Briefing-pushes sluiten een eventueel geopende Meer-route en openen Vandaag; watch-pushes openen
 een verse Zoekopdrachten-route. De backend en API-contracten zijn niet gewijzigd: de app vertaalt
 de bestaande 🟢/🟡/🔴-briefingtekst client-side naar woordelijke pillen.
+
+Nieuw (SF-1564): `BriefingSection` ondersteunt optioneel `status` (`GOED`, `LET_OP`, `NIET`) en
+`tileLabel`, met `null`-defaults voor oude cachedata en niet-statussecties. Kite en strandfietsen
+vatten hun gunstigste beoordeelde dagdeel samen; afval geeft op basis van dezelfde opgehaalde
+zevendagenplanning `LET_OP` voor vandaag/morgen en anders `GOED`, met Amsterdamse daggrenzen.
+Bronfouten geven bewust geen tegel. De Vandaag-tab toont maximaal de eerste drie geldige
+statussecties als even brede, afgekorte en semantisch bedienbare tegels met exacte groen/geel/rode
+statuskleuren en woordelijke betekenis. Een tik toont één volledig detail onder de rij; getegelde
+secties worden niet dubbel als vaste kaart getoond en alle overige secties blijven zichtbaar. Er
+zijn geen nieuwe endpoints, cachelagen of databronnen en de 18:00-push is ongewijzigd.
 
 ---
 
