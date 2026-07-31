@@ -15,6 +15,7 @@ class WatchesScreen extends StatefulWidget {
 class _WatchesScreenState extends State<WatchesScreen> {
   List<Watch> _watches = [];
   bool _loading = true;
+  bool _running = false;
   String? _error;
   var _loadSequence = 0;
 
@@ -50,6 +51,33 @@ class _WatchesScreenState extends State<WatchesScreen> {
     } finally {
       if (mounted && loadSequence == _loadSequence) {
         setState(() => _loading = false);
+      }
+    }
+  }
+
+  /// Laat de backend nu meteen alle actieve zoekopdrachten controleren en toont het resultaat.
+  /// De bestaande lijst blijft tijdens de run zichtbaar; beide AppBar-knoppen zijn zolang uit.
+  Future<void> _runNow() async {
+    if (_running) return;
+    final loadSequence = ++_loadSequence;
+    setState(() => _running = true);
+    try {
+      final watches = await widget.api.runWatchesNow();
+      if (mounted && loadSequence == _loadSequence) {
+        setState(() {
+          _watches = watches;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Nu controleren mislukt: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _running = false);
       }
     }
   }
@@ -123,8 +151,19 @@ class _WatchesScreenState extends State<WatchesScreen> {
       actions: [
         IconButton(
           tooltip: 'Zoekopdrachten herladen',
-          onPressed: _load,
+          onPressed: _running ? null : _load,
           icon: const Icon(Icons.refresh),
+        ),
+        IconButton(
+          tooltip: 'Alle zoekopdrachten nu controleren',
+          onPressed: _running ? null : _runNow,
+          icon: _running
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.play_circle_outline),
         ),
       ],
     ),

@@ -298,6 +298,13 @@ class ApiClient {
 
   Future<void> deleteWatch(String id) => _delete('/api/v1/watches/$id');
 
+  /// Controleert nu meteen alle actieve zoekopdrachten (`POST /api/v1/watches/run-now`) en geeft
+  /// de bijgewerkte lijst terug, zodat er na de run geen extra `GET` nodig is.
+  Future<List<Watch>> runWatchesNow() async {
+    final body = await postJson('/api/v1/watches/run-now');
+    return (body['watches'] as List).map((e) => Watch.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   // -- Koppelingen ------------------------------------------------------------
   /// Status van alle externe koppelingen (geconfigureerd + echt/fallback), zonder live-test.
   Future<List<Coupling>> listCouplings() async {
