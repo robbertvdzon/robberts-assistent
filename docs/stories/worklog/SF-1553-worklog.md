@@ -135,3 +135,41 @@ Volledige story-diff t.o.v. `main` beoordeeld (`git diff main...HEAD`): `WatchRu
   - App: `flutter analyze` → "No issues found!"; `flutter test` → 50 tests, all passed.
 - [info] AC 6 (auth) heeft geen automatische test; er bestaat geen `WatchesControllerTest` in deze
   module en het endpoint volgt exact het bestaande `requireAuthorization`-patroon. Geen blocker.
+
+## Test SF-1555 (story-brede test) — akkoord
+
+Volledig vangnet in deze tester-sandbox:
+
+- Backend `mvn -o test` (in `robberts-assistent-backend/`), start `2026-07-31T16:05:49Z`,
+  eind `2026-07-31T16:06:17Z`, exitcode 0 — surefire-totaal **333 tests, 0 failures, 0 errors,
+  0 skipped** (incl. `WatchRunnerTest` 14 tests, waaronder de 5 nieuwe run-now-cases:
+  "controleert alle actieve watches ongeacht frequentie en laatste controle",
+  "slaat inactieve watches over en laat ze ongewijzigd", "met een vondst deactiveert en pusht
+  precies eenmaal", "zonder meldingsvoorkeur deactiveert zonder push", "gaat na een mislukte
+  watch door met de overige watches" → AC1–AC5).
+- App `flutter analyze` → "No issues found!"; `flutter test` → **50 tests, all passed**
+  (`watches_screen_test.dart` dekt AC7–AC9: één run per tik, knop bezig/disabled + geen tweede
+  run, FAB uit tijdens de run, SnackBar bij fout met zichtbare lijst, geen hangende spinner).
+
+E2E op preview `robberts-assistent-pr-38` (frontend-proxy, `RA_PREVIEW_SKIP_GOOGLE_AUTH`):
+
+- Lege lijst: `POST /api/v1/watches/run-now` → HTTP 200 `{"watches":[]}` (no-op, geen fout) — AC1.
+- Twee tijdelijke watches aangemaakt (`SF1555-tmp-ok`, `SF1555-tmp-badhost`, beide `active`,
+  frequenties `DAGELIJKS`/`KANTOORUREN`, nooit eerder gecontroleerd): één `run-now` gaf HTTP 200
+  met dezelfde JSON-vorm als `GET`, beide watches gecontroleerd ongeacht frequentie/`lastCheckedAt`,
+  beide met `status = ONBEKEND` + "Controle mislukt; de opdracht wordt later opnieuw geprobeerd."
+  en bijgewerkte `lastCheckedAt` — AC1 + AC5 (een falende watch stopt de run niet).
+  (De preview-pod heeft geen internet-egress, dus ook de "goede" URL faalt; het GEVONDEN-pad is
+  op preview niet forceerbaar onder `RA_MOCK_AI` — gedekt door `WatchRunnerTest`.)
+- UI: op het scherm Zoekopdrachten staat naast de refresh-knop de nieuwe "nu draaien"-knop
+  (`Icons.play_circle_outline`); één klik levert via Playwright-netwerk-intercept exact één
+  `POST /api/v1/watches/run-now` op, daarna toont de lijst de teruggekomen statussen — AC7.
+  Screenshots: `SF-1555-zoekopdrachten-run-now-knop.png`, `SF-1555-run-bezig.png`,
+  `SF-1555-na-run.png`. De run duurde <0,5 s, dus de spinner is niet op het screenshot te
+  vangen; die staat (AC8) wel in de widgettests.
+- Testdata opgeruimd: beide watches verwijderd (HTTP 200), `GET /api/v1/watches` weer `{"watches":[]}`.
+- AC6 (auth) is niet apart geautomatiseerd en op preview niet te testen (auth staat uit); het
+  endpoint roept als eerste `authService.requireAuthorization(authorization)` aan, identiek aan
+  de andere watches-endpoints. Geen blocker (zelfde constatering als de reviewer).
+
+Geen code/tests/infra gewijzigd door de tester.
