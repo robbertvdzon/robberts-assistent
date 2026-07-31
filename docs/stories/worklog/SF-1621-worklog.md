@@ -88,3 +88,56 @@ Aandachtspunten (niet blokkerend, meegegeven voor een eventuele vervolgstory):
   last-known-good tot 12 uur oud mag zijn; over een dagovergang is het tijdstip dus ambigu.
 - [info] Verouderde data raakt bewust niet de tegels (`status`/`tileLabel`) en de 18:00-push —
   conform de story-aannames, maar dus geen signaal richting gebruiker buiten de sectietekst.
+
+## SF-1629 (test)
+
+Getest op branch `ai/SF-1621` @ `bf8f089` (= `head.sha` van PR #42, dus de preview draait exact
+deze commit).
+
+### Vangnet
+
+`mvn -o test` in `robberts-assistent-backend/`: **BUILD SUCCESS**, `Tests run: 359, Failures: 0,
+Errors: 0, Skipped: 0`, totale build 47 s (AC11 + AC12 — geen merkbare vertraging; de nieuwe tests
+injecteren een testklok en een no-op `sleeper`, dus er wordt nergens echt gewacht). Alle door AC11
+genoemde suites groen: `OpenMeteoWeatherClientTest` (11), `OpenMeteoWindForecastClientTest` (6),
+`KiteSectionProviderTest` (15), `WeatherMapSectionProviderTest` (8), `BeachCycleSectionProviderTest`
+(6), `WeatherCallSharingTest` (1), `BriefingServiceTest` (9), `ModulithArchitectureTest` (1).
+
+### Verificatie per acceptatiecriterium
+
+- AC1/AC2: `FakeHttpClient` telt de calls — 503,503,200 → 3 calls, `error == null`, `stale == false`,
+  pauzes `[500, 2000]`; 404 → precies 1 call; 429 en `IOException` → 3 calls. Bevestigd in de code
+  (`ForecastFetcher.attemptFetch()`: `>= 500 || == 429` retryable, overig 4xx fataal).
+- AC3/AC4: last-known-good na 30 min → data met `stale == true` en het oorspronkelijke `fetchedAt`;
+  na 13 uur → `hours` leeg en exact `Kon Open-Meteo niet ophalen (HTTP 503).` / de wind-variant.
+- AC5: 2e aanroep binnen de TTL → 1 HTTP-call en `hours = 2` na een eerdere `hours = 6` (correct
+  afkappen bij cachehit); na 11 min → 2 calls.
+- AC6: `WeatherCallSharingTest` draait weerkaart + kiten + strandfietsen achter elkaar met echte
+  `OpenMeteo*`-clients en telt 1 weer-call en 1 wind-call (was 3 + 3).
+- AC7: `(gegevens van 08:05)` verschijnt in kiten, strandfietsen en het weerkaart-item; bij verschil
+  in ophaalmoment (06:05Z wind vs. 07:05Z weer) wint het oudste; bij verse/TTL-data en bij alleen
+  een gezet `fetchedAt` zonder `stale` geen toevoeging.
+- AC8/AC9: foutteksten zijn ongewijzigd overgenomen in `statusError`/`exceptionError`; er is precies
+  één `logger.warn("Ophalen van {} definitief mislukt: {}", ...)` per definitief mislukte aanroep.
+- AC10: dekking aanwezig zoals hierboven opgesomd.
+
+### E2E op preview `robberts-assistent-pr-42`
+
+- `GET /healthz` 200; `GET /api/v1/briefing` 200 met alle secties.
+- `POST /api/v1/briefing/refresh` 3× achter elkaar: telkens HTTP 200 (1,7–1,9 s), geen enkele
+  `HTTP 503`-melding en geen `(gegevens van ...)`-suffix — verse data, zoals AC7 voorschrijft.
+- `GET /api/v1/briefing/weather-map/morgen`: 200, geldige PNG (182 kB, `\x89PNG`-header) — verouderd
+  of niet, de kaart wordt normaal opgebouwd.
+- Screenshot `SF-1629-vandaag-briefing.png`: Vandaag-tab rendert tegels (Kiten/Strandfietsen/Afval),
+  weerkaart met windpijlen en getijtijden, en de sectieteksten zonder verouderd-melding.
+
+### Bevindingen (niet blokkerend)
+
+- [risico] Een definitieve mislukking wordt niet gecachet: bij een echte Open-Meteo-storing doorloopt
+  elk van de drie secties opnieuw de volledige retry-reeks, dus tot 3 × (3 pogingen × 10 s + 2,5 s)
+  per client per briefing-opbouw. Functioneel correct (alle drie tonen dezelfde last-known-good),
+  maar de reload-knop/uurlijkse scheduler kan dan minutenlang duren. Strikt gelezen wijkt dit ook af
+  van AC6 in het faalpad (AC6 is alleen in het slaagpad afgedwongen). Al gesignaleerd door de
+  reviewer; als vervolgstory-suggestie overgenomen, niet als bug teruggestuurd.
+- [info] Een `InterruptedException` tijdens de retry-pauze (`sleeper`) valt buiten de `try` van
+  `attemptFetch()` en propageert dus uit `hourlyForecast(...)`. Alleen relevant bij shutdown.
