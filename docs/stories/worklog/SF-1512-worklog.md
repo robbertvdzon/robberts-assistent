@@ -204,3 +204,18 @@ Handmatige-afkeurfix:
   `flutter build web --release` zijn groen. `flutter build apk --release` kon vóór compilatie
   niet starten doordat deze container geen Android SDK bevat (`No Android SDK found`); er bleef
   geen proces of gedeeltelijke APK-build achter.
+
+Review na handmatige-afkeurfix:
+- De volledige story-diff van `main` tot revisie `d7cb43b` beoordeeld op de oorspronkelijke
+  acceptatiecriteria en de leidende PO-feedback over achteraf bewerken. De PUT-/bewerkflow
+  valideert dezelfde velden, reset status en planning, en gebruikt CAS zodat een lopende poll
+  de gebruikerswijziging niet kan overschrijven.
+- Het revisiongebonden volledige bewijs bevat 328 backendtests zonder failures/errors/skips,
+  45 groene Fluttertests, groene Flutter-analyse, backend-packagebuild en web-releasebuild.
+  Gericht opnieuw groen gedraaid: alle watches-tests plus `ModulithArchitectureTest`
+  (25 tests, 0 failures/errors/skips).
+- De Fluttercode en widgettests voor aanmaken, bewerken, verwijderen, foutweergave, zes tabs,
+  beide watch-deeplinkpaden, herladen en verouderde loadresultaten zijn handmatig beoordeeld.
+  Conform de factory-regel is het volledige Flutter-vangnet niet opnieuw gestart; het
+  revisiongebonden developer-/harnessbewijs wordt als geldig testbewijs geaccepteerd.
+- [info] Geen resterende blockers, bugs of scope-afwijkingen gevonden; review akkoord.
