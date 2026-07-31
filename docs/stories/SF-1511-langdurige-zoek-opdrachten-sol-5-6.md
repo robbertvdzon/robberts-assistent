@@ -66,18 +66,25 @@ Zodra het gezochte wordt gevonden, stopt de opdracht en volgt desgewenst een pus
 - Een gevonden opdracht is afgerond en wordt niet automatisch hervat. Voor een nieuwe controleperiode maakt de gebruiker een nieuwe opdracht.
 - De app is voor één gebruiker bedoeld; een ingeschakelde melding gaat daarom naar alle geregistreerde apparaten van die gebruiker.
 
+<!-- manual-approve-feedback:start -->
+## Handmatige afkeur-feedback
+Ik kan een zoekopdracht toevoegen, maar niet meer aanpassen achteraf, alleen verwijderen. Ik wil hem ook kunnen aanpassen
+<!-- manual-approve-feedback:end -->
+
+## Eindsamenvatting
+
 ## Eindsamenvatting
 
 De story levert langdurige websitezoekopdrachten end-to-end op:
 
-- Een zelfstandige backendmodule met geauthenticeerde REST-operaties, validatie, Firestore-opslag en in-memory fallback.
-- Configureerbare controles tijdens kantooruren of dagelijks, volgens `Europe/Amsterdam`.
-- Begrensde verwerking van server-gerenderde webpagina’s en beoordeling door een aparte, tool-loze AI-client.
-- Fouttolerante statussen en precies één optionele push bij een vondst, waarna de opdracht stopt.
-- Bescherming tegen gelijktijdige polls, verwijderen tijdens een controle en verouderde resultaten.
-- Een nieuwe Flutter-tab `Zoekopdrachten` voor aanmaken, bekijken en verwijderen. De bestaande tabvolgorde, standaardtab en briefing-deeplink blijven intact.
-- Watch-pushes openen de juiste tab, ook bij een koude start, en verversen de getoonde gegevens.
+- Nieuwe tab `Zoekopdrachten` voor aanmaken, bekijken, bewerken en verwijderen, inclusief duidelijke invoervalidatie.
+- Periodieke controles tijdens kantooruren of dagelijks, met Firestore-opslag en in-memory fallback.
+- Begrensde verwerking van server-gerenderde pagina’s en beoordeling via een aparte, tool-loze AI-client.
+- Fouten krijgen status `ONBEKEND` en worden later opnieuw geprobeerd. Een vondst stopt de opdracht en verstuurt optioneel precies één push.
+- Watch-pushes openen en verversen de juiste tab, ook bij een koude start.
+- Compare-and-set-opslag beschermt wijzigingen, verwijderingen en gevonden statussen tegen gelijktijdige of verouderde controles.
+- Naar aanleiding van PO-feedback kunnen bestaande opdrachten nu worden aangepast. Daarbij worden status en planning gereset, zodat de gewijzigde opdracht opnieuw wordt gecontroleerd.
 
-Belangrijke keuzes waren hergebruik van de bestaande Firestore/fallback-, auth-, push- en ChatClient-patronen, deterministisch testbare planning en compare-and-set-opslag om dubbele pushes en overschrijvingen door parallelle polls te voorkomen.
+Getest: 328 backendtests en 45 Fluttertests zijn groen, evenals de architectuurtest, Flutter-analyse, backend-packagebuild en web-releasebuild. De finale review vond geen resterende blockers of scope-afwijkingen.
 
-Getest en akkoord bevonden: 325 backendtests, inclusief architectuurtest, zonder failures/errors/skips; 43 Fluttertests; Flutter-analyse; backend-packagebuild en Flutter-web-releasebuild. De APK-build kon niet worden uitgevoerd omdat de container geen Android SDK bevatte. Pagina’s die login, cookies, captcha, gebruikersinteractie of uitsluitend JavaScript-geladen inhoud vereisen, vallen bewust buiten de scope.
+Bewust niet gedaan: de APK-build kon zonder Android SDK niet worden uitgevoerd. Pagina’s achter login, cookies, captcha of gebruikersinteractie en uitsluitend via JavaScript geladen inhoud vallen buiten de scope.
