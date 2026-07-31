@@ -62,7 +62,9 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       );
       if (mounted) setState(() => _older = older);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Oudere gesprekken laden mislukt: $e');
+      if (mounted) {
+        setState(() => _error = 'Oudere gesprekken laden mislukt: $e');
+      }
     }
   }
 
@@ -74,7 +76,8 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   Future<void> _openConversation(String? conversationId) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => AssistantScreen(api: widget.api, conversationId: conversationId),
+        builder: (_) =>
+            AssistantScreen(api: widget.api, conversationId: conversationId),
       ),
     );
     if (mounted) await _load();
@@ -98,10 +101,18 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Gesprek verwijderen'),
-        content: Text('Weet je zeker dat je "${conversation.title}" wilt verwijderen? Dit kan niet ongedaan gemaakt worden.'),
+        content: Text(
+          'Weet je zeker dat je "${conversation.title}" wilt verwijderen? Dit kan niet ongedaan gemaakt worden.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuleren')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Verwijderen')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuleren'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Verwijderen'),
+          ),
         ],
       ),
     );
@@ -121,17 +132,17 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         title: const Text('Gesprekken'),
         actions: [
           IconButton(
-            icon: Icon(_includeArchived ? Icons.archive : Icons.archive_outlined),
+            icon: Icon(
+              _includeArchived ? Icons.archive : Icons.archive_outlined,
+            ),
             tooltip: 'Toon gearchiveerd',
             onPressed: _toggleIncludeArchived,
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: _body(),
-      ),
+      body: RefreshIndicator(onRefresh: _load, child: _body()),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'nieuw-gesprek',
         onPressed: () => _openConversation(null),
         icon: const Icon(Icons.add),
         label: const Text('Nieuw gesprek'),
@@ -156,14 +167,16 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     }
     if (conversations.isEmpty) {
       return ListView(
-        children: const [
+        children: [
           Padding(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: Center(
               child: Text(
                 'Nog geen gesprekken. Start hieronder een nieuw gesprek met de assistent.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -224,7 +237,11 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         ],
       ),
       child: ListTile(
-        leading: Icon(conversation.archived ? Icons.archive_outlined : Icons.chat_bubble_outline),
+        leading: Icon(
+          conversation.archived
+              ? Icons.archive_outlined
+              : Icons.chat_bubble_outline,
+        ),
         title: Text(conversation.title),
         subtitle: Text(_formatUpdatedAt(conversation.updatedAt)),
         onTap: () => _openConversation(conversation.conversationId),

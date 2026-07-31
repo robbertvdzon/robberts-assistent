@@ -19,7 +19,9 @@ class _FakeApiClient extends ApiClient {
     int offset = 0,
   }) async {
     if (offset > 0) return older;
-    final source = includeArchived ? conversations : conversations.where((c) => !c.archived).toList();
+    final source = includeArchived
+        ? conversations
+        : conversations.where((c) => !c.archived).toList();
     if (limit != null) return source.take(limit).toList();
     return source;
   }
@@ -34,11 +36,22 @@ class _FakeApiClient extends ApiClient {
   Future<void> deleteConversation(String id) async => deleted.add(id);
 }
 
-AssistantConversationSummary _summary(String id, String title, DateTime updatedAt, {bool archived = false}) =>
-    AssistantConversationSummary(conversationId: id, title: title, updatedAt: updatedAt, archived: archived);
+AssistantConversationSummary _summary(
+  String id,
+  String title,
+  DateTime updatedAt, {
+  bool archived = false,
+}) => AssistantConversationSummary(
+  conversationId: id,
+  title: title,
+  updatedAt: updatedAt,
+  archived: archived,
+);
 
 void main() {
-  testWidgets('toont titel en laatst-bijgewerkt-tijd van eerdere gesprekken', (tester) async {
+  testWidgets('toont titel en laatst-bijgewerkt-tijd van eerdere gesprekken', (
+    tester,
+  ) async {
     final api = _FakeApiClient()
       ..conversations = [
         _summary('abc', 'Windvoorspelling', DateTime(2026, 7, 19, 10, 30)),
@@ -61,7 +74,9 @@ void main() {
     expect(find.text('Nieuw gesprek'), findsOneWidget);
   });
 
-  testWidgets('toont een "Ouder"-sectie zodra de eerste pagina vol is', (tester) async {
+  testWidgets('toont een "Ouder"-sectie zodra de eerste pagina vol is', (
+    tester,
+  ) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(800, 2000));
 
@@ -70,7 +85,9 @@ void main() {
         10,
         (i) => _summary('c$i', 'Gesprek $i', DateTime(2026, 7, 19, 10, i)),
       )
-      ..older = [_summary('older-1', 'Ouder gesprek', DateTime(2026, 7, 1, 10, 0))];
+      ..older = [
+        _summary('older-1', 'Ouder gesprek', DateTime(2026, 7, 1, 10, 0)),
+      ];
 
     await tester.pumpWidget(MaterialApp(home: ConversationsScreen(api: api)));
     await tester.pump();
@@ -84,27 +101,37 @@ void main() {
     expect(find.text('Ouder gesprek'), findsOneWidget);
   });
 
-  testWidgets('toggle "Toon gearchiveerd" herlaadt met gearchiveerde gesprekken', (tester) async {
-    final api = _FakeApiClient()
-      ..conversations = [
-        _summary('a', 'Actief gesprek', DateTime(2026, 7, 19, 10, 0)),
-        _summary('b', 'Gearchiveerd gesprek', DateTime(2026, 7, 18, 10, 0), archived: true),
-      ];
+  testWidgets(
+    'toggle "Toon gearchiveerd" herlaadt met gearchiveerde gesprekken',
+    (tester) async {
+      final api = _FakeApiClient()
+        ..conversations = [
+          _summary('a', 'Actief gesprek', DateTime(2026, 7, 19, 10, 0)),
+          _summary(
+            'b',
+            'Gearchiveerd gesprek',
+            DateTime(2026, 7, 18, 10, 0),
+            archived: true,
+          ),
+        ];
 
-    await tester.pumpWidget(MaterialApp(home: ConversationsScreen(api: api)));
-    await tester.pump();
+      await tester.pumpWidget(MaterialApp(home: ConversationsScreen(api: api)));
+      await tester.pump();
 
-    expect(find.text('Gearchiveerd gesprek'), findsNothing);
+      expect(find.text('Gearchiveerd gesprek'), findsNothing);
 
-    await tester.tap(find.byTooltip('Toon gearchiveerd'));
-    await tester.pump();
+      await tester.tap(find.byTooltip('Toon gearchiveerd'));
+      await tester.pump();
 
-    expect(find.text('Gearchiveerd gesprek'), findsOneWidget);
-  });
+      expect(find.text('Gearchiveerd gesprek'), findsOneWidget);
+    },
+  );
 
   testWidgets('verwijderen vraagt eerst een bevestiging', (tester) async {
     final api = _FakeApiClient()
-      ..conversations = [_summary('a', 'Te verwijderen', DateTime(2026, 7, 19, 10, 0))];
+      ..conversations = [
+        _summary('a', 'Te verwijderen', DateTime(2026, 7, 19, 10, 0)),
+      ];
 
     await tester.pumpWidget(MaterialApp(home: ConversationsScreen(api: api)));
     await tester.pump();

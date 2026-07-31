@@ -8,7 +8,11 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'api_client.dart';
 
 class ChatMessage {
-  const ChatMessage({required this.fromUser, required this.text, this.images = const []});
+  const ChatMessage({
+    required this.fromUser,
+    required this.text,
+    this.images = const [],
+  });
 
   final bool fromUser;
   final String text;
@@ -75,7 +79,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
             // Foto (tijdelijk) niet op te halen — bericht blijft zonder foto zichtbaar.
           }
         }
-        messages.add(ChatMessage(fromUser: m.fromUser, text: m.text, images: images));
+        messages.add(
+          ChatMessage(fromUser: m.fromUser, text: m.text, images: images),
+        );
       }
       if (!mounted) return;
       setState(() {
@@ -156,7 +162,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
   }
 
   Future<void> _addFromCamera() async {
-    final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+    final file = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70,
+    );
     if (file != null) await _attach([file]);
   }
 
@@ -168,9 +177,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Future<void> _attach(List<XFile> files) async {
     for (final file in files) {
       final bytes = await file.readAsBytes();
-      final contentType = file.mimeType ??
-          (file.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
-      _pending.add(AssistantAttachment(bytes: bytes, filename: file.name, contentType: contentType));
+      final contentType =
+          file.mimeType ??
+          (file.name.toLowerCase().endsWith('.png')
+              ? 'image/png'
+              : 'image/jpeg');
+      _pending.add(
+        AssistantAttachment(
+          bytes: bytes,
+          filename: file.name,
+          contentType: contentType,
+        ),
+      );
     }
     if (mounted) setState(() {});
   }
@@ -207,11 +225,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
     if (text.isEmpty && _pending.isEmpty) return;
     final attachments = List<AssistantAttachment>.from(_pending);
     setState(() {
-      _history.add(ChatMessage(
-        fromUser: true,
-        text: text,
-        images: attachments.map((a) => a.bytes).toList(),
-      ));
+      _history.add(
+        ChatMessage(
+          fromUser: true,
+          text: text,
+          images: attachments.map((a) => a.bytes).toList(),
+        ),
+      );
       _pending.clear();
       _busy = true;
       _error = null;
@@ -260,8 +280,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
             padding: const EdgeInsets.all(12),
             child: SegmentedButton<_Mode>(
               segments: const [
-                ButtonSegment(value: _Mode.voice, label: Text('Praten'), icon: Icon(Icons.mic)),
-                ButtonSegment(value: _Mode.chat, label: Text('Chatten'), icon: Icon(Icons.chat_bubble_outline)),
+                ButtonSegment(
+                  value: _Mode.voice,
+                  label: Text('Praten'),
+                  icon: Icon(Icons.mic),
+                ),
+                ButtonSegment(
+                  value: _Mode.chat,
+                  label: Text('Chatten'),
+                  icon: Icon(Icons.chat_bubble_outline),
+                ),
               ],
               selected: {_mode},
               onSelectionChanged: (selection) {
@@ -290,7 +318,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
           ? 'Tik op de microfoon en stel je vraag.'
           : 'Typ hieronder een vraag aan de assistent. Je kunt er ook een foto bij sturen.',
       textAlign: TextAlign.center,
-      style: const TextStyle(color: Colors.black54),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
     ),
   );
 
@@ -304,20 +332,31 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Widget _bubble(BuildContext context, ChatMessage message) => Align(
     alignment: message.fromUser ? Alignment.centerRight : Alignment.centerLeft,
     child: Column(
-      crossAxisAlignment: message.fromUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: message.fromUser
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         if (message.images.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Wrap(
-              alignment: message.fromUser ? WrapAlignment.end : WrapAlignment.start,
+              alignment: message.fromUser
+                  ? WrapAlignment.end
+                  : WrapAlignment.start,
               spacing: 6,
               runSpacing: 6,
               children: message.images
-                  .map((b) => ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(b, width: 96, height: 96, fit: BoxFit.cover),
-                      ))
+                  .map(
+                    (b) => ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        b,
+                        width: 96,
+                        height: 96,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ),
@@ -325,14 +364,20 @@ class _AssistantScreenState extends State<AssistantScreen> {
           Container(
             margin: const EdgeInsets.symmetric(vertical: 4),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
             decoration: BoxDecoration(
-              color: message.fromUser ? Colors.deepPurple : Colors.grey.shade200,
+              color: message.fromUser
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
               message.text,
-              style: TextStyle(color: message.fromUser ? Colors.white : Colors.black87),
+              style: TextStyle(
+                color: message.fromUser ? Colors.white : Colors.black87,
+              ),
             ),
           ),
       ],
@@ -351,7 +396,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.memory(_pending[i].bytes, width: 64, height: 64, fit: BoxFit.cover),
+              child: Image.memory(
+                _pending[i].bytes,
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+              ),
             ),
             Positioned(
               right: 0,
@@ -359,7 +409,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
               child: GestureDetector(
                 onTap: () => setState(() => _pending.removeAt(i)),
                 child: Container(
-                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    shape: BoxShape.circle,
+                  ),
                   child: const Icon(Icons.close, size: 16, color: Colors.white),
                 ),
               ),
@@ -371,17 +424,28 @@ class _AssistantScreenState extends State<AssistantScreen> {
   );
 
   Widget _voiceControls() => Padding(
-    padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
+    padding: EdgeInsets.fromLTRB(
+      24,
+      24,
+      24,
+      24 + MediaQuery.of(context).padding.bottom,
+    ),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (_partialTranscript.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Text('"$_partialTranscript"', style: const TextStyle(fontStyle: FontStyle.italic)),
+            child: Text(
+              '"$_partialTranscript"',
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
           ),
         FloatingActionButton.large(
-          onPressed: !_speechAvailable || _busy ? null : (_listening ? _stopListening : _startListening),
+          heroTag: 'spraakbediening',
+          onPressed: !_speechAvailable || _busy
+              ? null
+              : (_listening ? _stopListening : _startListening),
           backgroundColor: _listening ? Colors.red : null,
           child: Icon(_listening ? Icons.stop : Icons.mic),
         ),
@@ -403,7 +467,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
       right: 12,
       // viewInsets = toetsenbord, padding.bottom = systeem-navigatiebalk (0 als het toetsenbord die
       // al bedekt). Zonder padding.bottom valt het invoerveld achter de Android-knoppen.
-      bottom: 12 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom,
+      bottom:
+          12 +
+          MediaQuery.of(context).viewInsets.bottom +
+          MediaQuery.of(context).padding.bottom,
       top: 4,
     ),
     child: Row(

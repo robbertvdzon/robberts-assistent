@@ -4,8 +4,11 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'alarm_scheduler.dart';
 import 'api_client.dart';
+import 'app_logo.dart';
 import 'fcm_service.dart';
-import 'google_signin_button_stub.dart' if (dart.library.html) 'google_signin_button_web.dart' as gis_button;
+import 'google_signin_button_stub.dart'
+    if (dart.library.html) 'google_signin_button_web.dart'
+    as gis_button;
 import 'home_screen.dart';
 
 void main() {
@@ -14,13 +17,19 @@ void main() {
 }
 
 /// De OAuth-web-client-ID komt via een build-time waarde (`--dart-define=GOOGLE_CLIENT_ID=...`).
-const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: '');
+const googleClientId = String.fromEnvironment(
+  'GOOGLE_CLIENT_ID',
+  defaultValue: '',
+);
 
 /// Alleen `true` op PR-preview-builds. De preview-backend accepteert daar toch elke
 /// (of geen) Authorization-header (`RA_PREVIEW_SKIP_GOOGLE_AUTH`), maar dit scherm wist
 /// daar niets van en zou anders altijd een échte Google-popup blijven eisen — waardoor
 /// een tester-agent zonder Google-account nooit voorbij het loginscherm komt.
-const skipGoogleAuthPreview = bool.fromEnvironment('SKIP_GOOGLE_AUTH', defaultValue: false);
+const skipGoogleAuthPreview = bool.fromEnvironment(
+  'SKIP_GOOGLE_AUTH',
+  defaultValue: false,
+);
 
 class RobbertsAssistentApp extends StatelessWidget {
   const RobbertsAssistentApp({super.key});
@@ -29,11 +38,45 @@ class RobbertsAssistentApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: "Robbert's assistent",
-      theme: ThemeData(colorSchemeSeed: Colors.deepPurple, useMaterial3: true),
+      theme: robbertsAssistentTheme,
       home: const RootScreen(),
     );
   }
 }
+
+const robbertsAssistentColorScheme = ColorScheme.light(
+  primary: Color(0xFF0F6E6E),
+  onPrimary: Colors.white,
+  secondary: Color(0xFF0F6E6E),
+  onSecondary: Colors.white,
+  surface: Color(0xFFFFFFFF),
+  onSurface: Color(0xFF171A1D),
+  onSurfaceVariant: Color(0xFF6B7480),
+  outline: Color(0xFFE7EAED),
+  error: Color(0xFFD03B3B),
+  onError: Colors.white,
+);
+
+final robbertsAssistentTheme = ThemeData(
+  useMaterial3: true,
+  colorScheme: robbertsAssistentColorScheme,
+  scaffoldBackgroundColor: const Color(0xFFF6F7F8),
+  cardTheme: const CardThemeData(
+    color: Color(0xFFFFFFFF),
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(16)),
+      side: BorderSide(color: Color(0xFFE7EAED), width: 1),
+    ),
+  ),
+  dividerColor: const Color(0xFFE7EAED),
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Color(0xFFF6F7F8),
+    foregroundColor: Color(0xFF171A1D),
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+  ),
+);
 
 /// Laadt de sessie en toont ofwel het login-scherm, ofwel de app-shell.
 class RootScreen extends StatefulWidget {
@@ -72,7 +115,9 @@ class _RootScreenState extends State<RootScreen> {
       final auth = await account.authentication;
       final idToken = auth.idToken;
       if (idToken == null) {
-        throw Exception('Geen Google ID-token ontvangen. Controleer de OAuth-client-ID.');
+        throw Exception(
+          'Geen Google ID-token ontvangen. Controleer de OAuth-client-ID.',
+        );
       }
       await api.loginWithGoogle(idToken);
     } catch (e) {
@@ -103,7 +148,9 @@ class _RootScreenState extends State<RootScreen> {
       final auth = await account.authentication;
       final idToken = auth.idToken;
       if (idToken == null) {
-        throw Exception('Geen Google ID-token ontvangen. Controleer de OAuth-client-ID.');
+        throw Exception(
+          'Geen Google ID-token ontvangen. Controleer de OAuth-client-ID.',
+        );
       }
       await api.loginWithGoogle(idToken);
     } catch (e) {
@@ -122,7 +169,9 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!initialized) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (!initialized) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     if (api.token == null) return _loginView();
     // FCM + alarm-planning opzetten zodra ingelogd.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -143,20 +192,35 @@ class _RootScreenState extends State<RootScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.assistant, size: 56, color: Colors.deepPurple),
+                const Center(child: AppLogo(size: 72)),
                 const SizedBox(height: 16),
-                const Text("Robbert's assistent", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                const Text(
+                  "Robbert's assistent",
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 4),
-                const Text('Log in met Google om verder te gaan.', style: TextStyle(color: Colors.black54)),
+                Text(
+                  'Log in met Google om verder te gaan.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 24),
                 if (kIsWeb)
                   Center(
                     child: loading
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 10),
-                            child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           )
-                        : SizedBox(height: 40, child: gis_button.renderGoogleButton()),
+                        : SizedBox(
+                            height: 40,
+                            child: gis_button.renderGoogleButton(),
+                          ),
                   )
                 else
                   FilledButton.icon(
@@ -165,15 +229,25 @@ class _RootScreenState extends State<RootScreen> {
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.login),
-                    label: Text(loading ? 'Inloggen...' : 'Inloggen met Google'),
+                    label: Text(
+                      loading ? 'Inloggen...' : 'Inloggen met Google',
+                    ),
                   ),
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: Text(error!, style: const TextStyle(color: Colors.red)),
+                    child: Text(
+                      error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                   ),
               ],
             ),

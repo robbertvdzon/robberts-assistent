@@ -171,9 +171,13 @@ const _currentWatch = Watch(
 
 Widget _wrap(ApiClient api) => MaterialApp(home: WatchesScreen(api: api));
 
-IconButton _iconButton(WidgetTester tester, String tooltip) => tester.widget<IconButton>(
-  find.ancestor(of: find.byTooltip(tooltip), matching: find.byType(IconButton)),
-);
+IconButton _iconButton(WidgetTester tester, String tooltip) =>
+    tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byTooltip(tooltip),
+        matching: find.byType(IconButton),
+      ),
+    );
 
 void main() {
   testWidgets('toont titel en leesbare status en kan verwijderen', (
@@ -253,9 +257,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Zoekopdracht bewerken'), findsOneWidget);
     final fields = find.byType(TextField);
-    expect(tester.widget<TextField>(fields.at(0)).controller?.text, 'Concertkaartjes');
-    expect(tester.widget<TextField>(fields.at(1)).controller?.text, 'https://example.com');
-    expect(tester.widget<TextField>(fields.at(2)).controller?.text, 'Zoek twee kaarten');
+    expect(
+      tester.widget<TextField>(fields.at(0)).controller?.text,
+      'Concertkaartjes',
+    );
+    expect(
+      tester.widget<TextField>(fields.at(1)).controller?.text,
+      'https://example.com',
+    );
+    expect(
+      tester.widget<TextField>(fields.at(2)).controller?.text,
+      'Zoek twee kaarten',
+    );
 
     await tester.enterText(fields.at(0), 'Drie concertkaartjes');
     await tester.enterText(fields.at(1), 'https://example.com/nieuw');
@@ -369,50 +382,60 @@ void main() {
     expect(find.text('Nog niet beschikbaar.'), findsNothing);
   });
 
-  testWidgets('tijdens de run is de knop bezig en start een tweede tik geen tweede run', (
-    tester,
-  ) async {
-    final api = _ControlledRunApiClient([_oldWatch]);
-    await tester.pumpWidget(_wrap(api));
-    await tester.pump();
+  testWidgets(
+    'tijdens de run is de knop bezig en start een tweede tik geen tweede run',
+    (tester) async {
+      final api = _ControlledRunApiClient([_oldWatch]);
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
 
-    await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
-    await tester.pump();
+      await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
+      await tester.pump();
 
-    expect(api.runs, hasLength(1));
-    expect(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byType(CircularProgressIndicator),
-      ),
-      findsOneWidget,
-    );
-    expect(_iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed, isNull);
-    expect(_iconButton(tester, 'Zoekopdrachten herladen').onPressed, isNull);
-    // De bestaande lijst blijft zichtbaar tijdens de run.
-    expect(find.text('Nog niet beschikbaar.'), findsOneWidget);
+      expect(api.runs, hasLength(1));
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        _iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed,
+        isNull,
+      );
+      expect(_iconButton(tester, 'Zoekopdrachten herladen').onPressed, isNull);
+      // De bestaande lijst blijft zichtbaar tijdens de run.
+      expect(find.text('Nog niet beschikbaar.'), findsOneWidget);
 
-    await tester.tap(
-      find.byTooltip('Alle zoekopdrachten nu controleren'),
-      warnIfMissed: false,
-    );
-    await tester.pump();
-    expect(api.runs, hasLength(1));
+      await tester.tap(
+        find.byTooltip('Alle zoekopdrachten nu controleren'),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(api.runs, hasLength(1));
 
-    api.runs.single.complete([_currentWatch]);
-    await tester.pump();
+      api.runs.single.complete([_currentWatch]);
+      await tester.pump();
 
-    expect(find.text('Nu beschikbaar.'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byType(CircularProgressIndicator),
-      ),
-      findsNothing,
-    );
-    expect(_iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed, isNotNull);
-    expect(_iconButton(tester, 'Zoekopdrachten herladen').onPressed, isNotNull);
-  });
+      expect(find.text('Nu beschikbaar.'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
+      expect(
+        _iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed,
+        isNotNull,
+      );
+      expect(
+        _iconButton(tester, 'Zoekopdrachten herladen').onPressed,
+        isNotNull,
+      );
+    },
+  );
 
   testWidgets('de nieuwe-zoekopdracht-knop is uit tijdens een run', (
     tester,
@@ -421,73 +444,90 @@ void main() {
     await tester.pumpWidget(_wrap(api));
     await tester.pump();
     expect(
-      tester.widget<FloatingActionButton>(find.byType(FloatingActionButton)).onPressed,
+      tester
+          .widget<FloatingActionButton>(find.byType(FloatingActionButton))
+          .onPressed,
       isNotNull,
     );
 
     await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
     await tester.pump();
     expect(
-      tester.widget<FloatingActionButton>(find.byType(FloatingActionButton)).onPressed,
+      tester
+          .widget<FloatingActionButton>(find.byType(FloatingActionButton))
+          .onPressed,
       isNull,
     );
 
     api.runs.single.complete([_currentWatch]);
     await tester.pump();
     expect(
-      tester.widget<FloatingActionButton>(find.byType(FloatingActionButton)).onPressed,
+      tester
+          .widget<FloatingActionButton>(find.byType(FloatingActionButton))
+          .onPressed,
       isNotNull,
     );
   });
 
-  testWidgets('nu draaien kan niet tijdens het laden en laat het scherm niet hangen', (
-    tester,
-  ) async {
-    final api = _ControlledLoadApiClient();
-    await tester.pumpWidget(_wrap(api));
-    await tester.pump();
+  testWidgets(
+    'nu draaien kan niet tijdens het laden en laat het scherm niet hangen',
+    (tester) async {
+      final api = _ControlledLoadApiClient();
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
 
-    // Zolang de eerste load loopt is nu-draaien uit; een tik start geen run.
-    expect(api.loads, hasLength(1));
-    expect(_iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed, isNull);
-    await tester.tap(
-      find.byTooltip('Alle zoekopdrachten nu controleren'),
-      warnIfMissed: false,
-    );
-    await tester.pump();
-    expect(api.runCalls, 0);
+      // Zolang de eerste load loopt is nu-draaien uit; een tik start geen run.
+      expect(api.loads, hasLength(1));
+      expect(
+        _iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed,
+        isNull,
+      );
+      await tester.tap(
+        find.byTooltip('Alle zoekopdrachten nu controleren'),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(api.runCalls, 0);
 
-    // De load rondt gewoon af: geen permanente laadspinner, lijst en knop weer bruikbaar.
-    api.loads.single.complete([_oldWatch]);
-    await tester.pump();
-    expect(find.text('Nog niet beschikbaar.'), findsOneWidget);
-    expect(_iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed, isNotNull);
+      // De load rondt gewoon af: geen permanente laadspinner, lijst en knop weer bruikbaar.
+      api.loads.single.complete([_oldWatch]);
+      await tester.pump();
+      expect(find.text('Nog niet beschikbaar.'), findsOneWidget);
+      expect(
+        _iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed,
+        isNotNull,
+      );
 
-    // En daarna werkt nu-draaien wel.
-    await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
-    await tester.pump();
-    await tester.pump();
-    expect(api.runCalls, 1);
-    expect(find.text('Nu beschikbaar.'), findsOneWidget);
-  });
+      // En daarna werkt nu-draaien wel.
+      await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
+      await tester.pump();
+      await tester.pump();
+      expect(api.runCalls, 1);
+      expect(find.text('Nu beschikbaar.'), findsOneWidget);
+    },
+  );
 
-  testWidgets('toont een melding als nu draaien mislukt en houdt de lijst zichtbaar', (
-    tester,
-  ) async {
-    final api = _FakeApiClient()
-      ..watches.add(_oldWatch)
-      ..runFails = true;
-    await tester.pumpWidget(_wrap(api));
-    await tester.pump();
+  testWidgets(
+    'toont een melding als nu draaien mislukt en houdt de lijst zichtbaar',
+    (tester) async {
+      final api = _FakeApiClient()
+        ..watches.add(_oldWatch)
+        ..runFails = true;
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
 
-    await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
-    await tester.pump();
-    await tester.pump();
+      await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.textContaining('Nu controleren mislukt'), findsOneWidget);
-    expect(find.text('Nog niet beschikbaar.'), findsOneWidget);
-    expect(_iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed, isNotNull);
-  });
+      expect(find.textContaining('Nu controleren mislukt'), findsOneWidget);
+      expect(find.text('Nog niet beschikbaar.'), findsOneWidget);
+      expect(
+        _iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed,
+        isNotNull,
+      );
+    },
+  );
 
   testWidgets('een oudere load overschrijft een nieuwere pushrefresh niet', (
     tester,
@@ -496,9 +536,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: WatchesScreen(api: api)));
     expect(api.loads, hasLength(1));
 
-    await tester.pumpWidget(
-      MaterialApp(home: WatchesScreen(api: api, reloadTrigger: 1)),
-    );
+    await tester.tap(find.byTooltip('Zoekopdrachten herladen'));
+    await tester.pump();
     expect(api.loads, hasLength(2));
 
     api.loads[1].complete([_currentWatch]);

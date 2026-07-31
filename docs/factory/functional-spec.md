@@ -62,9 +62,9 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   'm is opgehaald) en heeft een eigen reload-knop om 'm handmatig live te verversen, zonder de
   andere tab te raken. Dagelijks om 18:00 (Europe/Amsterdam) gaat er automatisch één FCM-push uit
   met een korte samenvatting (ongewijzigd door SF-1274/SF-1275, bouwt los van de caches op); een
-  tik erop opent het "Upcoming"-scherm (de app-tab die eerst "Samenvatting", daarna "Morgen"
-  heette; sinds SF-1267/SF-1268 gesplitst in "Upcoming" (deze briefing, zonder systeemstatus) en de
-  "Health check"-tab met alleen het systeem-checkrapport in ruwe vorm). Sinds SF-1275 toont de
+  tik erop opent het scherm "Vandaag" (de app-tab die eerst "Samenvatting", "Morgen" en daarna
+  "Upcoming" heette; het systeem-checkrapport staat als "Health check" onder "Meer"). Sinds
+  SF-1275 toont de
   Software Factory-check binnen het systeem-checkrapport alleen nog stories met een fout of een
   lopende (niet-gemergede) fase, i.p.v. alle stories.
 - **Langdurige zoekopdrachten** — een opdracht bevat titel, absolute HTTP(S)-URL,
@@ -90,24 +90,28 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 - **Telegram** (uitgaand): reminders/alerts gaan naar Robberts Telegram-groep.
 - **FCM**: push naar de app; gebruikt voor reminders/alarms, gevonden zoekopdrachten én de dagelijkse
   18:00-Morgen-briefingpush. App-kant (lokaal alarm, reminders-scherm, FCM-ontvangst,
-  deep-links naar de Upcoming- en Zoekopdrachten-tab) is gebouwd.
+  deep-links naar Vandaag en het Zoekopdrachten-scherm) is gebouwd.
 
 ## Apps
 
-- **robberts_assistent** — bottom-nav met 6 tabs: dagelijkse Morgen-briefing zonder
-  systeemstatus (eerste tab, "Upcoming"), systeem-checkrapport in ruwe, selecteerbare vorm
-  (tweede tab, "Health check", sinds SF-1267/SF-1268) + chat met de assistent, in persistente,
+- **robberts_assistent** — bottom-nav met 4 tabs: Vandaag (dagelijkse Morgen-briefing zonder
+  systeemstatus), Assistent, Taken (het bestaande Herinneringen-scherm) en Meer. Het
+  systeem-checkrapport in ruwe, selecteerbare vorm ("Health check", sinds SF-1267/SF-1268) en
+  Zoekopdrachten, Koppelingen, Nachtchecks, Geheugen en Updates zijn routes onder Meer. De
+  assistent gebruikt persistente,
   benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij). Gesprekken zijn
   te archiveren (reversibel) en te verwijderen (met bevestiging); de lijst toont eerst de 10
   meest recente, oudere onder een uitklapbare "Ouder"-sectie. Een gebruiker-breed geheugen
   (feiten/voorkeuren) wordt automatisch bijgewerkt na elke chat-beurt en gebruikt als context in
-  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". De tab "Zoekopdrachten"
-  vóór "Meer" beheert langdurige websitezoekopdrachten en toont hun leesbare actuele status.
+  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". "Zoekopdrachten"
+  beheert langdurige websitezoekopdrachten en toont hun leesbare actuele status.
   De aanmaak- en bewerkdialoog valideert titel, absolute HTTP(S)-URL en instructie vóór verzenden; de backend
   herhaalt die validatie. De lijst wordt herladen bij openen, via de reload-knop en na een
   watch-push; een knop ernaast laat alle actieve opdrachten meteen controleren, toont zolang
   een voortgangsindicatie met uitgeschakelde knoppen (geen dubbele run) en meldt een fout in een
   `SnackBar` zonder de lijst kwijt te raken; een ouder, later voltooid laadverzoek mag nieuwere gegevens niet overschrijven.
+  Briefing-pushes sluiten een eventueel geopende Meer-route en openen Vandaag; watch-pushes openen
+  een verse Zoekopdrachten-route. Statussen worden met kleur én een woordelijke pil getoond.
   Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.

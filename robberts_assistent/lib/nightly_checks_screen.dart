@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'status_pill.dart';
 
 /// Overzicht van alle nightly checks (bv. OpenShift-gezondheid, later ook tuin-water/kite/
 /// zonnepanelen/agenda-reminders): laatste status + tijdstip, en een knop om een check meteen
@@ -47,20 +48,24 @@ class _NightlyChecksScreenState extends State<NightlyChecksScreen> {
       final run = await widget.api.runNightlyCheck(check.id);
       setState(() {
         _checks = _checks
-            .map((c) => c.id == check.id
-                ? NightlyCheck(
-                    id: c.id,
-                    name: c.name,
-                    description: c.description,
-                    cronSchedule: c.cronSchedule,
-                    lastRun: run,
-                  )
-                : c)
+            .map(
+              (c) => c.id == check.id
+                  ? NightlyCheck(
+                      id: c.id,
+                      name: c.name,
+                      description: c.description,
+                      cronSchedule: c.cronSchedule,
+                      lastRun: run,
+                    )
+                  : c,
+            )
             .toList();
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Draaien mislukt: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Draaien mislukt: $e')));
       }
     } finally {
       if (mounted) setState(() => _runningId = null);
@@ -69,7 +74,10 @@ class _NightlyChecksScreenState extends State<NightlyChecksScreen> {
 
   void _openHistory(NightlyCheck check) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NightlyCheckHistoryScreen(api: widget.api, check: check)),
+      MaterialPageRoute(
+        builder: (_) =>
+            NightlyCheckHistoryScreen(api: widget.api, check: check),
+      ),
     );
   }
 
@@ -78,26 +86,36 @@ class _NightlyChecksScreenState extends State<NightlyChecksScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nachtchecks'),
-        actions: [IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh))],
+        actions: [
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
-              : _checks.isEmpty
-                  ? const Center(child: Text('Nog geen nightly checks geregistreerd.'))
-                  : ListView(
-                      children: _checks
-                          .map(
-                            (c) => _NightlyCheckCard(
-                              check: c,
-                              running: _runningId == c.id,
-                              onRunNow: () => _runNow(c),
-                              onOpenHistory: () => _openHistory(c),
-                            ),
-                          )
-                          .toList(),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(_error!),
+              ),
+            )
+          : _checks.isEmpty
+          ? const Center(child: Text('Nog geen nightly checks geregistreerd.'))
+          : ListView(
+              children: _checks
+                  .map(
+                    (c) => _NightlyCheckCard(
+                      check: c,
+                      running: _runningId == c.id,
+                      onRunNow: () => _runNow(c),
+                      onOpenHistory: () => _openHistory(c),
                     ),
+                  )
+                  .toList(),
+            ),
     );
   }
 }
@@ -127,26 +145,44 @@ class _NightlyCheckCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _statusIcon(lastRun),
+              _statusPill(lastRun),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(check.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    Text(
+                      check.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(check.description, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                    Text(
+                      check.description,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     if (lastRun != null)
                       Text(
                         '${lastRun.summary}  ·  ${_formatTime(lastRun.ranAt)}',
                         style: TextStyle(
-                          color: lastRun.ok ? Colors.green.shade700 : Colors.red.shade700,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13,
                         ),
                       )
                     else
-                      const Text('Nog niet gedraaid.', style: TextStyle(color: Colors.black54, fontSize: 13)),
+                      Text(
+                        'Nog niet gedraaid.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -157,7 +193,11 @@ class _NightlyCheckCard extends StatelessWidget {
                       height: 24,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : IconButton(tooltip: 'Nu draaien', icon: const Icon(Icons.play_arrow), onPressed: onRunNow),
+                  : IconButton(
+                      tooltip: 'Nu draaien',
+                      icon: const Icon(Icons.play_arrow),
+                      onPressed: onRunNow,
+                    ),
             ],
           ),
         ),
@@ -165,12 +205,12 @@ class _NightlyCheckCard extends StatelessWidget {
     );
   }
 
-  Widget _statusIcon(CheckRun? lastRun) {
-    if (lastRun == null) return const Icon(Icons.help_outline, color: Colors.grey, size: 28);
-    return Icon(
-      lastRun.ok ? Icons.check_circle : Icons.error,
-      color: lastRun.ok ? Colors.green : Colors.red,
-      size: 28,
+  Widget _statusPill(CheckRun? lastRun) {
+    if (lastRun == null) {
+      return const StatusPill(variant: StatusPillVariant.neutral);
+    }
+    return StatusPill(
+      variant: lastRun.ok ? StatusPillVariant.good : StatusPillVariant.critical,
     );
   }
 
@@ -181,13 +221,18 @@ class _NightlyCheckCard extends StatelessWidget {
 
 /// Historie van één check: alle eerdere uitvoeringen, nieuwste eerst.
 class NightlyCheckHistoryScreen extends StatefulWidget {
-  const NightlyCheckHistoryScreen({super.key, required this.api, required this.check});
+  const NightlyCheckHistoryScreen({
+    super.key,
+    required this.api,
+    required this.check,
+  });
 
   final ApiClient api;
   final NightlyCheck check;
 
   @override
-  State<NightlyCheckHistoryScreen> createState() => _NightlyCheckHistoryScreenState();
+  State<NightlyCheckHistoryScreen> createState() =>
+      _NightlyCheckHistoryScreenState();
 }
 
 class _NightlyCheckHistoryScreenState extends State<NightlyCheckHistoryScreen> {
@@ -221,30 +266,44 @@ class _NightlyCheckHistoryScreenState extends State<NightlyCheckHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.check.name),
-        actions: [IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh))],
+        actions: [
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
-              : _runs.isEmpty
-                  ? const Center(child: Text('Nog geen historie.'))
-                  : ListView.separated(
-                      itemCount: _runs.length,
-                      separatorBuilder: (context, index) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final run = _runs[index];
-                        return ListTile(
-                          leading: Icon(
-                            run.ok ? Icons.check_circle : Icons.error,
-                            color: run.ok ? Colors.green : Colors.red,
-                          ),
-                          title: Text(run.summary),
-                          subtitle: run.detail != null ? Text(run.detail!) : null,
-                          trailing: Text(_formatDateTime(run.ranAt), textAlign: TextAlign.end),
-                        );
-                      },
-                    ),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(_error!),
+              ),
+            )
+          : _runs.isEmpty
+          ? const Center(child: Text('Nog geen historie.'))
+          : ListView.separated(
+              itemCount: _runs.length,
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final run = _runs[index];
+                return ListTile(
+                  leading: StatusPill(
+                    variant: run.ok
+                        ? StatusPillVariant.good
+                        : StatusPillVariant.critical,
+                  ),
+                  title: Text(run.summary),
+                  subtitle: run.detail != null ? Text(run.detail!) : null,
+                  trailing: Text(
+                    _formatDateTime(run.ranAt),
+                    textAlign: TextAlign.end,
+                  ),
+                );
+              },
+            ),
     );
   }
 

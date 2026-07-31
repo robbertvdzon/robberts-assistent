@@ -28,8 +28,14 @@ Future<void> maybePromptSelfUpdate(BuildContext context) async {
         'je hebt v${info.installedVersionCode}). Nu bijwerken?',
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Later')),
-        FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Bijwerken')),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Later'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Bijwerken'),
+        ),
       ],
     ),
   );
@@ -41,13 +47,17 @@ Future<void> maybePromptSelfUpdate(BuildContext context) async {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Zet "installeren van deze app toestaan" aan en probeer daarna opnieuw bij te werken.'),
+          content: Text(
+            'Zet "installeren van deze app toestaan" aan en probeer daarna opnieuw bij te werken.',
+          ),
         ),
       );
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bijwerken mislukt: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Bijwerken mislukt: $e')));
     }
   }
 }

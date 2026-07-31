@@ -18,7 +18,8 @@ class MemoryScreen extends StatefulWidget {
   State<MemoryScreen> createState() => _MemoryScreenState();
 }
 
-class _MemoryScreenState extends State<MemoryScreen> with WidgetsBindingObserver {
+class _MemoryScreenState extends State<MemoryScreen>
+    with WidgetsBindingObserver {
   final _controller = TextEditingController();
   Timer? _debounce;
   var _loading = true;
@@ -85,7 +86,8 @@ class _MemoryScreenState extends State<MemoryScreen> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       _save();
     }
   }
@@ -111,7 +113,9 @@ class _MemoryScreenState extends State<MemoryScreen> with WidgetsBindingObserver
           if (_status.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(child: Text(_status, style: const TextStyle(fontSize: 12))),
+              child: Center(
+                child: Text(_status, style: const TextStyle(fontSize: 12)),
+              ),
             ),
           IconButton(
             tooltip: 'Opslaan',
@@ -129,7 +133,9 @@ class _MemoryScreenState extends State<MemoryScreen> with WidgetsBindingObserver
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+          ? Center(
+              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            )
           : Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(

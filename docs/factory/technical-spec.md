@@ -78,6 +78,14 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   `robberts-assistent-backend:80` (geen CORS) en serveert de Flutter-app.
 - Google-login: web via de GIS-knop (`google_sign_in_web`), mobiel via `signIn()`. `ApiClient`
   ruilt het Google-ID-token in voor een sessie-token en stuurt dat als Bearer mee.
+- `robberts_assistent` heeft een expliciet centraal light-`ColorScheme` en `CardTheme` in
+  `lib/main.dart`. `AppLogo`, `SectionHeading` en `StatusPill` zijn de gedeelde bouwstenen voor
+  respectievelijk het SVG-beeldmerk, sectiekoppen en toegankelijke statusweergave (kleur plus
+  woord). `flutter_svg` rendert `assets/icon/logo.svg`; `flutter_launcher_icons` genereert de
+  Android- en webiconen uit het overeenkomstige PNG.
+- Pushnavigatie gebruikt `FcmService.deepLinkTarget`: `briefing` gaat naar de hoofdbestemming
+  Vandaag en sluit eerst routes boven de app-shell; `watch` pusht een verse
+  `WatchesScreen`-route. Daarmee zijn deeplinks niet gekoppeld aan veranderlijke tab-indexen.
 
 ## Codeconventies
 

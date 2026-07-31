@@ -33,26 +33,31 @@ void main() {
     expect(find.text('houdt van kiten'), findsOneWidget);
   });
 
-  testWidgets('save-knop slaat de huidige tekst meteen op, zonder te wachten op de debounce', (tester) async {
-    final api = _FakeApiClient();
+  testWidgets(
+    'save-knop slaat de huidige tekst meteen op, zonder te wachten op de debounce',
+    (tester) async {
+      final api = _FakeApiClient();
 
-    await tester.pumpWidget(MaterialApp(home: MemoryScreen(api: api)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpWidget(MaterialApp(home: MemoryScreen(api: api)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
-    await tester.enterText(find.byType(TextField), 'nieuw feit');
-    await tester.pump();
+      await tester.enterText(find.byType(TextField), 'nieuw feit');
+      await tester.pump();
 
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+      await tester.tap(find.byTooltip('Opslaan'));
+      await tester.pump();
+      await tester.pump();
 
-    expect(api.saveCallCount, 1);
-    expect(api.lastSavedText, 'nieuw feit');
-    expect(find.text('Opgeslagen'), findsOneWidget);
-  });
+      expect(api.saveCallCount, 1);
+      expect(api.lastSavedText, 'nieuw feit');
+      expect(find.text('Opgeslagen'), findsOneWidget);
+    },
+  );
 
-  testWidgets('save-knop toont een foutmelding als opslaan mislukt', (tester) async {
+  testWidgets('save-knop toont een foutmelding als opslaan mislukt', (
+    tester,
+  ) async {
     final api = _FakeApiClient(saveError: Exception('netwerkfout'));
 
     await tester.pumpWidget(MaterialApp(home: MemoryScreen(api: api)));

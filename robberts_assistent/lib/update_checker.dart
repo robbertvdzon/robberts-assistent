@@ -29,7 +29,9 @@ class AppUpdateInfo {
 
   bool get isInstalled => installedVersionCode >= 0;
   bool get updateAvailable =>
-      error == null && latestVersionCode != null && latestVersionCode! > installedVersionCode;
+      error == null &&
+      latestVersionCode != null &&
+      latestVersionCode! > installedVersionCode;
 }
 
 /// Gegooid als [UpdateChecker.update] niet mag installeren — de UI moet dan naar
@@ -48,8 +50,16 @@ class UpdateChecker {
   static const _repo = 'robbertvdzon/robberts-assistent';
   static const _apps = [
     (label: 'Wind', packageName: 'nl.vdzon.wind', tag: 'wind-latest'),
-    (label: "Robbert's assistent", packageName: 'nl.vdzon.robberts_assistent', tag: 'robberts-assistent-latest'),
-    (label: 'Notities', packageName: 'nl.vdzon.notities', tag: 'notities-latest'),
+    (
+      label: "Robbert's assistent",
+      packageName: 'nl.vdzon.robberts_assistent',
+      tag: 'robberts-assistent-latest',
+    ),
+    (
+      label: 'Notities',
+      packageName: 'nl.vdzon.notities',
+      tag: 'notities-latest',
+    ),
   ];
 
   /// Package-naam van deze app zelf — voor de "nieuwe versie beschikbaar?"-check bij opstarten
@@ -62,16 +72,20 @@ class UpdateChecker {
   Future<AppUpdateInfo> checkSelf() =>
       _checkOne(_apps.firstWhere((a) => a.packageName == selfPackageName));
 
-  Future<AppUpdateInfo> _checkOne(({String label, String packageName, String tag}) app) async {
-    final installed = await _channel.invokeMethod<int>(
-          'installedVersionCode',
-          {'packageName': app.packageName},
-        ) ??
+  Future<AppUpdateInfo> _checkOne(
+    ({String label, String packageName, String tag}) app,
+  ) async {
+    final installed =
+        await _channel.invokeMethod<int>('installedVersionCode', {
+          'packageName': app.packageName,
+        }) ??
         -1;
     try {
       final response = await http
           .get(
-            Uri.parse('https://api.github.com/repos/$_repo/releases/tags/${app.tag}'),
+            Uri.parse(
+              'https://api.github.com/repos/$_repo/releases/tags/${app.tag}',
+            ),
             headers: {'Accept': 'application/vnd.github+json'},
           )
           .timeout(const Duration(seconds: 15));
@@ -86,12 +100,15 @@ class UpdateChecker {
       }
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final body = json['body'] as String? ?? '';
-      final latest = int.tryParse(RegExp(r'build (\d+)').firstMatch(body)?.group(1) ?? '');
-      final assets = (json['assets'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+      final latest = int.tryParse(
+        RegExp(r'build (\d+)').firstMatch(body)?.group(1) ?? '',
+      );
+      final assets = (json['assets'] as List<dynamic>? ?? [])
+          .cast<Map<String, dynamic>>();
       final apkAsset = assets.cast<Map<String, dynamic>?>().firstWhere(
-            (a) => (a?['name'] as String?)?.endsWith('.apk') ?? false,
-            orElse: () => null,
-          );
+        (a) => (a?['name'] as String?)?.endsWith('.apk') ?? false,
+        orElse: () => null,
+      );
       return AppUpdateInfo(
         label: app.label,
         packageName: app.packageName,
@@ -100,7 +117,9 @@ class UpdateChecker {
         latestVersionCode: latest,
         downloadUrl: apkAsset?['browser_download_url'] as String?,
         apkFileName: apkAsset?['name'] as String?,
-        error: latest == null ? 'Kon geen versienummer uit de release-tekst halen.' : null,
+        error: latest == null
+            ? 'Kon geen versienummer uit de release-tekst halen.'
+            : null,
       );
     } catch (e) {
       return AppUpdateInfo(
@@ -116,7 +135,8 @@ class UpdateChecker {
   /// Downloadt en installeert [info]. Gooit [UpdatePermissionRequiredException] als de gebruiker
   /// eerst "installeren van deze app toestaan" moet aanzetten (systeemscherm wordt al geopend).
   Future<void> update(AppUpdateInfo info) async {
-    final canInstall = await _channel.invokeMethod<bool>('canInstallPackages') ?? false;
+    final canInstall =
+        await _channel.invokeMethod<bool>('canInstallPackages') ?? false;
     if (!canInstall) {
       await _channel.invokeMethod('requestInstallPermission');
       throw UpdatePermissionRequiredException();
