@@ -16,14 +16,17 @@ Done / rationale:
 
 ## Documentatie (SF-1515)
 
-- De daadwerkelijke story-diff, het volledige SF-1512-worklog en de
-  review-/testuitkomsten zijn als bron gebruikt; er waren geen aanvullende
-  leidende PO-comments.
+- De daadwerkelijke story-diff, het volledige SF-1512-worklog, de
+  review-/testuitkomsten en de leidende PO-feedback over achteraf bewerken zijn
+  als bron gebruikt.
 - Root- en app-README's zijn bijgewerkt met de actuele repo-inhoud, zes
   navigatietabs, Zoekopdrachten-gedrag en het REST-contract.
 - Factory functional/technical/development-overzichten en `CLAUDE.md`
   documenteren nu ook validatie, planning, opslagfallback, paginalimieten,
-  foutstatussen, push-deeplink en compare-and-set-bescherming tegen
-  gelijktijdige pollresultaten.
+  foutstatussen, bewerken met statusreset, push-deeplink en
+  compare-and-set-bescherming tegen gelijktijdige pollresultaten.
+- De gearchiveerde storytekst is in lijn gebracht met de PO-feedback en het
+  gerealiseerde `PUT`-/bewerkgedrag; ook de dubbele kop in de eindsamenvatting
+  is verwijderd.
 - Er zijn uitsluitend Markdown-documenten gewijzigd; productiecode en tests
   zijn ongemoeid gelaten.

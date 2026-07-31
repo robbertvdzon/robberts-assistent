@@ -10,6 +10,7 @@ langdurige zoek opdrachten (sol 5.6)
 
 Voeg een apart tabblad toe voor langdurige zoekopdrachten op websites.
 De gebruiker kan per opdracht een titel, webadres, zoekinstructie, controlefrequentie en meldingsvoorkeur vastleggen.
+Een bestaande opdracht kan achteraf met diezelfde gegevens worden aangepast.
 Het overzicht toont per opdracht de actuele status.
 Zodra het gezochte wordt gevonden, stopt de opdracht en volgt desgewenst een pushmelding.
 
@@ -27,7 +28,7 @@ Zodra het gezochte wordt gevonden, stopt de opdracht en volgt desgewenst een pus
   - een leesbare statusomschrijving;
   - tijdstip van de laatste controle;
   - actief/inactief-status.
-- Bied geauthenticeerde REST-operaties voor aanmaken, opvragen en verwijderen van zoekopdrachten. Titel, URL en instructie zijn verplicht.
+- Bied geauthenticeerde REST-operaties voor aanmaken, opvragen, aanpassen en verwijderen van zoekopdrachten. Titel, URL en instructie zijn verplicht.
 - Bewaar opdrachten in Firestore met een in-memory fallback wanneer Firebase niet beschikbaar is, volgens de bestaande repositoryconfiguratiepatronen.
 - Gebruik één configureerbare periodieke poller met `ra.watches.poll-interval-ms` en standaardwaarde `300000`. Een afzonderlijke, deterministisch testbare functie bepaalt per opdracht of deze aan de beurt is.
 - `KANTOORUREN` betekent maandag tot en met vrijdag, van 09:00 inclusief tot 17:00 exclusief in `Europe/Amsterdam`, maximaal eenmaal per uur.
@@ -36,13 +37,14 @@ Zodra het gezochte wordt gevonden, stopt de opdracht en volgt desgewenst een pus
 - Laat de beoordelaar antwoorden met regel 1 `GEVONDEN` of `NIET GEVONDEN` en regel 2 een korte Nederlandstalige statusomschrijving. Parse dit defensief; een netwerkfout, AI-fout of afwijkend antwoord geeft status `ONBEKEND` en blijft bij een volgende geplande controle opnieuw geprobeerd worden.
 - Bij de eerste overgang naar `GEVONDEN` wordt de opdracht inactief. Alleen wanneer meldingen zijn ingeschakeld, wordt daarbij precies één push verstuurd met `data.type = watch`.
 - Voeg in `robberts_assistent` vóór de tab `Meer` een zesde tab `Zoekopdrachten` toe. De bestaande tabs behouden hun betekenis: `Upcoming` blijft index 0, `Health check` index 1 en `Assistent` de standaardtab op index 2; `Meer` schuift naar index 5.
-- Het nieuwe scherm toont de titel en leesbare status van alle opdrachten en biedt aanmaken en verwijderen. Bij aanmaken worden titel, URL, instructie, frequentie en pushvoorkeur afzonderlijk ingevoerd.
+- Het nieuwe scherm toont de titel en leesbare status van alle opdrachten en biedt aanmaken, bewerken en verwijderen. Bij aanmaken en bewerken worden titel, URL, instructie, frequentie en pushvoorkeur afzonderlijk ingevoerd.
 - Een tik op een watch-push opent de tab `Zoekopdrachten`.
 - Werk de relevante factory- en overzichtsdocumentatie bij met het nieuwe gedrag.
 
 ## Acceptance criteria
 
 - Een gebruiker kan via de tab `Zoekopdrachten` een opdracht aanmaken met afzonderlijke waarden voor titel, URL, instructie, frequentie en pushvoorkeur.
+- Een gebruiker kan een bestaande opdracht via dezelfde vijf invoervelden bewerken. Na opslaan is de opdracht weer actief, staat de status op `NOG_NIET_GECONTROLEERD` en is de laatste controletijd leeg, zodat de gewijzigde criteria opnieuw worden beoordeeld.
 - Lege titel of instructie en een lege, ongeldige of niet-HTTP(S)-URL worden met een duidelijke validatiemelding geweigerd.
 - Een opgeslagen opdracht verschijnt in het overzicht met de titel en de meest recente leesbare status; vóór de eerste controle is duidelijk zichtbaar dat nog niet is gecontroleerd.
 - De opdrachten blijven na een backendherstart behouden wanneer Firestore beschikbaar is; zonder Firebase start en werkt de applicatie met de in-memory fallback.
@@ -56,22 +58,20 @@ Zodra het gezochte wordt gevonden, stopt de opdracht en volgt desgewenst een pus
 - Een tik op de push met type `watch` opent de tab `Zoekopdrachten`.
 - Een opdracht kan worden verwijderd en verdwijnt daarna uit het overzicht en uit de planning.
 - De twee parallelle tablijsten in `HomeScreen` blijven gelijk: er zijn zes schermen en zes navigatiebestemmingen, de standaardtab blijft `Assistent` en de bestaande briefing-deeplink blijft `Upcoming` openen.
-- Backendtests dekken minimaal validatie, opslagfallback, frequentiegrenzen, opnieuw proberen na fouten, defensief parsen en éénmalige push/deactivatie. Flutter-widgettests dekken minimaal aanmaken, weergeven, verwijderen, foutweergave, de zes navigatietabs en de watch-deeplink.
+- Backendtests dekken minimaal validatie, aanmaken en bewerken, opslagfallback, frequentiegrenzen, opnieuw proberen na fouten, defensief parsen en éénmalige push/deactivatie. Flutter-widgettests dekken minimaal aanmaken, bewerken, weergeven, verwijderen, foutweergave, de zes navigatietabs en de watch-deeplink.
 - De volledige backendtestset en architectuurtest slagen; de Flutter-code doorstaat analyse en tests in een ondersteunde omgeving.
 
 ## Aannames
 
 - De te controleren pagina is zonder login, cookies, captcha of andere gebruikersinteractie bereikbaar.
 - De gezochte informatie staat in de door de server geleverde pagina-inhoud; inhoud die uitsluitend via JavaScript wordt geladen valt buiten deze story.
-- Een gevonden opdracht is afgerond en wordt niet automatisch hervat. Voor een nieuwe controleperiode maakt de gebruiker een nieuwe opdracht.
+- Een gevonden opdracht is afgerond en wordt niet automatisch hervat. De gebruiker kan de opdracht wel bewerken; bij opslaan wordt zij opnieuw actief en volgens de gekozen frequentie gecontroleerd.
 - De app is voor één gebruiker bedoeld; een ingeschakelde melding gaat daarom naar alle geregistreerde apparaten van die gebruiker.
 
 <!-- manual-approve-feedback:start -->
 ## Handmatige afkeur-feedback
 Ik kan een zoekopdracht toevoegen, maar niet meer aanpassen achteraf, alleen verwijderen. Ik wil hem ook kunnen aanpassen
 <!-- manual-approve-feedback:end -->
-
-## Eindsamenvatting
 
 ## Eindsamenvatting
 
