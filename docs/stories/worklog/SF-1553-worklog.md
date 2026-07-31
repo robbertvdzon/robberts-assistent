@@ -80,3 +80,38 @@ groen; `BriefingControllerTest` (@SpringBootTest) groen, dus de nieuwe `WatchRun
 - [info] Backend-kant is conform scope: `runNow()` hergebruikt de ongewijzigde private `check()`,
   geen wijziging aan `poll()`/`Watch`/`WatchRepository`/`WatchSchedule`/`WatchEvaluator`/
   `WatchPageFetcher`; AC 1–5 zijn met 5 nieuwe `WatchRunnerTest`-tests gedekt.
+
+## Herstelronde na review (SF-1554)
+
+Stappenplan:
+[x]: reviewbevinding reproduceren en analyseren
+[x]: bug fixen in `watches_screen.dart`
+[x]: suggestie (FAB tijdens run) meenemen
+[x]: tests uitbreiden en vangnet draaien
+
+### Bug (blocker) — permanente laadspinner
+`_runNow()` hoogde `_loadSequence` op terwijl er nog een `_load()` liep; die `_load()` sloeg
+daardoor zijn `finally { _loading = false }` over en het scherm bleef in de grote laadspinner
+hangen. Twee-laags fix in `watches_screen.dart`:
+- `_runNow()` start niet meer zolang `_loading` waar is (`if (_running || _loading) return;`), en
+  de nu-draaien-knop is in de AppBar disabled zolang de lijst laadt
+  (`onPressed: (_running || _loading) ? null : _runNow`). Zo kan de teller niet meer opgehoogd
+  worden onder een lopende `_load()`.
+- Als vangnet zet de `finally` van `_runNow()` ook zelf `_loading = false`, maar alleen als deze
+  run nog de nieuwste is (`loadSequence == _loadSequence`) — zodat een intussen gestarte `_load()`
+  (bv. via `didUpdateWidget`/FCM-reload) zijn eigen laadstatus houdt.
+
+### Suggestie uit de review
+De FAB "Nieuwe zoekopdracht" is tijdens een run disabled (`onPressed: _running ? null : _add`),
+omdat `_add` intern `await _load()` doet en zo het runresultaat kon wegdrukken.
+
+### Tests
+`watches_screen_test.dart` +2 tests:
+- FAB is enabled vóór de run, disabled tijdens de run en daarna weer enabled.
+- Nu-draaien is disabled zolang de eerste load loopt, een tik start dan geen run, de load rondt
+  gewoon af (lijst zichtbaar, geen permanente spinner) en daarna werkt nu-draaien wél.
+
+### Testresultaat herstelronde
+- App: `flutter analyze` → "No issues found!"; `flutter test` → 50 tests, all passed.
+- Backend: `rm -rf target && mvn -o test` → 333 tests, 0 failures, 0 errors, 0 skipped
+  (backend ongewijzigd in deze ronde).

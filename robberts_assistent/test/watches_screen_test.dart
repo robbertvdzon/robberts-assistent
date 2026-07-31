@@ -129,12 +129,19 @@ class _ControlledRunApiClient extends ApiClient {
 
 class _ControlledLoadApiClient extends ApiClient {
   final loads = <Completer<List<Watch>>>[];
+  int runCalls = 0;
 
   @override
   Future<List<Watch>> listWatches() {
     final load = Completer<List<Watch>>();
     loads.add(load);
     return load.future;
+  }
+
+  @override
+  Future<List<Watch>> runWatchesNow() async {
+    runCalls++;
+    return [_currentWatch];
   }
 }
 
@@ -405,6 +412,63 @@ void main() {
     );
     expect(_iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed, isNotNull);
     expect(_iconButton(tester, 'Zoekopdrachten herladen').onPressed, isNotNull);
+  });
+
+  testWidgets('de nieuwe-zoekopdracht-knop is uit tijdens een run', (
+    tester,
+  ) async {
+    final api = _ControlledRunApiClient([_oldWatch]);
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+    expect(
+      tester.widget<FloatingActionButton>(find.byType(FloatingActionButton)).onPressed,
+      isNotNull,
+    );
+
+    await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
+    await tester.pump();
+    expect(
+      tester.widget<FloatingActionButton>(find.byType(FloatingActionButton)).onPressed,
+      isNull,
+    );
+
+    api.runs.single.complete([_currentWatch]);
+    await tester.pump();
+    expect(
+      tester.widget<FloatingActionButton>(find.byType(FloatingActionButton)).onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('nu draaien kan niet tijdens het laden en laat het scherm niet hangen', (
+    tester,
+  ) async {
+    final api = _ControlledLoadApiClient();
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
+
+    // Zolang de eerste load loopt is nu-draaien uit; een tik start geen run.
+    expect(api.loads, hasLength(1));
+    expect(_iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed, isNull);
+    await tester.tap(
+      find.byTooltip('Alle zoekopdrachten nu controleren'),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+    expect(api.runCalls, 0);
+
+    // De load rondt gewoon af: geen permanente laadspinner, lijst en knop weer bruikbaar.
+    api.loads.single.complete([_oldWatch]);
+    await tester.pump();
+    expect(find.text('Nog niet beschikbaar.'), findsOneWidget);
+    expect(_iconButton(tester, 'Alle zoekopdrachten nu controleren').onPressed, isNotNull);
+
+    // En daarna werkt nu-draaien wel.
+    await tester.tap(find.byTooltip('Alle zoekopdrachten nu controleren'));
+    await tester.pump();
+    await tester.pump();
+    expect(api.runCalls, 1);
+    expect(find.text('Nu beschikbaar.'), findsOneWidget);
   });
 
   testWidgets('toont een melding als nu draaien mislukt en houdt de lijst zichtbaar', (
