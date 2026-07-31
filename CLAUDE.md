@@ -90,7 +90,7 @@ fallback (zie §5).
 | `watches` | Langdurige zoekopdrachten: geauthenticeerde `GET`/`POST /api/v1/watches`, `PUT`/`DELETE /api/v1/watches/{id}` en (sinds SF-1553) `POST /api/v1/watches/run-now` (synchrone handmatige run over alle actieve opdrachten via `WatchRunner.runNow(now)`, dat de `isDue`-filtering overslaat maar dezelfde private `check(...)` hergebruikt), Firestore-collectie `watches` met in-memory fallback en één configureerbare fixed-delay-poller (`ra.watches.poll-interval-ms`, standaard 300000 ms). Een wijziging reset de opdracht naar actief en `NOG_NIET_GECONTROLEERD`, zodat ook een eerder gevonden opdracht opnieuw wordt beoordeeld. `WatchSchedule.isDue` begrenst kantoorurenchecks tot werkdagen 09:00–17:00 (Europe/Amsterdam), met minimaal één verstreken uur, en dagelijkse checks tot eenmaal per lokale kalenderdag. `JdkWatchPageFetcher` zet maximaal 1 MB server-HTML om naar maximaal 20.000 tekens platte tekst; een eigen tool-loze `watchChatClient` beoordeelt de instructie. Fouten worden `ONBEKEND` en later opnieuw geprobeerd; een eerste vondst deactiveert de opdracht en verstuurt optioneel één FCM-push met `data.type=watch`. Pollresultaten en wijzigingen worden via `WatchRepository.compareAndSet` tegen het gelezen snapshot opgeslagen (atomische map-replace/Firestore-transactie), zodat overlappende polls niet dubbel pushen, een vondst geen wijziging overschrijft en een tijdens de controle verwijderde opdracht niet wordt hersteld. |
 | `gardenchat` | Moestuin-AI-chat: multipart (tekst + foto's) → vision-AI; conversaties in Firestore, foto's in Firebase Storage; multi-turn. |
 | `google` | `CalendarClient` + `DocsClient` (echt via OAuth refresh-token, of stubs) + `GoogleOAuthService`. |
-| `weather` | `WeatherClient`: regen-/weersvoorspelling bij de moestuin (Luttik Cie 12, Heemskerk) via Open-Meteo (keyless, altijd echt); `StubWeatherClient` alleen voor tests. Plus `WindForecastClient`/`OpenMeteoWindForecastClient`: gestructureerde windvoorspelling (kn + graden) bij Wijk aan Zee voor de kite-sectie van `briefing` (i.p.v. de platte AI-tekst van `WindTools`); `StubWindForecastClient` voor tests, `WindForecastCouplingProbe` op het Koppelingen-scherm. |
+| `weather` | `WeatherClient`: regen-/weersvoorspelling bij de moestuin (Luttik Cie 12, Heemskerk) via Open-Meteo (keyless, altijd echt); `StubWeatherClient` alleen voor tests. Plus `WindForecastClient`/`OpenMeteoWindForecastClient`: gestructureerde windvoorspelling (kn + graden) bij Wijk aan Zee voor de kite-sectie van `briefing` (i.p.v. de platte AI-tekst van `WindTools`); `StubWindForecastClient` voor tests, `WindForecastCouplingProbe` op het Koppelingen-scherm. Sinds SF-1621 delen beide Open-Meteo-clients de interne `ForecastFetcher` (zelfde package, `internal`): TTL-cache van 10 minuten op de ruwe respons-body (thread-veilig via double-checked locking, zelfde stijl als de basiskaart-cache in `OsmCoastMapImageBuilder`), retry van maximaal 3 pogingen met pauzes van 500 ms en 2000 ms bij netwerk-/IO-fout, HTTP 5xx en 429 (bij overige 4xx direct stoppen, per-poging-timeout van 10 s ongewijzigd), en last-known-good in geheugen tot 12 uur oud. `WeatherForecast`/`WindForecast` kregen daarvoor `fetchedAt: Instant? = null` en `stale: Boolean = false`. |
 | `tides` | `TideClient`: getijvoorspelling (hoog-/laagwater, waterhoogte) bij IJmuiden buitenhaven via RWS WaterWebservices (keyless, altijd echt); `StubTideClient` alleen voor tests. |
 | `airquality` | `AirQualityClient`: luchtkwaliteit/UV-index/pollen bij de moestuin via Open-Meteo Air-Quality-API (keyless, altijd echt); `StubAirQualityClient` alleen voor tests. |
 | `news` | `NewsClient`: laatste nieuwskoppen via RSS (standaard NOS Algemeen, keyless, altijd echt); `StubNewsClient` alleen voor tests. |
@@ -556,6 +556,38 @@ statussecties als even brede, afgekorte en semantisch bedienbare tegels met exac
 statuskleuren en woordelijke betekenis. Een tik toont één volledig detail onder de rij; getegelde
 secties worden niet dubbel als vaste kaart getoond en alle overige secties blijven zichtbaar. Er
 zijn geen nieuwe endpoints, cachelagen of databronnen en de 18:00-push is ongewijzigd.
+
+Nieuw (SF-1621): de briefing toont niet langer meteen "Kon Open-Meteo niet ophalen (HTTP 503)" bij
+een incidentele storing van de weerdienst. Beide Open-Meteo-clients (`OpenMeteoWeatherClient`,
+`OpenMeteoWindForecastClient`) delegeren het ophalen aan de nieuwe, `internal`
+`weather/ForecastFetcher.kt` en doen zelf alleen nog parsen + afkappen op `hours`:
+**retry** (maximaal 3 pogingen met ~0,5 s en ~2 s pauze, bij netwerk-/IO-fout, HTTP 5xx en 429;
+bij overige 4xx precies 1 call, geen retry), **last-known-good** (faalt alles, dan de laatst
+geslaagde respons met `error == null` en een verouderd-markering, mits jonger dan 12 uur — anders
+de bestaande foutmelding met ongewijzigde tekst) en een **TTL-cache van 10 minuten** op de ruwe
+respons-body, zodat één briefing-opbouw nog maar 1 weer-call + 1 wind-call doet i.p.v. 3 + 3. De
+ruwe body wordt gecachet i.p.v. de geparste voorspelling, zodat het "vanaf nu"-filter ook bij een
+cachehit tegen de actuele tijd gebeurt. Per definitief mislukte aanroep gaat er precies één
+`logger.warn` met statuscode of foutmelding uit. `WeatherForecast`/`WindForecast` kregen twee
+optionele velden (`fetchedAt: Instant? = null`, `stale: Boolean = false`) — `stale` is alleen waar
+bij een last-known-good-teruggave, niet bij een verse call of een TTL-cachehit — dus alle stubs en
+bestaande aanroepen compileren ongewijzigd. `now`, `sleeper` en `retryDelaysMs` zijn
+constructorparameters met productiedefault (geen `Clock`-bean), zodat TTL, de 12-uursgrens en de
+pauzes in tests bestuurbaar zijn zonder echte wachttijd. Briefingkant: `SlotAssessmentProvider`
+geeft het oudste verouderde ophaalmoment van wind/weer mee in `AssessmentResult.Ok.staleSince`, en
+`KiteSectionProvider`, `BeachCycleSectionProvider` en `WeatherMapSectionProvider` tonen bij
+verouderde data de normale inhoud plus `(gegevens van HH:MM)` (Europe/Amsterdam; bij de weerkaart
+achter de tekst van het bestaande item, omdat de sectietekst daar leeg is). Ongewijzigd:
+de interfaces `WeatherClient`/`WindForecastClient` en hun stubs, de `CouplingProbe`s, de tegels
+(`status`/`tileLabel`), `shortSummary()`/de 18:00-push, de briefing-cache, de PNG-opbouw van de
+weerkaart (die gebeurt ook op last-known-good-data), alle API-contracten en de apps. Gevolg dat
+bewust geaccepteerd is: de "test"-knop op het Koppelingen-scherm kan binnen de TTL of vanuit
+last-known-good slagen terwijl Open-Meteo op dat moment onbereikbaar is. De cache/last-known-good
+is puur in-memory: na een pod-herstart is er geen last-known-good tot de eerste geslaagde call.
+Bekend aandachtspunt (niet opgelost, kandidaat voor een vervolgstory): een definitieve mislukking
+wordt niet gecachet, dus bij een echte storing doorloopt elke sectie opnieuw de volledige
+retry-reeks — functioneel correct (dezelfde last-known-good), maar de reload-knop en de uurlijkse
+scheduler kunnen dan traag worden.
 
 ---
 
