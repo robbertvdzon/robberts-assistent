@@ -6,8 +6,10 @@
 - [x] Licht thema, gedeelde stijlen, statuspillen en logo-assets implementeren.
 - [x] Headeropzet, vier-tabsnavigatie, Meer-routes en push-deeplinks migreren.
 - [x] Bestaande tests migreren en gerichte widgettests voor status, navigatie en 390px toevoegen.
-- [ ] Formatter, gerichte tests en het volledige vangnet uit `docs/factory/development.md` groen draaien.
+- [x] Formatter, gerichte tests en het volledige relevante Flutter-vangnet groen draaien.
 - [x] Eigen review uitvoeren en dit worklog afronden.
+- [x] Reviewfinding herstellen: briefing-deeplink sluit een via Meer gepushte route en toont Vandaag.
+- [x] Regressietest toevoegen voor een briefing-push terwijl een Meer-route zichtbaar is.
 
 ## Uitvoering
 
@@ -24,11 +26,17 @@ Zoekopdrachten, Koppelingen, Nachtchecks, Geheugen en Updates zijn via gepushte 
 bereikbaar. Briefing-pushes kiezen Vandaag; watch-pushes openen telkens een nieuwe Zoekopdrachten-route
 en laden daardoor verse data.
 
+Na de reviewfinding sluit een briefing-deeplink met `Navigator.popUntil` eerst alle vanuit Meer
+gepushte routes boven de app-shell. Daarna wordt tab Vandaag geselecteerd, zodat het bedoelde scherm
+daadwerkelijk zichtbaar is en niet alleen onder een child-route van tab wisselt.
+
 ## Verificatie
 
 - `dart format .`: groen.
 - `flutter analyze`: groen, 0 issues.
-- `flutter test`: groen, 54 tests, 0 failures en 0 errors.
+- `flutter test`: groen, 55 tests, 0 failures en 0 errors.
+- `flutter test test/home_screen_test.dart`: groen, 8 tests, inclusief de regressie voor
+  Meer → Koppelingen → briefing-push.
 - Widgettest op 390x844: vier navigatielabels, geen layout-exception en éénregelige labels.
 - `flutter build web --release`: groen (`build/web`).
 - `dart run flutter_launcher_icons`: groen; Android- en webiconen gegenereerd.
@@ -53,3 +61,5 @@ en laden daardoor verse data.
   blijft. Laat de briefing-deeplink eerst terugnavigeren naar de home-route en selecteer daarna
   Vandaag. Breid `test/home_screen_test.dart` uit met deze route-op-de-stack-situatie; de bestaande
   briefingtest op regels 142-164 dekt alleen HomeScreen als bovenste route.
+- [resolved] De briefing-deeplink sluit nu eerst routes boven de app-shell; de nieuwe widgettest
+  bewijst dat een zichtbare Koppelingen-route verdwijnt en Vandaag op tabindex 0 verschijnt.

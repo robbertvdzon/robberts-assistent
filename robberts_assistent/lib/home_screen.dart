@@ -52,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
     FcmService.deepLinkTarget.value = null;
     if (!mounted) return;
     if (target == DeepLinkTarget.today) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
       _selectTab(0);
       return;
     }

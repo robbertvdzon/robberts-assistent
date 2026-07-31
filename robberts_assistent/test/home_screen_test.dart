@@ -163,6 +163,35 @@ void main() {
     expect(FcmService.deepLinkTarget.value, null);
   });
 
+  testWidgets('briefing-push sluit een Meer-route en toont Vandaag', (
+    tester,
+  ) async {
+    addTearDown(() => FcmService.deepLinkTarget.value = null);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {}),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Meer'));
+    await tester.pump();
+    await tester.tap(find.text('Koppelingen'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CouplingsScreen), findsOneWidget);
+
+    FcmService.handlePushData({'type': 'briefing'});
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CouplingsScreen), findsNothing);
+    expect(find.byType(SummaryScreen), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
+    expect(FcmService.deepLinkTarget.value, null);
+  });
+
   testWidgets('watch-push opent Zoekopdrachten als verse route', (
     tester,
   ) async {
