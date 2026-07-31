@@ -56,3 +56,27 @@ Done / rationale:
 - Backend: `rm -rf target && mvn -o test` → 333 tests, 0 failures, 0 errors, 0 skipped
   (`WatchRunnerTest`: 14 tests groen). `mvn clean` kan niet offline, vandaar `rm -rf target`.
 - App: `flutter analyze` → "No issues found!"; `flutter test` → 48 tests, all passed.
+
+## Review (SF-1554, reviewer) — afgekeurd, 1 bug
+
+Eigen gerichte verificatie: `mvn -o test -Dtest='Watch*Test,ModulithArchitectureTest'` → 30 tests
+groen; `BriefingControllerTest` (@SpringBootTest) groen, dus de nieuwe `WatchRunner`-injectie in
+`WatchesController` wiret. `flutter analyze` schoon; `flutter test test/watches_screen_test.dart`
+→ 10 tests groen.
+
+- [bug] `watches_screen.dart` `_runNow()` verhoogt `_loadSequence`, maar zet zelf nooit
+  `_loading = false`. Een op dat moment lopende `_load()` slaat door de sequence-guard zijn
+  `finally`-reset over, waardoor `_loading` permanent `true` blijft: de lijst verdwijnt achter de
+  grote laadspinner en komt ook ná de run niet terug (alleen een handmatige refresh herstelt het).
+  Bereikbaar tijdens de initiële load, na een FCM-reload (`didUpdateWidget`) en vlak na
+  toevoegen/bewerken/verwijderen (die `await _load()` doen) — de AppBar-knoppen zijn daar telkens
+  enabled. Botst met AC 8/9 en is een regressie t.o.v. de situatie vóór deze story.
+  Fix-richting: in de `finally` van `_runNow()` ook `_loading = false` zetten, of run-now
+  blokkeren zolang `_loading` waar is.
+- [suggestie] FAB "Nieuwe zoekopdracht" blijft tijdens de run enabled terwijl `_add` intern
+  `await _load()` doet en zo het runresultaat kan wegdrukken.
+- [info] AC 6 (auth) heeft geen test, maar er bestaat geen `WatchesControllerTest` in deze module;
+  het endpoint volgt exact het bestaande `requireAuthorization`-patroon. Geen blocker.
+- [info] Backend-kant is conform scope: `runNow()` hergebruikt de ongewijzigde private `check()`,
+  geen wijziging aan `poll()`/`Watch`/`WatchRepository`/`WatchSchedule`/`WatchEvaluator`/
+  `WatchPageFetcher`; AC 1–5 zijn met 5 nieuwe `WatchRunnerTest`-tests gedekt.
