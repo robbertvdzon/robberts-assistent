@@ -55,3 +55,26 @@ Testresultaat:
 - `rm -rf target && mvn -o test` vanuit `robberts-assistent-backend/`: BUILD SUCCESS,
   350 tests, 0 failures, 0 errors — inclusief `WatchToolsTest` (9) en `ModulithArchitectureTest`.
   (`mvn clean` kan niet offline, vandaar `rm -rf target`.)
+
+Review (SF-1622, reviewer):
+- Volledige story-diff t.o.v. `main` beoordeeld (`AiConfig.kt`, `WatchTools.kt`, `WatchToolsTest.kt`,
+  worklog). Alle acceptatiecriteria gedekt; geen wijziging aan `watches`-module, REST-API of
+  frontend, dus scope klopt.
+- Eigen gerichte verificatie: `mvn -o test -Dtest='WatchToolsTest,ModulithArchitectureTest,
+  WatchesControllerTest'` groen (WatchToolsTest 9/9, ModulithArchitectureTest 1/1) en
+  `AssistantControllerTest,BriefingControllerTest` groen — bevestigt dat de nieuwe `WatchTools`-bean
+  correct in de Spring-context wiret.
+- [suggestie] `createWatch`'s `notifyOnFound: Boolean = true` is een Kotlin-default op een primitieve
+  parameter. Spring AI's `MethodToolCallback` roept `Method.invoke` aan met `null` voor een
+  weggelaten `required = false`-argument; Kotlin-defaults worden daarbij niet toegepast, dus een
+  call zonder `notifyOnFound` zou op een argument-type-mismatch stuklopen i.p.v. `true` te gebruiken.
+  Zelfde patroon als het bestaande `ReminderTools.everyInterval`, en de story schrijft deze vorm
+  expliciet voor — daarom geen blocker, maar het is de reden dat `updateWatch`'s driewaardige
+  `String` robuuster is.
+- [suggestie] Een lege `id` bij `updateWatch` matcht via `startsWith("")` de eerste zoekopdracht in
+  de lijst (die dan ook op actief/`NOG_NIET_GECONTROLEERD` gereset wordt). Identiek aan het bestaande
+  `deleteReminder`-gedrag; een expliciete blank-check zou dat afvangen.
+- [info] `WatchService.update` kan `WatchNotFoundException` gooien als de watch tussen `list()` en
+  `update()` verdwijnt; alleen `WatchValidationException` wordt afgevangen. Zeer smalle race,
+  geen actie nodig.
+- Conclusie: akkoord.
