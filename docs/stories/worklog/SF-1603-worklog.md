@@ -34,3 +34,7 @@ Gedaan / rationale developer-herstel:
 - De buitenste `Semantics` roept nu dezelfde tegel-toggle aan als de visuele `InkWell`, zodat een screenreader de uitgesproken knop ook daadwerkelijk kan activeren.
 - De bestaande één-tegeltest verifieert expliciet `SemanticsAction.tap`, voert die actie via de semantics-tree uit en controleert dat het volledige kite-detail opent.
 - Vangnet opnieuw groen: `mvn -o test` (340 tests, 0 failures/errors), `mvn -o -DskipTests package`, `flutter test` (61 tests), `flutter analyze` en `flutter build web`, allemaal exitcode 0.
+
+Herreview (2026-07-31):
+- Volledige story-diff `main...HEAD` opnieuw beoordeeld. Gerichte verificatie groen: 30 tests in `BriefingSectionContractTest`, `KiteSectionProviderTest`, `BeachCycleSectionProviderTest` en `WasteSectionProviderTest`; daarnaast alle 17 tests in `test/summary_screen_test.dart`.
+- [bug] `WasteSectionProvider.kt:54`: de nieuwe vandaag/morgen-status gebruikt `LocalDate.now()` in de JVM-defaulttijdzone. De productie-image stelt geen `TZ`/`user.timezone` in en draait standaard op UTC, terwijl briefingdatumlogica elders expliciet `Europe/Amsterdam` gebruikt. Tussen 00:00 en 02:00 Amsterdam-zomertijd ziet de backend nog de vorige UTC-datum; een ophaalmoment van de lokale volgende dag valt dan in `+2` en krijgt onterecht `GOED` in plaats van `LET_OP`. Gebruik voor afval consequent de Amsterdam-datum (bij voorkeur via een injecteerbare `Clock`) en dek de UTC/Amsterdam-datumgrens af met een test.
