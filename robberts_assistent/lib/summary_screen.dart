@@ -24,7 +24,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
   BriefingData? _data;
   String? _error;
   bool _refreshing = false;
+  String? _expandedTileKey;
+  final _tileDetailKey = GlobalKey();
   final _runningActions = <BriefingAction>{};
+
+  static const _statusColors = {
+    BriefingStatus.goed: Color(0xFF0CA30C),
+    BriefingStatus.letOp: Color(0xFFFAB219),
+    BriefingStatus.niet: Color(0xFFD03B3B),
+  };
 
   @override
   void initState() {
@@ -109,6 +117,17 @@ class _SummaryScreenState extends State<SummaryScreen> {
         ],
       );
     }
+    final sections = _data!.sections
+        .where((s) => s.key != 'system-status')
+        .toList();
+    final tileSections = sections.where(_hasValidTile).take(3).toList();
+    final regularSections = sections
+        .where((s) => !tileSections.contains(s))
+        .toList();
+    final expandedSection = tileSections.cast<BriefingSection?>().firstWhere(
+      (section) => section?.key == _expandedTileKey,
+      orElse: () => null,
+    );
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -117,13 +136,129 @@ class _SummaryScreenState extends State<SummaryScreen> {
           Text('Vandaag', style: Theme.of(context).textTheme.headlineLarge),
           const SizedBox(height: 4),
           _buildHeaderRow(_data!.updatedAt),
-          const SizedBox(height: 12),
-          ..._data!.sections
-              .where((s) => s.key != 'system-status')
-              .map(_buildSectionCard),
+          if (tileSections.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildTileRow(tileSections),
+            if (expandedSection != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                key: _tileDetailKey,
+                child: _buildSectionCard(expandedSection),
+              ),
+            ],
+          ],
+          if (regularSections.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...regularSections.map(_buildSectionCard),
+          ],
         ],
       ),
     );
+  }
+
+  bool _hasValidTile(BriefingSection section) =>
+      section.status != null && (section.tileLabel?.trim().isNotEmpty ?? false);
+
+  Widget _buildTileRow(List<BriefingSection> sections) {
+    return Row(
+      key: const ValueKey('status-tile-row'),
+      children: [
+        for (var index = 0; index < sections.length; index++) ...[
+          if (index > 0) const SizedBox(width: 8),
+          Expanded(child: _buildStatusTile(sections[index])),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStatusTile(BriefingSection section) {
+    final status = section.status!;
+    final tileLabel = section.tileLabel!;
+    final color = _statusColors[status]!;
+    return Semantics(
+      button: true,
+      label: '${status.label}, ${section.title}, $tileLabel',
+      child: ExcludeSemantics(
+        child: Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: ValueKey('status-tile-${section.key}'),
+            onTap: () => _toggleTile(section),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(_sectionIcon(section.key), size: 22),
+                  const SizedBox(height: 6),
+                  Text(
+                    section.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    tileLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Container(
+                        key: ValueKey('status-dot-${section.key}'),
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          status.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _sectionIcon(String key) => switch (key) {
+    'kite' => Icons.air,
+    'beach' => Icons.pedal_bike,
+    'waste' => Icons.recycling,
+    _ => Icons.info_outline,
+  };
+
+  void _toggleTile(BriefingSection section) {
+    final opens = _expandedTileKey != section.key;
+    setState(() => _expandedTileKey = opens ? section.key : null);
+    if (opens) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final detailContext = _tileDetailKey.currentContext;
+        if (detailContext != null) {
+          Scrollable.ensureVisible(
+            detailContext,
+            duration: const Duration(milliseconds: 250),
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          );
+        }
+      });
+    }
   }
 
   Widget _buildHeaderRow(DateTime updatedAt) {

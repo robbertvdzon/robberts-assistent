@@ -12,7 +12,12 @@ import kotlin.test.assertTrue
 class WasteSectionProviderTest {
 
     private class FixedWasteClient(private val schedule: WasteSchedule) : WasteClient {
-        override fun upcomingPickups(): WasteSchedule = schedule
+        var calls = 0
+
+        override fun upcomingPickups(): WasteSchedule {
+            calls++
+            return schedule
+        }
     }
 
     @Test
@@ -39,6 +44,8 @@ class WasteSectionProviderTest {
         val gftIndex = section.text.indexOf("gft & etensresten")
         val plasticIndex = section.text.indexOf("plastic, blik & drinkpakken")
         assertTrue(gftIndex < plasticIndex)
+        assertEquals(BriefingStatus.GOED, section.status)
+        assertEquals("gft", section.tileLabel)
     }
 
     @Test
@@ -51,6 +58,8 @@ class WasteSectionProviderTest {
         val section = provider.section()
 
         assertTrue(section.text.contains("Geen ophaalmomenten"))
+        assertEquals(BriefingStatus.GOED, section.status)
+        assertEquals("geen", section.tileLabel)
     }
 
     @Test
@@ -62,6 +71,57 @@ class WasteSectionProviderTest {
         val section = provider.section()
 
         assertTrue(section.text.contains("kapot"))
+        assertNull(section.status)
+        assertNull(section.tileLabel)
+    }
+
+    @Test
+    fun `section geeft let op voor vandaag en morgen`() {
+        for (days in 0L..1L) {
+            val provider = WasteSectionProvider(
+                FixedWasteClient(
+                    WasteSchedule(listOf(WastePickup("restafval", LocalDate.now().plusDays(days)))),
+                ),
+            )
+
+            val section = provider.section()
+
+            assertEquals(BriefingStatus.LET_OP, section.status)
+            assertEquals("rest", section.tileLabel)
+        }
+    }
+
+    @Test
+    fun `section voegt bakken op de eerstvolgende datum kort samen en haalt planning eenmaal op`() {
+        val today = LocalDate.now()
+        val client = FixedWasteClient(
+            WasteSchedule(
+                listOf(
+                    WastePickup("papier", today.plusDays(4)),
+                    WastePickup("gft & etensresten", today.plusDays(2)),
+                    WastePickup("plastic, blik & drinkpakken", today.plusDays(2)),
+                ),
+            ),
+        )
+
+        val section = WasteSectionProvider(client).section()
+
+        assertEquals(BriefingStatus.GOED, section.status)
+        assertEquals("gft + pbd", section.tileLabel)
+        assertEquals(1, client.calls)
+    }
+
+    @Test
+    fun `section biedt geen tegel als ophalen een exception gooit`() {
+        val provider = WasteSectionProvider(object : WasteClient {
+            override fun upcomingPickups(): WasteSchedule = error("boom")
+        })
+
+        val section = provider.section()
+
+        assertEquals("Kon de afvalkalender niet ophalen.", section.text)
+        assertNull(section.status)
+        assertNull(section.tileLabel)
     }
 
     @Test

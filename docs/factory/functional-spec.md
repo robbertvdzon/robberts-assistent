@@ -67,6 +67,12 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   SF-1275 toont de
   Software Factory-check binnen het systeem-checkrapport alleen nog stories met een fout of een
   lopende (niet-gemergede) fase, i.p.v. alle stories.
+  Bovenaan Vandaag staan direct onder het bijgewerkt-tijdstip maximaal de eerste drie beschikbare
+  statustegels in briefingvolgorde. Kiten toont windkracht en -richting van het gunstigste dagdeel,
+  strandfietsen het gunstigste oordeel en afval het eerstvolgende korte baktype (of `geen`). Groen
+  betekent goed, geel let op en rood niet; status wordt ook als woord uitgesproken en getoond. Een
+  tik toont precies één volledig sectiedetail onder de tegelrij. Getegelde secties staan niet ook
+  permanent als kaart; overige en onbetrouwbare/foutsecties wel.
 - **Langdurige zoekopdrachten** — een opdracht bevat titel, absolute HTTP(S)-URL,
   zoekinstructie, frequentie (kantooruren of dagelijks) en een pushvoorkeur. Kantooruren is
   maandag t/m vrijdag 09:00–17:00 Europe/Amsterdam, maximaal uurlijks; dagelijks is maximaal

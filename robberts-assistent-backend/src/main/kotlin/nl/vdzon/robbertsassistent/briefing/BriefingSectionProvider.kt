@@ -9,7 +9,14 @@ data class BriefingSection(
     // aanmaken"). Generiek gehouden (geen agenda-specifiek type) zodat elke sectie er gebruik van
     // kan maken zonder wijziging in BriefingService/BriefingController.
     val items: List<BriefingItem> = emptyList(),
+    // Optionele compacte statusweergave voor de Vandaag-tab. Beide velden blijven null voor
+    // bestaande/niet-statussecties en bij onbetrouwbare brondata.
+    val status: BriefingStatus? = null,
+    val tileLabel: String? = null,
 )
+
+/** Betekenisvolle status van een compacte briefingtegel; de enum-namen zijn ook de JSON-waarden. */
+enum class BriefingStatus { GOED, LET_OP, NIET }
 
 data class BriefingItem(
     val text: String,
