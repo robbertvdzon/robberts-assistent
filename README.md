@@ -12,7 +12,8 @@ vier Flutter/Android-apps.
 - **`robberts_assistent/`** — hoofdapp als Android-APK en web-app. De zes tabs
   zijn Upcoming, Health check, Assistent, Herinneringen, Zoekopdrachten en Meer.
   Via Zoekopdrachten kan de gebruiker een website periodiek laten beoordelen en
-  optioneel een push ontvangen zodra het gezochte is gevonden.
+  optioneel een push ontvangen zodra het gezochte is gevonden; een knop bovenin
+  laat alle lopende zoekopdrachten meteen controleren.
 - **`groentetuin/`** — moestuin-chat met tekst en foto's, als APK en web-app.
 - **`notities/`** — auto-opslaande notitie-app, als APK.
 - **`wind/`** — handsfree Wind-app: Android App Actions starten een
