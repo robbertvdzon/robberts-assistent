@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'section_heading.dart';
+import 'status_pill.dart';
 
 /// 'Upcoming'-scherm: dagelijkse briefing met weerkaart, kite/strandfiets-kans, agenda komende
 /// 7 dagen (incl. één-tap reminder-actie per afspraak zonder reminder), AI-weektakensamenvatting
@@ -47,7 +49,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
       if (mounted) setState(() => _data = data);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Verversen mislukt: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Verversen mislukt: $e')));
       }
     } finally {
       if (mounted) setState(() => _refreshing = false);
@@ -61,21 +65,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Actie mislukt: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Actie mislukt: $e')));
       }
     } finally {
       if (mounted) setState(() => _runningActions.remove(action));
     }
   }
-
-  static const _icons = {
-    'weather-map': Icons.map_outlined,
-    'kite': Icons.air,
-    'beach': Icons.pedal_bike,
-    'agenda': Icons.event_outlined,
-    'week-tasks': Icons.checklist_outlined,
-    'moestuin': Icons.grass,
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -83,24 +80,47 @@ class _SummaryScreenState extends State<SummaryScreen> {
       return RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            const SizedBox(height: 80),
-            Center(child: Text(_error!, style: const TextStyle(color: Colors.red))),
+            Text('Vandaag', style: Theme.of(context).textTheme.headlineLarge),
+            const SizedBox(height: 32),
+            Center(
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
           ],
         ),
       );
     }
     if (_data == null) {
-      return const Center(child: CircularProgressIndicator());
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Vandaag',
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
+          ),
+          const Expanded(child: Center(child: CircularProgressIndicator())),
+        ],
+      );
     }
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text('Vandaag', style: Theme.of(context).textTheme.headlineLarge),
+          const SizedBox(height: 4),
           _buildHeaderRow(_data!.updatedAt),
-          const SizedBox(height: 8),
-          ..._data!.sections.where((s) => s.key != 'system-status').map(_buildSectionCard),
+          const SizedBox(height: 12),
+          ..._data!.sections
+              .where((s) => s.key != 'system-status')
+              .map(_buildSectionCard),
         ],
       ),
     );
@@ -118,7 +138,11 @@ class _SummaryScreenState extends State<SummaryScreen> {
         _refreshing
             ? const Padding(
                 padding: EdgeInsets.all(8),
-                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               )
             : IconButton(
                 tooltip: 'Briefing verversen',
@@ -139,14 +163,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(_icons[section.key] ?? Icons.info_outline),
-                const SizedBox(width: 8),
-                Expanded(child: Text(section.title, style: const TextStyle(fontWeight: FontWeight.bold))),
-              ],
-            ),
-            const SizedBox(height: 8),
+            SectionHeading(section.title),
+            const SizedBox(height: 10),
             if (section.items.isEmpty)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,12 +172,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   for (final line in section.text.split('\n'))
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Text(line),
+                      child: StatusTextLine(line),
                     ),
                 ],
               )
             else
-              ...section.items.map((item) => _buildItemRow(item, _data!.updatedAt)),
+              ...section.items.map(
+                (item) => _buildItemRow(item, _data!.updatedAt),
+              ),
           ],
         ),
       ),
@@ -193,14 +213,20 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 ),
               ),
             ),
-          Text(item.text),
+          StatusTextLine(item.text),
           if (action != null)
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: _runningActions.contains(action) ? null : () => _runAction(action),
+                onPressed: _runningActions.contains(action)
+                    ? null
+                    : () => _runAction(action),
                 child: _runningActions.contains(action)
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : Text(action.label),
               ),
             ),

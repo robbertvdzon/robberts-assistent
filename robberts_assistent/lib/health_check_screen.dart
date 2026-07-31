@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'app_logo.dart';
+import 'section_heading.dart';
 
 /// 'Health check'-scherm: toont uitsluitend de systeemstatus-sectie (`key == 'system-status'`)
 /// van `GET /api/v1/briefing/health` — per onderdeel (zonnepanelen, backups, OpenShift,
@@ -47,7 +49,9 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
       if (mounted) setState(() => _data = data);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Verversen mislukt: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Verversen mislukt: $e')));
       }
     } finally {
       if (mounted) setState(() => _refreshing = false);
@@ -65,19 +69,48 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const AppHeaderTitle()),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
     if (_error != null) {
       return RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            const SizedBox(height: 80),
-            Center(child: Text(_error!, style: const TextStyle(color: Colors.red))),
+            Text(
+              'Health check',
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
+            const SizedBox(height: 32),
+            Center(
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
           ],
         ),
       );
     }
     if (_data == null) {
-      return const Center(child: CircularProgressIndicator());
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Health check',
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
+          ),
+          const Expanded(child: Center(child: CircularProgressIndicator())),
+        ],
+      );
     }
     final section = _systemStatusSection();
     final items = section?.items ?? [];
@@ -86,8 +119,13 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text(
+            'Health check',
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
+          const SizedBox(height: 4),
           _buildHeaderRow(_data!.updatedAt),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           if (items.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 64),
@@ -112,7 +150,11 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
         _refreshing
             ? const Padding(
                 padding: EdgeInsets.all(8),
-                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               )
             : IconButton(
                 tooltip: 'Systeemstatus verversen',
@@ -133,10 +175,7 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SelectableText(
-              item.heading ?? '',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+            SectionHeading(item.heading ?? '', selectable: true),
             const SizedBox(height: 8),
             for (final line in item.text.split('\n'))
               Padding(

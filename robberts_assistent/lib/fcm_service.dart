@@ -10,9 +10,7 @@ import 'api_client.dart';
 const _briefingPushType = 'briefing';
 const _watchPushType = 'watch';
 
-// Index van de Upcoming-tab in HomeScreen's NavigationBar/IndexedStack.
-const _morgenTabIndex = 0;
-const _watchesTabIndex = 4;
+enum DeepLinkTarget { today, watches }
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond
 /// of gesloten is toont Android de FCM-notification-payload zelf op het opgegeven kanaal.
@@ -32,9 +30,9 @@ class FcmService {
   static final _local = FlutterLocalNotificationsPlugin();
   static var _notifId = 0;
 
-  /// Niet-`null` zodra een tik op een push (of een koude start ervandaan) om een tabwissel vraagt;
-  /// `HomeScreen` luistert hierop, schakelt naar die tab en zet 'm daarna terug op `null`.
-  static final deepLinkTab = ValueNotifier<int?>(null);
+  /// Niet-`null` zodra een tik op een push (of een koude start ervandaan) om navigatie vraagt.
+  /// `HomeScreen` luistert hierop, navigeert naar het doel en consumeert de waarde.
+  static final deepLinkTarget = ValueNotifier<DeepLinkTarget?>(null);
 
   static void _handleTap(RemoteMessage message) {
     handlePushData(message.data);
@@ -42,9 +40,9 @@ class FcmService {
 
   static void handlePushData(Map<String, dynamic> data) {
     if (data['type'] == _briefingPushType) {
-      deepLinkTab.value = _morgenTabIndex;
+      deepLinkTarget.value = DeepLinkTarget.today;
     } else if (data['type'] == _watchPushType) {
-      deepLinkTab.value = _watchesTabIndex;
+      deepLinkTarget.value = DeepLinkTarget.watches;
     }
   }
 
@@ -52,15 +50,17 @@ class FcmService {
   static Future<void> handleInitialLocalNotification([
     FlutterLocalNotificationsPlugin? localNotifications,
   ]) async {
-    final details =
-        await (localNotifications ?? _local).getNotificationAppLaunchDetails();
+    final details = await (localNotifications ?? _local)
+        .getNotificationAppLaunchDetails();
     if (details?.didNotificationLaunchApp != true) return;
     final type = details?.notificationResponse?.payload;
     if (type != null) handlePushData({'type': type});
   }
 
   static Future<void> setup(ApiClient api) async {
-    if (kIsWeb || _done) return; // FCM-web vereist extra config; alleen Android voor nu.
+    if (kIsWeb || _done) {
+      return; // FCM-web vereist extra config; alleen Android voor nu.
+    }
     _done = true;
     try {
       await Firebase.initializeApp();
@@ -68,7 +68,9 @@ class FcmService {
       // Lokale notificaties + high-importance kanaal (zodat ook FCM-achtergrondmeldingen op dit
       // kanaal geluid maken en op het lockscreen verschijnen).
       await _local.initialize(
-        const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+        const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        ),
         onDidReceiveNotificationResponse: (response) {
           final type = response.payload;
           if (type != null) handlePushData({'type': type});
@@ -76,7 +78,9 @@ class FcmService {
       );
       await handleInitialLocalNotification();
       await _local
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(
             const AndroidNotificationChannel(
               _channelId,
@@ -94,7 +98,9 @@ class FcmService {
       if (token != null) {
         await api.registerFcmToken(token).catchError((_) {});
       }
-      messaging.onTokenRefresh.listen((t) => api.registerFcmToken(t).catchError((_) {}));
+      messaging.onTokenRefresh.listen(
+        (t) => api.registerFcmToken(t).catchError((_) {}),
+      );
 
       // Tik op de melding terwijl de app op de achtergrond staat (niet gesloten).
       FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);

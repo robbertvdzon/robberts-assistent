@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'status_pill.dart';
 
 class WatchesScreen extends StatefulWidget {
-  const WatchesScreen({super.key, required this.api, this.reloadTrigger = 0});
+  const WatchesScreen({super.key, required this.api});
 
   final ApiClient api;
-  final int reloadTrigger;
 
   @override
   State<WatchesScreen> createState() => _WatchesScreenState();
@@ -23,14 +23,6 @@ class _WatchesScreenState extends State<WatchesScreen> {
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void didUpdateWidget(covariant WatchesScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.reloadTrigger != oldWidget.reloadTrigger) {
-      _load();
-    }
   }
 
   Future<void> _load() async {
@@ -76,9 +68,9 @@ class _WatchesScreenState extends State<WatchesScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Nu controleren mislukt: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Nu controleren mislukt: $e')));
       }
     } finally {
       if (mounted) {
@@ -200,16 +192,15 @@ class _WatchesScreenState extends State<WatchesScreen> {
             children: _watches
                 .map(
                   (watch) => ListTile(
-                    leading: Icon(
-                      watch.status == 'GEVONDEN'
-                          ? Icons.task_alt
-                          : Icons.travel_explore,
-                      color: watch.status == 'GEVONDEN'
-                          ? Colors.green
-                          : Colors.deepPurple,
-                    ),
                     title: Text(watch.title),
-                    subtitle: Text(watch.statusDescription),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(watch.statusDescription),
+                        const SizedBox(height: 6),
+                        StatusPill(variant: _statusVariant(watch.status)),
+                      ],
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -230,12 +221,20 @@ class _WatchesScreenState extends State<WatchesScreen> {
                 .toList(),
           ),
     floatingActionButton: FloatingActionButton(
+      heroTag: 'nieuwe-zoekopdracht',
       tooltip: 'Nieuwe zoekopdracht',
       // Tijdens een run uit: `_add` doet zelf een `_load()` en zou het runresultaat wegdrukken.
       onPressed: _running ? null : _add,
       child: const Icon(Icons.add),
     ),
   );
+
+  StatusPillVariant _statusVariant(String status) => switch (status) {
+    'GEVONDEN' => StatusPillVariant.good,
+    'NIET_GEVONDEN' => StatusPillVariant.warning,
+    'ONBEKEND' => StatusPillVariant.critical,
+    _ => StatusPillVariant.neutral,
+  };
 }
 
 class _WatchInput {
@@ -318,7 +317,9 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.watch == null ? 'Nieuwe zoekopdracht' : 'Zoekopdracht bewerken'),
+    title: Text(
+      widget.watch == null ? 'Nieuwe zoekopdracht' : 'Zoekopdracht bewerken',
+    ),
     content: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,

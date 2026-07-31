@@ -19,7 +19,8 @@ class _FakeApiClient extends ApiClient {
   Completer<BriefingData>? refreshCompleter;
 
   @override
-  Future<BriefingData> getBriefing() async => BriefingData(sections: sections, updatedAt: updatedAt);
+  Future<BriefingData> getBriefing() async =>
+      BriefingData(sections: sections, updatedAt: updatedAt);
 
   @override
   Future<BriefingData> refreshBriefing() {
@@ -38,29 +39,53 @@ class _FakeApiClient extends ApiClient {
 
 /// SummaryScreen heeft (net als in de app) geen eigen Scaffold — die zit op HomeScreen-niveau —
 /// maar de reload-knop toont een SnackBar bij een fout, wat een omringende Scaffold vereist.
-Widget _wrap(ApiClient api) => MaterialApp(home: Scaffold(body: SummaryScreen(api: api)));
+Widget _wrap(ApiClient api) => MaterialApp(
+  home: Scaffold(body: SummaryScreen(api: api)),
+);
 
 void main() {
-  testWidgets('toont de titel en tekst van elke briefingsectie', (tester) async {
+  testWidgets('toont de titel en tekst van elke briefingsectie', (
+    tester,
+  ) async {
     final api = _FakeApiClient()
       ..sections = const [
-        BriefingSection(key: 'kite', title: 'Kiten', text: 'Morgen: 🟢 24kn', items: []),
-        BriefingSection(key: 'beach', title: 'Strandfietsen', text: 'Morgen: 🟢 (10 kn, droog, laagwater om 08:00)', items: []),
-        BriefingSection(key: 'moestuin', title: 'Moestuin', text: 'Alles goed.', items: []),
+        BriefingSection(
+          key: 'kite',
+          title: 'Kiten',
+          text: 'Morgen: 🟢 24kn',
+          items: [],
+        ),
+        BriefingSection(
+          key: 'beach',
+          title: 'Strandfietsen',
+          text: 'Morgen: 🟢 (10 kn, droog, laagwater om 08:00)',
+          items: [],
+        ),
+        BriefingSection(
+          key: 'moestuin',
+          title: 'Moestuin',
+          text: 'Alles goed.',
+          items: [],
+        ),
       ];
 
     await tester.pumpWidget(_wrap(api));
     await tester.pump();
 
-    expect(find.text('Kiten'), findsOneWidget);
-    expect(find.text('Morgen: 🟢 24kn'), findsOneWidget);
-    expect(find.text('Strandfietsen'), findsOneWidget);
-    expect(find.text('Morgen: 🟢 (10 kn, droog, laagwater om 08:00)'), findsOneWidget);
-    expect(find.text('Moestuin'), findsOneWidget);
+    expect(find.text('KITEN'), findsOneWidget);
+    expect(find.text('STRANDFIETSEN'), findsOneWidget);
+    expect(find.text('MOESTUIN'), findsOneWidget);
+    expect(find.text('Morgen:'), findsNWidgets(2));
+    expect(find.text('goed'), findsNWidgets(2));
+    expect(find.text('24kn'), findsOneWidget);
+    expect(find.text('(10 kn, droog, laagwater om 08:00)'), findsOneWidget);
+    expect(find.textContaining('🟢'), findsNothing);
     expect(find.text('Alles goed.'), findsOneWidget);
   });
 
-  testWidgets('toont de updatedAt-tijdstip van de (gecachete) briefing', (tester) async {
+  testWidgets('toont de updatedAt-tijdstip van de (gecachete) briefing', (
+    tester,
+  ) async {
     final api = _FakeApiClient()..updatedAt = DateTime(2026, 7, 21, 9, 5);
 
     await tester.pumpWidget(_wrap(api));
@@ -69,30 +94,37 @@ void main() {
     expect(find.text('Bijgewerkt om 09:05'), findsOneWidget);
   });
 
-  testWidgets('reload-knop roept refreshBriefing aan en toont tijdens het laden een spinner', (tester) async {
-    final completer = Completer<BriefingData>();
-    final api = _FakeApiClient()..refreshCompleter = completer;
+  testWidgets(
+    'reload-knop roept refreshBriefing aan en toont tijdens het laden een spinner',
+    (tester) async {
+      final completer = Completer<BriefingData>();
+      final api = _FakeApiClient()..refreshCompleter = completer;
 
-    await tester.pumpWidget(_wrap(api));
-    await tester.pump();
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
 
-    expect(find.byIcon(Icons.refresh), findsOneWidget);
+      expect(find.byIcon(Icons.refresh), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.refresh));
-    await tester.pump();
+      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.pump();
 
-    // Tijdens het laden: geen indrukbare refresh-knop meer, wel een spinner.
-    expect(find.byIcon(Icons.refresh), findsNothing);
-    expect(find.byType(CircularProgressIndicator), findsWidgets);
-    expect(api.refreshCalls, 1);
+      // Tijdens het laden: geen indrukbare refresh-knop meer, wel een spinner.
+      expect(find.byIcon(Icons.refresh), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
+      expect(api.refreshCalls, 1);
 
-    completer.complete(BriefingData(sections: api.sections, updatedAt: api.updatedAt));
-    await tester.pumpAndSettle();
+      completer.complete(
+        BriefingData(sections: api.sections, updatedAt: api.updatedAt),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.refresh), findsOneWidget);
-  });
+      expect(find.byIcon(Icons.refresh), findsOneWidget);
+    },
+  );
 
-  testWidgets('reload-knop toont een foutmelding als refreshen mislukt', (tester) async {
+  testWidgets('reload-knop toont een foutmelding als refreshen mislukt', (
+    tester,
+  ) async {
     final api = _FakeApiClient()..refreshShouldThrow = true;
 
     await tester.pumpWidget(_wrap(api));
@@ -105,61 +137,85 @@ void main() {
     expect(find.byIcon(Icons.refresh), findsOneWidget);
   });
 
-  testWidgets('een item met imageUrl rendert een afbeelding i.p.v. platte tekst', (tester) async {
-    final api = _FakeApiClient()
-      ..sections = const [
-        BriefingSection(
-          key: 'weather-map',
-          title: 'Weerkaart',
-          text: '',
-          items: [
-            BriefingItem(text: 'Ochtend: 24 kn (ZW), regen', imageUrl: '/api/v1/briefing/weather-map/ochtend'),
-          ],
+  testWidgets(
+    'een item met imageUrl rendert een afbeelding i.p.v. platte tekst',
+    (tester) async {
+      final api = _FakeApiClient()
+        ..sections = const [
+          BriefingSection(
+            key: 'weather-map',
+            title: 'Weerkaart',
+            text: '',
+            items: [
+              BriefingItem(
+                text: 'Ochtend: 24 kn (ZW), regen',
+                imageUrl: '/api/v1/briefing/weather-map/ochtend',
+              ),
+            ],
+          ),
+        ];
+
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
+
+      expect(find.text('WEERKAART'), findsOneWidget);
+      expect(find.text('Ochtend: 24 kn (ZW), regen'), findsOneWidget);
+      final image = tester.widget<Image>(find.byType(Image));
+      final provider = image.image as NetworkImage;
+      expect(
+        provider.url,
+        endsWith(
+          '/api/v1/briefing/weather-map/ochtend?v=${_fixedUpdatedAt.millisecondsSinceEpoch ~/ 1000}',
         ),
-      ];
+      );
+    },
+  );
 
-    await tester.pumpWidget(_wrap(api));
-    await tester.pump();
+  testWidgets(
+    'een andere updatedAt na refresh geeft een andere cache-bust-query-param',
+    (tester) async {
+      final refreshedAt = _fixedUpdatedAt.add(const Duration(minutes: 5));
+      final api = _FakeApiClient()
+        ..sections = const [
+          BriefingSection(
+            key: 'weather-map',
+            title: 'Weerkaart',
+            text: '',
+            items: [
+              BriefingItem(
+                text: 'Ochtend: 24 kn (ZW), regen',
+                imageUrl: '/api/v1/briefing/weather-map/morgen',
+              ),
+            ],
+          ),
+        ]
+        ..refreshCompleter = null;
+      api.updatedAt = _fixedUpdatedAt;
 
-    expect(find.text('Weerkaart'), findsOneWidget);
-    expect(find.text('Ochtend: 24 kn (ZW), regen'), findsOneWidget);
-    final image = tester.widget<Image>(find.byType(Image));
-    final provider = image.image as NetworkImage;
-    expect(provider.url, endsWith('/api/v1/briefing/weather-map/ochtend?v=${_fixedUpdatedAt.millisecondsSinceEpoch ~/ 1000}'));
-  });
+      await tester.pumpWidget(_wrap(api));
+      await tester.pump();
 
-  testWidgets('een andere updatedAt na refresh geeft een andere cache-bust-query-param', (tester) async {
-    final refreshedAt = _fixedUpdatedAt.add(const Duration(minutes: 5));
-    final api = _FakeApiClient()
-      ..sections = const [
-        BriefingSection(
-          key: 'weather-map',
-          title: 'Weerkaart',
-          text: '',
-          items: [
-            BriefingItem(text: 'Ochtend: 24 kn (ZW), regen', imageUrl: '/api/v1/briefing/weather-map/morgen'),
-          ],
-        ),
-      ]
-      ..refreshCompleter = null;
-    api.updatedAt = _fixedUpdatedAt;
+      final beforeUrl =
+          (tester.widget<Image>(find.byType(Image)).image as NetworkImage).url;
 
-    await tester.pumpWidget(_wrap(api));
-    await tester.pump();
+      api.updatedAt = refreshedAt;
+      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.pumpAndSettle();
 
-    final beforeUrl = (tester.widget<Image>(find.byType(Image)).image as NetworkImage).url;
+      final afterUrl =
+          (tester.widget<Image>(find.byType(Image)).image as NetworkImage).url;
 
-    api.updatedAt = refreshedAt;
-    await tester.tap(find.byIcon(Icons.refresh));
-    await tester.pumpAndSettle();
+      expect(beforeUrl, isNot(equals(afterUrl)));
+      expect(
+        afterUrl,
+        endsWith('?v=${refreshedAt.millisecondsSinceEpoch ~/ 1000}'),
+      );
+    },
+  );
 
-    final afterUrl = (tester.widget<Image>(find.byType(Image)).image as NetworkImage).url;
-
-    expect(beforeUrl, isNot(equals(afterUrl)));
-    expect(afterUrl, endsWith('?v=${refreshedAt.millisecondsSinceEpoch ~/ 1000}'));
-  });
-
-  testWidgets('afspraak zonder reminder toont een werkende actieknop', (tester) async {
+  testWidgets('afspraak zonder reminder toont een werkende actieknop', (
+    tester,
+  ) async {
     final action = const BriefingAction(
       label: 'Reminder 1 uur van tevoren aanmaken',
       endpoint: '/api/v1/briefing/agenda-reminder',
@@ -172,7 +228,10 @@ void main() {
           title: 'Agenda (7 dagen)',
           text: 'Standup (geen reminder)',
           items: [
-            BriefingItem(text: 'Ma 22 jul 08:00 — Standup (⚠️ nog geen reminder)', action: action),
+            BriefingItem(
+              text: 'Ma 22 jul 08:00 — Standup (⚠️ nog geen reminder)',
+              action: action,
+            ),
           ],
         ),
       ];
@@ -207,7 +266,9 @@ void main() {
     expect(find.byType(TextButton), findsNothing);
   });
 
-  testWidgets('meerregelige kite-tekst wordt per regel apart weergegeven', (tester) async {
+  testWidgets('meerregelige kite-tekst wordt per regel apart weergegeven', (
+    tester,
+  ) async {
     final api = _FakeApiClient()
       ..sections = const [
         BriefingSection(
@@ -221,32 +282,53 @@ void main() {
     await tester.pumpWidget(_wrap(api));
     await tester.pump();
 
-    expect(find.text('Morgen: 🟢 24kn NW'), findsOneWidget);
-    expect(find.text('Overmorgen: 🟡 12kn Z'), findsOneWidget);
-    expect(find.text('Morgen: 🟢 24kn NW\nOvermorgen: 🟡 12kn Z'), findsNothing);
+    expect(find.text('Morgen:'), findsOneWidget);
+    expect(find.text('Overmorgen:'), findsOneWidget);
+    expect(find.text('goed'), findsOneWidget);
+    expect(find.text('let op'), findsOneWidget);
+    expect(find.text('24kn NW'), findsOneWidget);
+    expect(find.text('12kn Z'), findsOneWidget);
+    expect(
+      find.text('Morgen: 🟢 24kn NW\nOvermorgen: 🟡 12kn Z'),
+      findsNothing,
+    );
   });
 
-  testWidgets('de systeemstatus-sectie wordt niet getoond op de Upcoming-tab', (tester) async {
+  testWidgets('de systeemstatus-sectie wordt niet getoond op de Upcoming-tab', (
+    tester,
+  ) async {
     final api = _FakeApiClient()
       ..sections = const [
-        BriefingSection(key: 'kite', title: 'Kiten', text: 'Morgen: 🟢 24kn', items: []),
+        BriefingSection(
+          key: 'kite',
+          title: 'Kiten',
+          text: 'Morgen: 🟢 24kn',
+          items: [],
+        ),
         BriefingSection(
           key: 'system-status',
           title: 'Systeemstatus',
           text: 'Alles is in orde.',
-          items: [BriefingItem(text: 'huidig vermogen=100 W.', heading: 'Zonnepanelen')],
+          items: [
+            BriefingItem(
+              text: 'huidig vermogen=100 W.',
+              heading: 'Zonnepanelen',
+            ),
+          ],
         ),
       ];
 
     await tester.pumpWidget(_wrap(api));
     await tester.pump();
 
-    expect(find.text('Kiten'), findsOneWidget);
-    expect(find.text('Systeemstatus'), findsNothing);
+    expect(find.text('KITEN'), findsOneWidget);
+    expect(find.text('SYSTEEMSTATUS'), findsNothing);
     expect(find.text('huidig vermogen=100 W.'), findsNothing);
   });
 
-  testWidgets('toont een foutmelding als het ophalen van de briefing faalt', (tester) async {
+  testWidgets('toont een foutmelding als het ophalen van de briefing faalt', (
+    tester,
+  ) async {
     final api = _FailingApiClient();
 
     await tester.pumpWidget(_wrap(api));

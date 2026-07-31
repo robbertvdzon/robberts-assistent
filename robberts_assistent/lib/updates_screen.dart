@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'update_checker.dart';
+import 'status_pill.dart';
 
 /// Toont voor alle drie de apps (wind, robberts_assistent, notities) de geïnstalleerde vs. laatste
 /// versie, met een bijwerk-knop per app. Zie [UpdateChecker] voor hoe dat bepaald wordt.
@@ -46,11 +47,15 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
       await _checker.update(info);
     } on UpdatePermissionRequiredException {
       if (mounted) {
-        setState(() => _lastError =
-            '${info.label}: zet in de systeeminstellingen "installeren van deze app toestaan" aan en probeer opnieuw.');
+        setState(
+          () => _lastError =
+              '${info.label}: zet in de systeeminstellingen "installeren van deze app toestaan" aan en probeer opnieuw.',
+        );
       }
     } catch (e) {
-      if (mounted) setState(() => _lastError = '${info.label}: bijwerken mislukt ($e).');
+      if (mounted) {
+        setState(() => _lastError = '${info.label}: bijwerken mislukt ($e).');
+      }
     } finally {
       if (mounted) setState(() => _updating.remove(info.packageName));
     }
@@ -60,7 +65,9 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
   /// tik op het systeemdialoogje (Android staat een derde-partij-app niet toe om dat over te
   /// slaan) — dit knopje bespaart dus het los aftikken per app-kaart, niet de installatiebevestiging.
   Future<void> _updateAll() async {
-    for (final app in _apps?.where((a) => a.updateAvailable).toList() ?? const <AppUpdateInfo>[]) {
+    for (final app
+        in _apps?.where((a) => a.updateAvailable).toList() ??
+            const <AppUpdateInfo>[]) {
       await _update(app);
     }
   }
@@ -75,10 +82,20 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
           if (_lastError != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text(_lastError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child: Text(
+                _lastError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
-          if (_loading && _apps == null) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
-          if ((_apps?.any((a) => a.updateAvailable) ?? false) && _updating.isEmpty)
+          if (_loading && _apps == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          if ((_apps?.any((a) => a.updateAvailable) ?? false) &&
+              _updating.isEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: FilledButton.icon(
@@ -87,11 +104,13 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
                 label: const Text('Alles bijwerken'),
               ),
             ),
-          ...?_apps?.map((app) => _AppUpdateCard(
-                info: app,
-                updating: _updating.contains(app.packageName),
-                onUpdate: () => _update(app),
-              )),
+          ...?_apps?.map(
+            (app) => _AppUpdateCard(
+              info: app,
+              updating: _updating.contains(app.packageName),
+              onUpdate: () => _update(app),
+            ),
+          ),
         ],
       ),
     );
@@ -99,7 +118,11 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
 }
 
 class _AppUpdateCard extends StatelessWidget {
-  const _AppUpdateCard({required this.info, required this.updating, required this.onUpdate});
+  const _AppUpdateCard({
+    required this.info,
+    required this.updating,
+    required this.onUpdate,
+  });
 
   final AppUpdateInfo info;
   final bool updating;
@@ -107,8 +130,12 @@ class _AppUpdateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final installedText = info.isInstalled ? 'v${info.installedVersionCode}' : 'niet geïnstalleerd';
-    final latestText = info.latestVersionCode != null ? 'v${info.latestVersionCode}' : 'onbekend';
+    final installedText = info.isInstalled
+        ? 'v${info.installedVersionCode}'
+        : 'niet geïnstalleerd';
+    final latestText = info.latestVersionCode != null
+        ? 'v${info.latestVersionCode}'
+        : 'onbekend';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -118,26 +145,38 @@ class _AppUpdateCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(info.label, style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    info.label,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 4),
-                  Text('Geïnstalleerd: $installedText  •  Nieuwste: $latestText'),
+                  Text(
+                    'Geïnstalleerd: $installedText  •  Nieuwste: $latestText',
+                  ),
                   if (info.error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         info.error!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
             if (updating)
-              const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             else if (info.updateAvailable)
               FilledButton(onPressed: onUpdate, child: const Text('Bijwerken'))
             else if (info.error == null)
-              const Icon(Icons.check_circle, color: Colors.green),
+              const StatusPill(variant: StatusPillVariant.good),
           ],
         ),
       ),
