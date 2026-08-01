@@ -105,6 +105,19 @@ class ApiClient {
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
+  /// Meldt een app-start bij de backend (`POST /api/v1/app-launches`), zodat de launch-gegevens
+  /// als één regel in de backend-log belanden. Fire-and-forget: zonder sessie-token wordt de
+  /// launch stil overgeslagen en een mislukte post wordt genegeerd — dit mag de app nooit
+  /// blokkeren of laten crashen.
+  Future<void> logAppLaunch(Map<String, dynamic> launch) async {
+    if (token == null) return;
+    try {
+      await postJson('/api/v1/app-launches', launch);
+    } catch (_) {
+      // Loggen van een app-start is bijzaak; de app werkt gewoon door.
+    }
+  }
+
   /// Registreert het FCM-device-token bij de backend, zodat de agent er push naartoe kan sturen.
   Future<void> registerFcmToken(String token) async {
     await postJson('/api/v1/fcm/token', {'token': token});

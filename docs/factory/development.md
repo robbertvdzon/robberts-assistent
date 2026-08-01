@@ -15,7 +15,7 @@ Deze repo bevat vier Flutter/Android-apps en één Kotlin/Spring-Boot-backend:
 - **robberts-assistent-backend/** — Kotlin/Spring Boot/Spring Modulith backend
   voor alle apps. Onder meer de modules `auth`, `config`, `health`, `notes`,
   `summary`, `briefing`, `assistant` (+`ai/`), `reminders`, `watches`,
-  `gardenchat`, `google`, `firebase`, `push` en `notifier`. Het volledige
+  `applaunch`, `gardenchat`, `google`, `firebase`, `push` en `notifier`. Het volledige
   actuele overzicht staat in de root `CLAUDE.md`; koppelingen en opslag zitten
   achter ports met stub/in-memory fallback.
 
@@ -90,6 +90,7 @@ robberts-assistent-backend/
   src/main/kotlin/nl/vdzon/robbertsassistent/
     assistant/                          # AssistantService + ChatClient
       ai/                               # AiConfig, NotesTools, WindTools, MockChatModel
+    applaunch/                          # gelogde app-starts (APP_LAUNCH-logregel + REST)
     auth/                               # Google-login, sessie-tokens
     briefing/                           # Upcoming/Health check + caches en push
     notes/                              # notitie-CRUD
@@ -110,3 +111,9 @@ robberts-assistent-backend/
   bewust gecommit omdat `flutter build` deze niet regenereert.
 - App Actions-invocatie ("Hey Google, vraag Wind ...") en de notificatie op een
   Garmin-horloge zijn alleen op echte hardware te verifiëren, niet in CI.
+- `robberts_assistent/android/app/src/test/.../LaunchSourceTest.kt` (JUnit op de pure
+  `LaunchSource.classify`) draait **nergens automatisch**: er is geen Gradle-wrapper in
+  `robberts_assistent/android` en de APK-workflow draait alleen `flutter test`. Idem voor
+  het narekenen van een start via Google Assistent/Gemini — wát Gemini als referrer/extras
+  meestuurt is alleen op een echt toestel te zien (verificatie via
+  `oc logs deploy/robberts-assistent-backend -n robberts-assistent | grep APP_LAUNCH`).

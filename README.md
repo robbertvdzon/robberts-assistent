@@ -15,7 +15,9 @@ vier Flutter/Android-apps.
   samen in maximaal drie interactieve statustegels. Via Zoekopdrachten kan de
   gebruiker een website periodiek laten beoordelen en optioneel een push ontvangen
   zodra het gezochte is gevonden; een knop bovenin laat alle lopende zoekopdrachten
-  meteen controleren.
+  meteen controleren. Een start via Google Assistent/Gemini opent meteen een nieuw
+  gesprek in praatmodus; elke app-start wordt daarnaast als één regel in de backend
+  gelogd (`grep APP_LAUNCH`) zodat de herkenning later scherper gezet kan worden.
 - **`groentetuin/`** — moestuin-chat met tekst en foto's, als APK en web-app.
 - **`notities/`** — auto-opslaande notitie-app, als APK.
 - **`wind/`** — handsfree Wind-app: Android App Actions starten een

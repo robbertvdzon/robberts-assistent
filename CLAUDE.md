@@ -103,6 +103,7 @@ fallback (zie §5).
 | `firebase` | `FirebaseProvider`: gedeelde FirebaseApp → named Firestore-db + Storage-bucket. |
 | `notifier` | `Notifier`-port; `TelegramNotifier` (echt) of `LoggingNotifier` (fallback). |
 | `push` | `PushService.sendToAll(title, body, data)`: FCM-push naar alle geregistreerde tokens (`FcmTokenStore`), no-op zonder Firebase/tokens; `data` gaat als extra FCM-data-payload mee (bv. `"type" to "briefing"`) zodat de app op basis daarvan kan deep-linken. `PushController` (token-registratie), `FcmCouplingProbe`. |
+| `applaunch` | **App-start-logging** (SF-1704, diagnostisch): `AppLaunch` (+ enum `AppLaunchSource` `ASSISTANT/LAUNCHER/OTHER/UNKNOWN`), `AppLaunchRepository`-poort met `FirestoreAppLaunchRepository` (collectie `app-launches`) / `InMemoryAppLaunchRepository` via `AppLaunchStoreConfig` — exact het patroon van `watches/WatchStoreConfig`, in-memory fallback zonder Firebase. `AppLaunchService` bepaalt zélf `id` (UUID) en `at` (`Instant.now()`, clienttijd wordt niet vertrouwd), geeft `recent(limit = 50)` nieuwste eerst terug (begrensd op `MAX_LIMIT = 200`) en ruimt bij elke opslag best-effort alles ouder dan 30 dagen op (`runCatching` + `logger.warn`; een falende opschoning laat het opslaan niet mislukken). Per opgeslagen launch gaat er precies één slf4j-INFO-regel uit, op één regel: `APP_LAUNCH source=… platform=… referrer=… action=… categories=a,b extras=k=v;k=v` (ontbrekend = `null`, leeg = lege waarde, newlines → spatie), uit te lezen met `oc logs deploy/robberts-assistent-backend -n robberts-assistent \| grep APP_LAUNCH` — dát is bewust de enige uitleesweg, er is geen app-scherm voor. `AppLaunchController`: `POST /api/v1/app-launches` + `GET /api/v1/app-launches?limit=50`, beide achter `authService.requireAuthorization(...)`; een onbekende/ontbrekende `source` wordt `UNKNOWN` (geen 400), een leeg `platform` wordt `onbekend`. De module gebruikt alleen `auth` en `firebase`. |
 | `couplings` | `CouplingProbe`-SPI + `CouplingsService`: elke module registreert een `@Component` die `CouplingProbe` implementeert (id/naam/omschrijving/configured/mode/test); Spring injecteert automatisch `List<CouplingProbe>`. Voedt het "Koppelingen"-scherm in de app — een nieuwe koppeling toevoegen betekent alleen een nieuwe `CouplingProbe`-implementatie in de eigen module, geen wijziging hier of in de app. |
 | `nightlychecks` | `NightlyCheck`-SPI + `NightlyCheckScheduler`/`NightlyChecksService`: net als `couplings`, maar voor achtergrondchecks — elke module registreert een `@Component` met een eigen cron-schema; resultaten (met historie) in Firestore/in-memory. Voedt de "Nachtchecks"-tab in de app + `summary.SummaryService` (dat endpoint heeft sinds de Morgen-briefing (SF-1163) geen app-consument meer, zie de `summary`-rij hieronder). Sinds SF-1164 heeft de Morgen-briefing ook een eigen, live (niet nachtelijk-historisch) systeem-checkrapport, zie de `briefing`-rij (`SystemStatusSectionProvider`) — dat gebruikt bewust een live check i.p.v. `NightlyCheckRepository`-historie. Zie `docs/nightly-checks.md`. |
 
@@ -194,7 +195,16 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
   auto-save net als `notities/lib/notes_editor_screen.dart`) bereikbaar via
   `more_screen.dart`. De app gebruikt een centraal rustig licht thema, een teal-wit robotlogo en
   gedeelde statuspillen die betekenis altijd met kleur én tekst tonen; briefing-statusemoji's
-  worden client-side vertaald zonder API-wijziging. Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
+  worden client-side vertaald zonder API-wijziging. Sinds SF-1704 meldt de app **elke start** bij de
+  backend (`ApiClient.logAppLaunch` → `POST /api/v1/app-launches`, fire-and-forget; zonder
+  sessie-token stil overgeslagen) en opent 'ie bij een start via Google Assistent/Gemini meteen een
+  nieuw gesprek in praatmodus: `lib/launch_source.dart` (`LaunchSourceService.lastLaunch`,
+  `ValueNotifier`-patroon van `FcmService.deepLinkTarget`) leest het native MethodChannel
+  `nl.vdzon.robberts_assistent/launch` (alleen als `!kIsWeb`; op web precies één launch met
+  `platform = "web"`, `source = UNKNOWN`), en `home_screen.dart` selecteert bij
+  `source == ASSISTANT` de Assistent-tab en pusht meteen een `AssistantScreen` zónder
+  `conversationId` met `startInVoiceMode: true, autoStartListening: true`. Bij elke andere bron
+  verandert er niets. Google-login (web: GIS-knop, mobiel: `signIn()`). Web op OpenShift
   (`robberts-assistent.vdzonsoftware.nl`) + APK.
 - **`groentetuin/`** — moestuin-AI-chat: login → foto's maken/kiezen + tekst → vision-antwoord,
   multi-turn. `ApiClient.gardenChat` (multipart). Web op `moestuin.vdzonsoftware.nl` + APK.
@@ -639,6 +649,48 @@ geen frequentiekeuze meer, maar "elk uur overdag"; `AiConfig`/`defaultTools` ong
 géén API-versionering of achterwaartse compatibiliteit voor een meegestuurd `frequency`-veld — app
 en backend gaan in dezelfde release mee; een oude client die het veld tóch meestuurt krijgt geen
 fout, het veld wordt genegeerd.
+
+Nieuw (SF-1704): **app-start via Google Assistent/Gemini herkennen, loggen en direct in praatmodus
+openen**. Drie delen. **Android native** (`robberts_assistent/android/app/src/main/kotlin/nl/vdzon/
+robberts_assistent/`): nieuw `LaunchSource.kt` met `enum LaunchSourceType { ASSISTANT, LAUNCHER,
+OTHER, UNKNOWN }`, `data class LaunchInfo(source, referrer, action, categories, extras)` (+ `toMap()`
+voor het channel) en een **pure** `LaunchSource.classify(referrer: String?)` zonder Android-classes:
+referrer `null`/leeg → `UNKNOWN`, een package uit `ASSISTANT_PACKAGES`
+(`com.google.android.googlequicksearchbox`, `…apps.googleassistant`, `…apps.bard`, `…apps.gemini` —
+constante bovenaan, expliciet bedoeld om bij te stellen zodra de echte logs bekend zijn) →
+`ASSISTANT`, een package dat op `.launcher` eindigt of in de bekende-launcherlijst staat →
+`LAUNCHER`, de rest → `OTHER`. `LaunchSource.from(activity, intent)` verzamelt referrer/action/
+categories/extras defensief (`runCatching` per key, `toString()`, newlines weg, waarde afgekapt op
+200 tekens, max. 50 keys — nooit crashen op rare extra-typen). `MainActivity` bepaalt de `LaunchInfo`
+in `onCreate` (vóór `super.onCreate`, zodat Dart 'm niet eerder kan opvragen dan hij bestaat) én in
+`onNewIntent`, en ontsluit 'm via een derde MethodChannel `nl.vdzon.robberts_assistent/launch`:
+**pull** (`launchInfo`, dekt de koude start) + **push** (`invokeMethod("launchInfo", …)` bij
+`onNewIntent`). `onNewIntent` roept daarbij eerst `setIntent(intent)` aan — zonder die regel blijft
+`Activity.getReferrer()` de `EXTRA_REFERRER` van de kóúde start lezen (Flutters `FlutterActivity`
+zet 'm zelf niet), waardoor de logregel nieuwe intent-data met een oude referrer zou mengen; zelfde
+patroon als `alarm/AlarmActivity.kt`. Nieuwe unittest-sourceset `android/app/src/test/…/
+LaunchSourceTest.kt` + `testImplementation("junit:junit:4.13.2")` dekt alle vier de
+`classify`-uitkomsten. **Backend**: nieuwe Modulith-module `applaunch` (zie §4) met
+`POST`/`GET /api/v1/app-launches` en precies één `APP_LAUNCH …`-INFO-regel per opgeslagen launch —
+uitlezen gaat bewust via `oc logs … | grep APP_LAUNCH`, er komt geen app-scherm voor de gelogde
+launches. **Flutter**: `lib/launch_source.dart`, `ApiClient.logAppLaunch(...)`, de launch-listener in
+`home_screen.dart` en twee nieuwe optionele parameters op `AssistantScreen` (`startInVoiceMode`,
+`autoStartListening`, beide default `false`) — `_startListening()` wordt pas aan het eind van
+`_initSpeech()` aangeroepen en alleen als spraak beschikbaar is en de widget nog `mounted` is, dus
+bij een geweigerde microfoonpermissie toont het scherm gewoon de bestaande foutmelding. Geen nieuwe
+permissie-dependency (`RECORD_AUDIO` staat al in de manifest, `speech_to_text.initialize()` vraagt
+de runtime-permissie zelf) en geen wijziging aan de `assistant`-backendmodule of de chatflow.
+Bekende aandachtspunten (niet opgelost, bewust): (1) een warme start *zonder* `EXTRA_REFERRER` valt
+terug op de bij `attach()` vastgelegde `mReferrer` van de koude start — Android-platformbeperking,
+observatiepunt voor de telefoontest; (2) `LaunchSourceTest` draait nergens automatisch (er is geen
+Gradle-wrapper in `robberts_assistent/android` en de APK-workflow draait alleen `flutter test`);
+(3) `launchChannel` wordt niet opgeruimd bij engine-detach (cosmetisch, geen crash); (4) de
+`APP_LAUNCH`-regel hangt aan een geslaagde opslag — zie je niets bij het greppen, kijk dan ook naar
+Firestore-fouten in dezelfde logs. **Deze story is bewust niet volledig automatisch te testen**: wat
+Gemini als referrer/extras meestuurt is alleen op een echt toestel te zien, dus handmatig testen op
+Robberts telefoon (één normale start + één "Hé Google, start Robberts assistent app", daarna
+`grep APP_LAUNCH`) is de laatste stap; blijkt het Gemini-package niet in `ASSISTANT_PACKAGES` te
+staan, dan is dat één regel bijwerken in `LaunchSource.kt`.
 
 ---
 

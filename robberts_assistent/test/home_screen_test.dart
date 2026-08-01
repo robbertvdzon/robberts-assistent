@@ -7,6 +7,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'package:robberts_assistent/api_client.dart';
 import 'package:robberts_assistent/app_logo.dart';
+import 'package:robberts_assistent/assistant_screen.dart';
+import 'package:robberts_assistent/launch_source.dart';
 import 'package:robberts_assistent/conversations_screen.dart';
 import 'package:robberts_assistent/couplings_screen.dart';
 import 'package:robberts_assistent/fcm_service.dart';
@@ -24,6 +26,12 @@ import 'package:robberts_assistent/watches_screen.dart';
 class _FakeApiClient extends ApiClient {
   var watchLoadCount = 0;
   bool returnChangingWatch = false;
+  final loggedLaunches = <Map<String, dynamic>>[];
+
+  @override
+  Future<void> logAppLaunch(Map<String, dynamic> launch) async {
+    loggedLaunches.add(launch);
+  }
 
   @override
   Future<Map<String, dynamic>> getJson(String path) async => {'items': []};
@@ -306,6 +314,70 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(UpdatesScreen), findsOneWidget);
   });
+
+  testWidgets(
+    'een launch via de assistent wordt gelogd en opent een nieuw gesprek in praatmodus',
+    (tester) async {
+      addTearDown(() => LaunchSourceService.lastLaunch.value = null);
+      final api = _FakeApiClient();
+      await tester.pumpWidget(
+        MaterialApp(home: HomeScreen(api: api, onLoggedOut: () {})),
+      );
+      await tester.pump();
+
+      LaunchSourceService.lastLaunch.value = const AppLaunchInfo(
+        source: 'ASSISTANT',
+        platform: 'android',
+        referrer: 'com.google.android.apps.gemini',
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.loggedLaunches.single['source'], 'ASSISTANT');
+      expect(LaunchSourceService.lastLaunch.value, isNull);
+      // De shell staat achter de nieuwe route, dus offstage: skipOffstage uitzetten om de
+      // geselecteerde tab (Assistent) te kunnen controleren.
+      expect(
+        tester
+            .widget<NavigationBar>(
+              find.byType(NavigationBar, skipOffstage: false),
+            )
+            .selectedIndex,
+        1,
+      );
+      final screen = tester.widget<AssistantScreen>(
+        find.byType(AssistantScreen),
+      );
+      expect(screen.conversationId, isNull);
+      expect(screen.startInVoiceMode, isTrue);
+      expect(screen.autoStartListening, isTrue);
+    },
+  );
+
+  testWidgets(
+    'een launch via de launcher wordt alleen gelogd en verandert niets aan het scherm',
+    (tester) async {
+      addTearDown(() => LaunchSourceService.lastLaunch.value = null);
+      final api = _FakeApiClient();
+      await tester.pumpWidget(
+        MaterialApp(home: HomeScreen(api: api, onLoggedOut: () {})),
+      );
+      await tester.pump();
+
+      LaunchSourceService.lastLaunch.value = const AppLaunchInfo(
+        source: 'LAUNCHER',
+        platform: 'android',
+        referrer: 'com.android.launcher3',
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.loggedLaunches.single['source'], 'LAUNCHER');
+      expect(find.byType(AssistantScreen), findsNothing);
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        1,
+      );
+    },
+  );
 
   testWidgets('navigatielabels blijven op één regel bij 390px breedte', (
     tester,

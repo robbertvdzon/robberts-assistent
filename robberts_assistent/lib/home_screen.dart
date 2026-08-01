@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_logo.dart';
+import 'assistant_screen.dart';
 import 'conversations_screen.dart';
 import 'fcm_service.dart';
+import 'launch_source.dart';
 import 'more_screen.dart';
 import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
@@ -38,12 +40,42 @@ class _HomeScreenState extends State<HomeScreen> {
     // Tik op een briefing- of watch-push (ook bij koude start) → het bijbehorende doel tonen.
     FcmService.deepLinkTarget.addListener(_onDeepLinkTarget);
     _onDeepLinkTarget();
+    // Waar de app-start vandaan kwam: altijd melden bij de backend, en bij een start via Google
+    // Assistent meteen een nieuw gesprek in praatmodus openen.
+    LaunchSourceService.lastLaunch.addListener(_onLaunch);
+    _onLaunch();
+    // Na de eerste frame: setup() kan de waarde meteen zetten en dat mag geen setState tijdens
+    // initState opleveren.
+    WidgetsBinding.instance.addPostFrameCallback((_) => LaunchSourceService.setup());
   }
 
   @override
   void dispose() {
     FcmService.deepLinkTarget.removeListener(_onDeepLinkTarget);
+    LaunchSourceService.lastLaunch.removeListener(_onLaunch);
     super.dispose();
+  }
+
+  void _onLaunch() {
+    final launch = LaunchSourceService.lastLaunch.value;
+    if (launch == null) return;
+    LaunchSourceService.lastLaunch.value = null;
+    // Fire-and-forget: het loggen mag de app nooit ophouden (zie ApiClient.logAppLaunch).
+    widget.api.logAppLaunch(launch.toJson());
+    if (!launch.isAssistant) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _selectTab(1);
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AssistantScreen(
+            api: widget.api,
+            startInVoiceMode: true,
+            autoStartListening: true,
+          ),
+        ),
+      );
+    });
   }
 
   void _onDeepLinkTarget() {
