@@ -46,9 +46,10 @@ bolletje én het woord **goed**, **let op** of **niet**.
   beheer van reminders en alarmen.
 - **Zoekopdrachten** — maakt, bewerkt en verwijdert langdurige websitezoekopdrachten en
   toont per opdracht de meest recente leesbare status. Titel, absolute
-  HTTP(S)-URL, zoekinstructie, frequentie (`Dagelijks` of `Kantooruren`) en
-  pushvoorkeur worden afzonderlijk ingevoerd. De backend valideert dezelfde
-  velden opnieuw. Een tik op een watch-push opent dit scherm als verse route en herlaadt de lijst;
+  HTTP(S)-URL, zoekinstructie en pushvoorkeur worden afzonderlijk ingevoerd; er
+  is geen frequentiekeuze meer (sinds SF-1697 controleert de backend elke actieve
+  opdracht overdag maximaal uurlijks, tussen 08:00 en 22:59 Europe/Amsterdam, ook
+  in het weekend). De backend valideert dezelfde velden opnieuw. Een tik op een watch-push opent dit scherm als verse route en herlaadt de lijst;
   ook handmatig openen en de reload-knop halen actuele gegevens op. Naast de
   reload-knop staat een "nu draaien"-knop (`Icons.play_circle_outline`, tooltip
   "Alle zoekopdrachten nu controleren") die alle actieve opdrachten meteen laat
@@ -97,12 +98,12 @@ Alle calls sturen het bestaande Bearer-sessietoken mee.
 | Methode | Pad | Gedrag |
 |---|---|---|
 | `GET` | `/api/v1/watches` | Geeft `{"watches":[...]}` terug; actieve opdrachten eerst, daarna op titel. |
-| `POST` | `/api/v1/watches` | Maakt een opdracht met `title`, `url`, `instruction`, `frequency` en `notifyOnFound`. |
-| `PUT` | `/api/v1/watches/{id}` | Wijzigt dezelfde vijf velden en activeert de opdracht voor een nieuwe controle. |
+| `POST` | `/api/v1/watches` | Maakt een opdracht met `title`, `url`, `instruction` en `notifyOnFound`. |
+| `PUT` | `/api/v1/watches/{id}` | Wijzigt dezelfde vier velden en activeert de opdracht voor een nieuwe controle. |
 | `DELETE` | `/api/v1/watches/{id}` | Verwijdert de opdracht en geeft de resterende lijst terug. |
-| `POST` | `/api/v1/watches/run-now` | Controleert synchroon alle opdrachten met `active == true` (ongeacht frequentie en `lastCheckedAt`) en geeft daarna de bijgewerkte lijst in dezelfde vorm als `GET` terug. |
+| `POST` | `/api/v1/watches/run-now` | Controleert synchroon alle opdrachten met `active == true` (ongeacht dagvenster en `lastCheckedAt`) en geeft daarna de bijgewerkte lijst in dezelfde vorm als `GET` terug. |
 
-Een watch-response bevat `id`, de vijf invoervelden, `status`,
+Een watch-response bevat `id`, de vier invoervelden, `status`,
 `statusDescription`, `lastCheckedAt` en `active`. Mogelijke statussen zijn
 `NOG_NIET_GECONTROLEERD`, `NIET_GEVONDEN`, `GEVONDEN` en `ONBEKEND`.
 Na wijzigen zijn status en omschrijving weer `NOG_NIET_GECONTROLEERD`/`Nog niet gecontroleerd.`,

@@ -66,11 +66,15 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
 - **Watches:** `GET`/`POST /api/v1/watches`, `PUT`/`DELETE /api/v1/watches/{id}` en
   `POST /api/v1/watches/run-now` zijn geauthenticeerd. `WatchStoreConfig` kiest de Firestore-collectie `watches` of
-  `InMemoryWatchRepository`. Bewerken valideert dezelfde vijf invoervelden als aanmaken en reset
-  de opdracht naar actief en `NOG_NIET_GECONTROLEERD`, zodat de gewijzigde criteria opnieuw
+  `InMemoryWatchRepository`. Bewerken valideert dezelfde invoervelden als aanmaken (titel, URL,
+  zoekinstructie, pushvoorkeur — sinds SF-1697 geen `frequency` meer, in request noch response) en
+  reset de opdracht naar actief en `NOG_NIET_GECONTROLEERD`, zodat de gewijzigde criteria opnieuw
   gecontroleerd worden. `WatchRunner` gebruikt één fixed-delay poller
   (`ra.watches.poll-interval-ms`, standaard 300000 ms); de pure
-  `WatchSchedule.isDue` rekent in `Europe/Amsterdam`. Naast `poll(now)` heeft
+  `WatchSchedule.isDue` rekent in `Europe/Amsterdam` en is sinds SF-1697 frequentie-loos:
+  `active` **en** uur in `8..22` **en** (`lastCheckedAt == null` of ≥ 1 uur verstreken), zonder
+  werkdag-/weekendonderscheid. `FirestoreWatchRepository` schrijft `frequency` niet meer weg en
+  leest documenten mét en zónder dat oude veld foutloos in (geen migratie). Naast `poll(now)` heeft
   `WatchRunner` een `runNow(now)` die de `isDue`-filtering overslaat en alle
   opdrachten met `active == true` via dezelfde private `check(watch, now)`
   controleert (inactieve — waaronder alles op `GEVONDEN` — worden overgeslagen);

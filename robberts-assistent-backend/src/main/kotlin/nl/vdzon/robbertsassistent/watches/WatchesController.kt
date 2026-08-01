@@ -18,7 +18,6 @@ data class SaveWatchRequest(
     val title: String,
     val url: String,
     val instruction: String,
-    val frequency: WatchFrequency,
     val notifyOnFound: Boolean = false,
 )
 
@@ -27,7 +26,6 @@ data class WatchResponse(
     val title: String,
     val url: String,
     val instruction: String,
-    val frequency: WatchFrequency,
     val notifyOnFound: Boolean,
     val status: WatchStatus,
     val statusDescription: String,
@@ -60,7 +58,6 @@ class WatchesController(
             request.title,
             request.url,
             request.instruction,
-            request.frequency,
             request.notifyOnFound,
         ).toResponse()
     }
@@ -85,7 +82,6 @@ class WatchesController(
             request.title,
             request.url,
             request.instruction,
-            request.frequency,
             request.notifyOnFound,
         ).toResponse()
     }
@@ -116,7 +112,6 @@ private fun Watch.toResponse() = WatchResponse(
     title = title,
     url = url,
     instruction = instruction,
-    frequency = frequency,
     notifyOnFound = notifyOnFound,
     status = status,
     statusDescription = statusDescription,

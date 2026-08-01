@@ -316,14 +316,12 @@ class ApiClient {
     required String title,
     required String url,
     required String instruction,
-    required String frequency,
     required bool notifyOnFound,
   }) async {
     await postJson('/api/v1/watches', {
       'title': title,
       'url': url,
       'instruction': instruction,
-      'frequency': frequency,
       'notifyOnFound': notifyOnFound,
     });
   }
@@ -333,14 +331,12 @@ class ApiClient {
     required String title,
     required String url,
     required String instruction,
-    required String frequency,
     required bool notifyOnFound,
   }) async {
     await putJson('/api/v1/watches/$id', {
       'title': title,
       'url': url,
       'instruction': instruction,
-      'frequency': frequency,
       'notifyOnFound': notifyOnFound,
     });
   }
@@ -756,7 +752,6 @@ class Watch {
   final String title;
   final String url;
   final String instruction;
-  final String frequency;
   final bool notifyOnFound;
   final String status;
   final String statusDescription;
@@ -768,7 +763,6 @@ class Watch {
     required this.title,
     required this.url,
     required this.instruction,
-    required this.frequency,
     required this.notifyOnFound,
     required this.status,
     required this.statusDescription,
@@ -781,7 +775,6 @@ class Watch {
     title: m['title'] as String,
     url: m['url'] as String,
     instruction: m['instruction'] as String,
-    frequency: m['frequency'] as String,
     notifyOnFound: m['notifyOnFound'] as bool? ?? false,
     status: m['status'] as String? ?? 'NOG_NIET_GECONTROLEERD',
     statusDescription:

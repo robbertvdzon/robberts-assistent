@@ -1,7 +1,6 @@
 package nl.vdzon.robbertsassistent.assistant.ai
 
 import nl.vdzon.robbertsassistent.watches.InMemoryWatchRepository
-import nl.vdzon.robbertsassistent.watches.WatchFrequency
 import nl.vdzon.robbertsassistent.watches.WatchService
 import nl.vdzon.robbertsassistent.watches.WatchStatus
 import java.time.Instant
@@ -29,7 +28,7 @@ class WatchToolsTest {
         assertTrue(result.contains("Vakantiehuis"))
         assertTrue(result.contains("https://example.com/huisjes"))
         assertTrue(result.contains("een vrij huisje in juli"))
-        assertTrue(result.contains("dagelijks"))
+        assertTrue(result.contains("elk uur overdag"))
         assertTrue(result.contains("NOG_NIET_GECONTROLEERD"))
         assertTrue(result.contains("actief"))
         assertTrue(result.contains("nog niet gecontroleerd"))
@@ -42,7 +41,6 @@ class WatchToolsTest {
             title = "Kaartjes",
             url = "https://example.com/tickets",
             instruction = "kaartjes weer beschikbaar",
-            frequency = "kantooruren",
             notifyOnFound = false,
         )
 
@@ -50,24 +48,18 @@ class WatchToolsTest {
         assertEquals("Kaartjes", watch.title)
         assertEquals("https://example.com/tickets", watch.url)
         assertEquals("kaartjes weer beschikbaar", watch.instruction)
-        assertEquals(WatchFrequency.KANTOORUREN, watch.frequency)
         assertFalse(watch.notifyOnFound)
         assertTrue(result.contains("Kaartjes"))
         assertTrue(result.contains("[id ${watch.id.take(8)}]"))
     }
 
     @Test
-    fun `createWatch vertaalt de frequentie-tekst en valt terug op dagelijks`() {
-        tools.createWatch("A", "https://example.com/a", "iets", frequency = "Kantooruren")
-        tools.createWatch("B", "https://example.com/b", "iets", frequency = "DAGELIJKS")
-        tools.createWatch("C", "https://example.com/c", "iets", frequency = "elke maandag")
-        tools.createWatch("D", "https://example.com/d", "iets")
+    fun `createWatch noemt geen frequentiekeuze meer in de bevestiging`() {
+        val result = tools.createWatch("A", "https://example.com/a", "iets")
 
-        val byTitle = service.list().associateBy { it.title }
-        assertEquals(WatchFrequency.KANTOORUREN, byTitle.getValue("A").frequency)
-        assertEquals(WatchFrequency.DAGELIJKS, byTitle.getValue("B").frequency)
-        assertEquals(WatchFrequency.DAGELIJKS, byTitle.getValue("C").frequency)
-        assertEquals(WatchFrequency.DAGELIJKS, byTitle.getValue("D").frequency)
+        assertTrue(result.contains("elk uur overdag"))
+        assertFalse(result.contains("kantooruren", ignoreCase = true))
+        assertFalse(result.contains("dagelijks", ignoreCase = true))
     }
 
     @Test
@@ -90,7 +82,6 @@ class WatchToolsTest {
             title = "Vakantiehuis",
             url = "https://example.com/huisjes",
             instruction = "een vrij huisje in juli",
-            frequency = "dagelijks",
             notifyOnFound = false,
         )
         // Simuleer een al gevonden, daarmee gedeactiveerde zoekopdracht.
@@ -103,18 +94,19 @@ class WatchToolsTest {
             ),
         )
 
-        val result = tools.updateWatch(original.id.take(8), frequency = "kantooruren")
+        val result = tools.updateWatch(original.id.take(8), title = "Vakantiehuis")
 
         val updated = service.list().single()
         assertEquals("Vakantiehuis", updated.title)
         assertEquals("https://example.com/huisjes", updated.url)
         assertEquals("een vrij huisje in juli", updated.instruction)
-        assertEquals(WatchFrequency.KANTOORUREN, updated.frequency)
         assertFalse(updated.notifyOnFound)
         assertTrue(updated.active)
         assertEquals(WatchStatus.NOG_NIET_GECONTROLEERD, updated.status)
         assertTrue(result.contains("weer op actief"))
         assertTrue(result.contains("opnieuw gecontroleerd"))
+        assertFalse(result.contains("kantooruren", ignoreCase = true))
+        assertFalse(result.contains("dagelijks", ignoreCase = true))
     }
 
     @Test

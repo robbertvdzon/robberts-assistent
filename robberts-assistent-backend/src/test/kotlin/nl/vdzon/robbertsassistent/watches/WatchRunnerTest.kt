@@ -45,8 +45,8 @@ class WatchRunnerTest {
     private fun instant(dateTime: String) =
         ZonedDateTime.of(LocalDateTime.parse(dateTime), WatchSchedule.zone).toInstant()
 
-    private fun watch(notify: Boolean = true, frequency: WatchFrequency = WatchFrequency.KANTOORUREN) =
-        Watch("1", "Kaarten", "https://example.com", "zoek twee kaarten", frequency, notify)
+    private fun watch(notify: Boolean = true) =
+        Watch("1", "Kaarten", "https://example.com", "zoek twee kaarten", notify)
 
     @Test
     fun `succesvolle niet-gevonden beoordeling wordt opgeslagen`() {
@@ -188,7 +188,6 @@ class WatchRunnerTest {
                 "Nieuwe kaarten",
                 "https://example.com/nieuw",
                 "zoek drie kaarten",
-                WatchFrequency.DAGELIJKS,
                 false,
             )
             continueFetch.countDown()
@@ -293,21 +292,15 @@ class WatchRunnerTest {
     }
 
     @Test
-    fun `run-now controleert alle actieve watches ongeacht frequentie en laatste controle`() {
+    fun `run-now controleert alle actieve watches ongeacht venster en laatste controle`() {
         val repository = InMemoryWatchRepository().also {
-            it.save(
-                watch(frequency = WatchFrequency.DAGELIJKS)
-                    .copy(lastCheckedAt = instant("2026-08-01T01:00:00")),
-            )
-            it.save(
-                watch(frequency = WatchFrequency.KANTOORUREN)
-                    .copy(id = "2", lastCheckedAt = instant("2026-07-27T09:30:00")),
-            )
+            it.save(watch().copy(lastCheckedAt = instant("2026-08-01T01:00:00")))
+            it.save(watch().copy(id = "2", lastCheckedAt = instant("2026-07-27T09:30:00")))
         }
         val fetcher = FakeFetcher()
         val evaluator = FakeEvaluator()
         val runner = WatchRunner(repository, fetcher, evaluator, FakePush())
-        // Zaterdagnacht, en vandaag al gecontroleerd: geen enkele watch is volgens
+        // Midden in de nacht (buiten 08:00-22:00): geen enkele watch is volgens
         // WatchSchedule.isDue aan de beurt - run-now moet ze toch allebei controleren.
         val now = instant("2026-08-01T03:00:00")
         assertTrue(repository.all().none { WatchSchedule.isDue(it, now) })

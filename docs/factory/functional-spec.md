@@ -86,22 +86,23 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   permanent als kaart; statussecties na de eerste drie, overige secties en onbetrouwbare/
   foutsecties wel.
 - **Langdurige zoekopdrachten** — een opdracht bevat titel, absolute HTTP(S)-URL,
-  zoekinstructie, frequentie (kantooruren of dagelijks) en een pushvoorkeur. Kantooruren is
-  maandag t/m vrijdag 09:00–17:00 Europe/Amsterdam, maximaal uurlijks; dagelijks is maximaal
-  eenmaal per lokale kalenderdag. De backend beoordeelt begrensde, server-gerenderde paginatekst
+  zoekinstructie en een pushvoorkeur. Er is geen frequentiekeuze (meer): elke actieve opdracht
+  wordt overdag maximaal uurlijks gecontroleerd — het lokale uur (Europe/Amsterdam) moet in
+  08:00–22:59 liggen, ook in het weekend, en er moet minstens een uur zijn verstreken sinds de
+  vorige controle. Tussen 23:00 en 07:59 gebeurt er niets. De backend beoordeelt begrensde, server-gerenderde paginatekst
   met een losse tool-loze AI-client. Fouten geven `ONBEKEND` en worden later opnieuw geprobeerd.
   Vóór de eerste controle is de status `NOG_NIET_GECONTROLEERD`; succesvolle controles leveren
   `NIET_GEVONDEN` of `GEVONDEN`, steeds met een leesbare omschrijving en laatste controletijd.
   Een vondst blijft zichtbaar, deactiveert de opdracht en geeft optioneel precies één watch-push.
   Een opdracht kan achteraf worden aangepast; de gewijzigde opdracht wordt actief, krijgt weer de
-  status `NOG_NIET_GECONTROLEERD` en wordt volgens de gekozen frequentie opnieuw beoordeeld.
+  status `NOG_NIET_GECONTROLEERD` en wordt bij de eerstvolgende beurt opnieuw beoordeeld.
   Naast het vaste schema kan de gebruiker vanuit de app alle nog lopende opdrachten in één keer
   meteen laten controleren ("nu draaien"); dat gebruikt per opdracht exact hetzelfde gedrag als
   een geplande controle, slaat gedeactiveerde (o.a. al gevonden) opdrachten over en is een no-op
   als er niets actiefs is. Een mislukte controle stopt de rest van de run niet.
   Sinds SF-1595 kan de gebruiker de zoekopdrachten ook via de assistent-chat in gewone taal
   opvragen ("welke zoekopdrachten lopen er?"), aanmaken ("houd deze pagina in de gaten en zeg het
-  als er X op staat, elke dag") en aanpassen ("zet zoekopdracht \<titel\> op kantooruren"), met
+  als er X op staat") en aanpassen ("wijzig de zoekinstructie van zoekopdracht \<titel\>"), met
   dezelfde regels en dezelfde gegevens als het Zoekopdrachten-scherm; zonder zoekopdrachten volgt
   een nette melding in plaats van een lege lijst, en een ongeldige URL of lege instructie levert een
   leesbare Nederlandse foutmelding op in plaats van een fout. Een via de chat aangepaste opdracht

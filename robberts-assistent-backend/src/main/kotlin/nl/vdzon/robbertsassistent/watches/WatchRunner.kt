@@ -37,9 +37,9 @@ class WatchRunner(
 
     /**
      * Handmatige "nu draaien": controleert alle actieve zoekopdrachten, ongeacht [WatchSchedule.isDue]
-     * (dus los van frequentie en `lastCheckedAt`). Inactieve opdrachten — waaronder alles wat al op
-     * [WatchStatus.GEVONDEN] staat — worden overgeslagen. Per opdracht geldt exact hetzelfde gedrag
-     * als bij de geplande run, want dezelfde [check] wordt hergebruikt.
+     * (dus ook buiten 08:00-22:00 en los van `lastCheckedAt`). Inactieve opdrachten — waaronder
+     * alles wat al op [WatchStatus.GEVONDEN] staat — worden overgeslagen. Per opdracht geldt exact
+     * hetzelfde gedrag als bij de geplande run, want dezelfde [check] wordt hergebruikt.
      */
     fun runNow(now: Instant = Instant.now()) {
         repository.all()

@@ -39,7 +39,6 @@ class FirestoreWatchRepository(private val firestore: Firestore) : WatchReposito
         put("title", title)
         put("url", url)
         put("instruction", instruction)
-        put("frequency", frequency.name)
         put("notifyOnFound", notifyOnFound)
         put("status", status.name)
         put("statusDescription", statusDescription)
@@ -51,8 +50,7 @@ class FirestoreWatchRepository(private val firestore: Firestore) : WatchReposito
         val title = getString("title") ?: return null
         val url = getString("url") ?: return null
         val instruction = getString("instruction") ?: return null
-        val frequency = runCatching { WatchFrequency.valueOf(getString("frequency").orEmpty()) }.getOrNull()
-            ?: return null
+        // Een oud, inmiddels ongebruikt "frequency"-veld in bestaande documenten wordt genegeerd.
         val status = runCatching { WatchStatus.valueOf(getString("status").orEmpty()) }
             .getOrDefault(WatchStatus.NOG_NIET_GECONTROLEERD)
         return Watch(
@@ -60,7 +58,6 @@ class FirestoreWatchRepository(private val firestore: Firestore) : WatchReposito
             title = title,
             url = url,
             instruction = instruction,
-            frequency = frequency,
             notifyOnFound = getBoolean("notifyOnFound") ?: false,
             status = status,
             statusDescription = getString("statusDescription") ?: "Nog niet gecontroleerd.",

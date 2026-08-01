@@ -20,7 +20,6 @@ class WatchServiceTest {
             title = "  Concertkaartjes ",
             url = " https://example.com/tickets ",
             instruction = " Zoek twee kaarten. ",
-            frequency = WatchFrequency.KANTOORUREN,
             notifyOnFound = true,
         )
 
@@ -36,10 +35,10 @@ class WatchServiceTest {
     @Test
     fun `lege titel en instructie worden duidelijk geweigerd`() {
         val titleError = assertFailsWith<WatchValidationException> {
-            service.create("", "https://example.com", "zoek", WatchFrequency.DAGELIJKS, false)
+            service.create("", "https://example.com", "zoek", false)
         }
         val instructionError = assertFailsWith<WatchValidationException> {
-            service.create("titel", "https://example.com", " ", WatchFrequency.DAGELIJKS, false)
+            service.create("titel", "https://example.com", " ", false)
         }
 
         assertTrue(titleError.message.orEmpty().contains("Titel"))
@@ -50,7 +49,7 @@ class WatchServiceTest {
     fun `lege relatieve en niet-http urls worden geweigerd`() {
         listOf("", "/tickets", "ftp://example.com/tickets", "https:///tickets").forEach { invalid ->
             val error = assertFailsWith<WatchValidationException> {
-                service.create("titel", invalid, "zoek", WatchFrequency.DAGELIJKS, false)
+                service.create("titel", invalid, "zoek", false)
             }
             assertTrue(error.message.orEmpty().contains("HTTP(S)"))
         }
@@ -58,7 +57,7 @@ class WatchServiceTest {
 
     @Test
     fun `verwijderen haalt watch uit fallbackopslag`() {
-        val watch = service.create("titel", "https://example.com", "zoek", WatchFrequency.DAGELIJKS, false)
+        val watch = service.create("titel", "https://example.com", "zoek", false)
 
         service.delete(watch.id)
 
@@ -73,7 +72,6 @@ class WatchServiceTest {
                 title = "Oude titel",
                 url = "https://example.com/oud",
                 instruction = "oude instructie",
-                frequency = WatchFrequency.DAGELIJKS,
                 notifyOnFound = false,
                 status = WatchStatus.GEVONDEN,
                 statusDescription = "Eerder gevonden.",
@@ -87,14 +85,12 @@ class WatchServiceTest {
             " Nieuwe titel ",
             " https://example.com/nieuw ",
             " nieuwe instructie ",
-            WatchFrequency.KANTOORUREN,
             true,
         )
 
         assertEquals("Nieuwe titel", updated.title)
         assertEquals("https://example.com/nieuw", updated.url)
         assertEquals("nieuwe instructie", updated.instruction)
-        assertEquals(WatchFrequency.KANTOORUREN, updated.frequency)
         assertTrue(updated.notifyOnFound)
         assertEquals(WatchStatus.NOG_NIET_GECONTROLEERD, updated.status)
         assertEquals("Nog niet gecontroleerd.", updated.statusDescription)
@@ -111,7 +107,6 @@ class WatchServiceTest {
                 "Titel",
                 "geen-url",
                 "zoek",
-                WatchFrequency.DAGELIJKS,
                 false,
             )
         }
@@ -121,7 +116,6 @@ class WatchServiceTest {
                 "Titel",
                 "https://example.com",
                 "zoek",
-                WatchFrequency.DAGELIJKS,
                 false,
             )
         }
