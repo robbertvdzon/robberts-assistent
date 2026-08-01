@@ -34,6 +34,23 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   `AssessmentResult` groen boven geel boven rood (bij gelijkstand het vroegste dagdeel). Afval
   leidt tekst en tegel af uit dezelfde eenmalig opgehaalde zevendagenplanning, met daggrenzen in
   `Europe/Amsterdam`. Bronfouten leveren bewust beide tegelvelden als `null`.
+- **Weer-ophaalstrategie:** `weather/ForecastFetcher` (internal) is de gedeelde ophaallaag van
+  `OpenMeteoWeatherClient` en `OpenMeteoWindForecastClient`; die clients parsen en kappen alleen
+  nog af op `hours`. De fetcher combineert een TTL-cache van 10 minuten op de ruwe respons-body
+  (thread-veilig via double-checked locking rond een `@Volatile`-veld, zelfde stijl als de
+  basiskaart-cache in `OsmCoastMapImageBuilder`), retry (max. 3 pogingen, pauzes 500/2000 ms, bij
+  IO-fout, 5xx en 429; overige 4xx zijn fataal; per-poging-timeout 10 s) en in-memory
+  last-known-good tot 12 uur oud. Bij een last-known-good-teruggave zijn `WeatherForecast`/
+  `WindForecast`'s optionele velden `fetchedAt` (`Instant?`) en `stale` (`Boolean`) gezet; een
+  verse call en een TTL-cachehit zijn niet `stale`. Per definitief mislukte aanroep gaat er precies
+  één `logger.warn` uit. `now`, `sleeper` en `retryDelaysMs` zijn constructorparameters met
+  productiedefault (zelfde patroon als `httpClient`, geen `Clock`-bean), zodat tests tijd en
+  pauzes sturen zonder wachttijd; HTTP wordt gefaket met een eigen `java.net.http.HttpClient`-
+  testdouble (`FakeHttpClient`), zonder extra testdependency. `SlotAssessmentProvider` geeft het
+  oudste verouderde ophaalmoment door in `AssessmentResult.Ok.staleSince`; de secties weerkaart,
+  kiten en strandfietsen tonen dan `(gegevens van HH:MM)` in `Europe/Amsterdam`. Bewust niet
+  gedaan: een "recent mislukt"-cache, zodat elke sectie bij een echte storing opnieuw de volledige
+  retry-reeks doorloopt (functioneel correct, wel trager).
 - **Config:** `AppSecrets` + `AppSecretsLoader` lezen `secrets.env` (lokaal) of env-vars (prod,
   uit de Sealed Secret via `envFrom`). Ontbrekende secret ⇒ fallback (zie `effectiveMockAi`).
 - **AI-agent:** twee `ChatClient`-beans in `assistant/ai/AiConfig` — `assistantChatClient`

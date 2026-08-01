@@ -67,6 +67,16 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   SF-1275 toont de
   Software Factory-check binnen het systeem-checkrapport alleen nog stories met een fout of een
   lopende (niet-gemergede) fase, i.p.v. alle stories.
+  Sinds SF-1621 is de weerdata in de briefing storingsbestendig: een mislukte opvraging bij
+  Open-Meteo wordt automatisch een paar keer opnieuw geprobeerd, en lukt het dan nog niet, dan
+  toont de briefing de laatst opgehaalde voorspelling (tot 12 uur oud) met de toevoeging
+  `(gegevens van HH:MM)` achter de normale inhoud van de secties weerkaart, kiten en
+  strandfietsen; zijn wind- en weerdata allebei verouderd, dan wordt het oudste ophaalmoment
+  getoond. Pas als er helemaal niets bruikbaars is, verschijnt de bestaande foutmelding
+  ("Kon Open-Meteo (-wind) niet ophalen (HTTP …)"), ongewijzigd van tekst. De drie secties delen
+  bovendien dezelfde opgehaalde gegevens, zodat één briefing-opbouw nog maar twee opvragingen doet
+  in plaats van zes. Verouderde data verandert niets aan de tegels of de 18:00-push, en de
+  weerkaart-afbeelding wordt ook op verouderde gegevens normaal opgebouwd.
   Bovenaan Vandaag staan direct onder het bijgewerkt-tijdstip maximaal de eerste drie geldige
   statustegels in briefingvolgorde. Een tegel is geldig als zowel een bekende status als een niet-
   leeg label aanwezig is. Kiten toont windkracht en -richting van het gunstigste dagdeel,
