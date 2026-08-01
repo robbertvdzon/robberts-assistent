@@ -212,3 +212,63 @@ laatste wijziging.
   (Android-platformbeperking) — terecht als observatiepunt voor de handmatige telefoontest.
 
 Handmatig testen op Robberts telefoon blijft de laatste stap.
+
+## Testronde 2 (SF-1706, tester)
+
+Revisie onder test: `7e6bd74` — bevestigd als `head.sha` van PR #44, dus preview
+`robberts-assistent-pr-44` draait exact deze branch-HEAD.
+
+### Vangnet volledig groen
+- `mvn -o test` → **385 tests, 0 failures, 0 errors, BUILD SUCCESS**
+  (`AppLaunchServiceTest` 8, `AppLaunchControllerTest` 4, `AppLaunchControllerAuthTest` 2,
+  `ModulithArchitectureTest` groen)
+- `flutter analyze` → *No issues found*
+- `flutter test` → **65/65 groen** (incl. de twee praatmodus-tests van AC12 en de twee
+  launch-tests in `home_screen_test.dart` voor beide takken van AC10)
+
+### Bevinding uit ronde 1 opnieuw gecontroleerd → verholpen
+`MainActivity.onNewIntent` roept nu `setIntent(intent)` aan, en wel *vóór*
+`LaunchSource.from(this, intent)`. Daarmee leest `Activity.getReferrer()` de `EXTRA_REFERRER`
+van het nieuwe intent i.p.v. die van de koude start; de logregel mengt geen nieuwe intent-data
+meer met een oude referrer. Zelfde patroon als `alarm/AlarmActivity.kt`. Dit is de enige
+codewijziging sinds ronde 1.
+
+### E2E opnieuw geverifieerd op preview pr-44
+- `POST`/`GET /api/v1/app-launches`: server bepaalt `id` + `at`, nieuwste eerst, `limit=1`
+  respecteert, `limit=9999` geeft HTTP 200 (begrensd, geen 400), onbekende bron (`"BANAAN"`)
+  en ontbrekende `source` worden `UNKNOWN` zonder 400.
+- **AC6 hard bewezen** via `oc logs deploy/robberts-assistent-backend -n robberts-assistent-pr-44
+  | grep APP_LAUNCH`: precies één INFO-regel per launch, exact formaat, ontbrekende waarden als
+  `null`, lege lijst/map als lege waarde, en een `\n` in een extra-waarde wordt een spatie —
+  met `cat -A` geverifieerd dat het regeleinde pas ná `extras=` valt.
+- **Web-launch E2E (Playwright, `page.on('request')` + `page.on('pageerror')`)**: het openen van
+  de preview stuurt precies één `POST /api/v1/app-launches` met
+  `{"source":"UNKNOWN","platform":"web",...}`, zonder JS-fouten → AC13 + de web-aanname bevestigd.
+- Auth-gate is op preview niet negatief te testen (`RA_PREVIEW_SKIP_GOOGLE_AUTH`: ook
+  `/api/v1/watches` geeft 200 met een bogus token); AC5's 401-gedrag is gedekt door
+  `AppLaunchControllerTest` + `AppLaunchControllerAuthTest`.
+
+### Screenshots (`/work/screenshots/`)
+- `SF-1706-r2-start-normaal.png` — normale (niet-assistent) start: ongewijzigd startscherm
+- `SF-1706-r2-assistent-tab-ongewijzigd.png` — Assistent-tab, geen automatisch geopend gesprek
+- `SF-1706-r2-nieuw-gesprek-chatmodus.png` — nieuw gesprek opent in **Chatten**, niet in Praten
+  (visuele bevestiging van de `startInVoiceMode = false`-default, AC11)
+
+### Niet uitgevoerd (met reden)
+- `LaunchSourceTest` (AC4) is inhoudelijk nagelopen — dekt alle vier de gevallen van AC2 — maar
+  niet uitgevoerd: er is geen Android SDK/`gradlew` in de sandbox. Expliciet toegestaan door de
+  story-aanname "Draaien van de Kotlin-unittest".
+- De release-APK-build (deel van AC14) is om dezelfde reden niet lokaal draaibaar; die loopt via
+  de bestaande apk-build-workflow. De enige Android-wijziging in deze ronde is één regel met de
+  standaard `Activity.setIntent(Intent)`-API.
+- Conform AC15 is er geen poging gedaan een Assistent-/Gemini-start na te bootsen.
+  **Handmatig testen op Robberts telefoon blijft de laatste stap** — alleen daar is te zien wat
+  Gemini daadwerkelijk als referrer/extras meestuurt, zodat `ASSISTANT_PACKAGES` bijgesteld kan
+  worden.
+
+### Testdata
+Drie via `curl` aangemaakte launches op de preview zijn tijdens de run vanzelf opgeruimd door een
+ArgoCD-pod-rollover (in-memory opslag); er staat alleen nog de web-launch van de Playwright-run,
+die bij de volgende rollover eveneens verdwijnt. Geen persistente data geraakt.
+
+**Oordeel: alle 15 acceptatiecriteria gehaald, vangnet groen → `tested`.**
