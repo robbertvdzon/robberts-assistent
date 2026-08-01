@@ -132,6 +132,42 @@ void main() {
   );
 
   testWidgets(
+    'het chat-invoerveld is multiline en verstuurt newlines ongewijzigd via de send-knop',
+    (tester) async {
+      final api = _FakeApiClient()
+        ..nextReply = const AssistantChatReply(
+          conversationId: 'conv-1',
+          title: 'Lijstje',
+          reply: 'ok',
+        );
+
+      await tester.pumpWidget(MaterialApp(home: AssistantScreen(api: api)));
+      await tester.pump();
+
+      await tester.tap(find.text('Chatten'));
+      await tester.pump();
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.minLines, 1);
+      expect(field.maxLines, 5);
+      expect(field.keyboardType, TextInputType.multiline);
+      expect(field.textInputAction, TextInputAction.newline);
+      // Enter voegt een regel toe i.p.v. te versturen.
+      expect(field.onSubmitted, isNull);
+
+      await tester.enterText(
+        find.byType(TextField),
+        '  regel een\nregel twee\n\nregel vier  ',
+      );
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pump();
+      await tester.pump();
+
+      expect(api.lastMessage, 'regel een\nregel twee\n\nregel vier');
+    },
+  );
+
+  testWidgets(
     'vervolgvraag in hetzelfde gesprek stuurt het bijgewerkte conversationId mee',
     (tester) async {
       final api = _FakeApiClient()

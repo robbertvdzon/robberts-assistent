@@ -649,6 +649,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
       top: 4,
     ),
     child: Row(
+      // De knoppen blijven onderaan staan terwijl het invoerveld meegroeit.
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         IconButton(
           onPressed: _busy ? null : _showAttachSheet,
@@ -659,7 +661,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
           child: TextField(
             controller: _chatController,
             decoration: const InputDecoration(hintText: 'Typ een vraag…'),
-            onSubmitted: (_) => _sendTyped(),
+            // Groeit mee van 1 tot 5 regels; daarna scrollt het veld intern.
+            // Enter maakt een nieuwe regel, versturen gaat via de send-knop.
+            minLines: 1,
+            maxLines: 5,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.newline,
             enabled: !_busy,
           ),
         ),
