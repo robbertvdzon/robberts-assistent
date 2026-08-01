@@ -81,3 +81,21 @@ Vangnet:
   BUILD SUCCESS.
 - `flutter analyze` (vanuit `robberts_assistent/`): No issues found.
 - `flutter test`: 61 tests, All tests passed.
+
+## Review (SF-1698, reviewer)
+
+Volledige story-diff (`git diff main...HEAD`) beoordeeld tegen de acceptatiecriteria.
+
+- `WatchFrequency` komt nergens meer voor in productiecode; `Watch`, `WatchService.create/update`,
+  `SaveWatchRequest`/`WatchResponse`, `FirestoreWatchRepository` en `WatchTools` zijn consistent
+  meegegaan (AC 1, 6, 7, 8).
+- `WatchSchedule.isDue` is teruggebracht tot actief + uur in `8..22` (Europe/Amsterdam) + ≥ 1 uur
+  sinds `lastCheckedAt`, zonder werkdag/weekend-onderscheid (AC 2–5); de `null`-guard op
+  `frequency` in `toWatch()` is weg, dus bestaande documenten verdwijnen niet stil uit de lijst.
+- Buiten-scope-onderdelen (`poll-interval`, `runNow()`, evaluator/fetcher/repository-interface,
+  REST-URL's) zijn ongewijzigd; alleen de KDoc van `runNow()` is tekstueel bijgewerkt.
+- Zelf geverifieerd in deze sandbox: `mvn -o test` groen (0 failures / 0 errors, incl. de nieuwe
+  `FirestoreWatchRepositoryTest` en `WatchesControllerTest`), `flutter analyze` "No issues found!"
+  en `flutter test` 61 tests groen.
+- [suggestie] `test/watches_screen_test.dart:183` heeft na het verwijderen van het
+  `frequency`-veld een scheve inspringing; puur cosmetisch (geen format-check in CI).
