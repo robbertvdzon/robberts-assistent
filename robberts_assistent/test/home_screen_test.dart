@@ -51,7 +51,6 @@ class _FakeApiClient extends ApiClient {
         title: 'Concertkaartjes',
         url: 'https://example.com',
         instruction: 'Zoek twee kaarten',
-        frequency: 'DAGELIJKS',
         notifyOnFound: true,
         status: watchLoadCount == 1 ? 'NIET_GEVONDEN' : 'GEVONDEN',
         statusDescription: watchLoadCount == 1

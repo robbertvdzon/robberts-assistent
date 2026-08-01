@@ -17,13 +17,11 @@ class _FakeApiClient extends ApiClient {
   String? createdTitle;
   String? createdUrl;
   String? createdInstruction;
-  String? createdFrequency;
   bool? createdNotify;
   String? updatedId;
   String? updatedTitle;
   String? updatedUrl;
   String? updatedInstruction;
-  String? updatedFrequency;
   bool? updatedNotify;
 
   @override
@@ -38,7 +36,6 @@ class _FakeApiClient extends ApiClient {
     required String title,
     required String url,
     required String instruction,
-    required String frequency,
     required bool notifyOnFound,
   }) async {
     if (updateFails) throw Exception('wijzigen kapot');
@@ -46,7 +43,6 @@ class _FakeApiClient extends ApiClient {
     updatedTitle = title;
     updatedUrl = url;
     updatedInstruction = instruction;
-    updatedFrequency = frequency;
     updatedNotify = notifyOnFound;
     final index = watches.indexWhere((watch) => watch.id == id);
     watches[index] = Watch(
@@ -54,7 +50,6 @@ class _FakeApiClient extends ApiClient {
       title: title,
       url: url,
       instruction: instruction,
-      frequency: frequency,
       notifyOnFound: notifyOnFound,
       status: 'NOG_NIET_GECONTROLEERD',
       statusDescription: 'Nog niet gecontroleerd.',
@@ -67,14 +62,12 @@ class _FakeApiClient extends ApiClient {
     required String title,
     required String url,
     required String instruction,
-    required String frequency,
     required bool notifyOnFound,
   }) async {
     if (createFails) throw Exception('opslaan kapot');
     createdTitle = title;
     createdUrl = url;
     createdInstruction = instruction;
-    createdFrequency = frequency;
     createdNotify = notifyOnFound;
     watches.add(
       Watch(
@@ -82,8 +75,7 @@ class _FakeApiClient extends ApiClient {
         title: title,
         url: url,
         instruction: instruction,
-        frequency: frequency,
-        notifyOnFound: notifyOnFound,
+          notifyOnFound: notifyOnFound,
         status: 'NOG_NIET_GECONTROLEERD',
         statusDescription: 'Nog niet gecontroleerd.',
         active: true,
@@ -150,7 +142,6 @@ const _oldWatch = Watch(
   title: 'Concertkaartjes',
   url: 'https://example.com',
   instruction: 'Zoek twee kaarten',
-  frequency: 'DAGELIJKS',
   notifyOnFound: true,
   status: 'NIET_GEVONDEN',
   statusDescription: 'Nog niet beschikbaar.',
@@ -162,7 +153,6 @@ const _currentWatch = Watch(
   title: 'Concertkaartjes',
   url: 'https://example.com',
   instruction: 'Zoek twee kaarten',
-  frequency: 'DAGELIJKS',
   notifyOnFound: true,
   status: 'GEVONDEN',
   statusDescription: 'Nu beschikbaar.',
@@ -190,8 +180,7 @@ void main() {
           title: 'Concertkaartjes',
           url: 'https://example.com',
           instruction: 'Zoek twee kaarten',
-          frequency: 'DAGELIJKS',
-          notifyOnFound: true,
+                  notifyOnFound: true,
           status: 'NIET_GEVONDEN',
           statusDescription: 'Nog geen twee kaarten beschikbaar.',
           active: true,
@@ -203,6 +192,9 @@ void main() {
 
     expect(find.text('Concertkaartjes'), findsOneWidget);
     expect(find.text('Nog geen twee kaarten beschikbaar.'), findsOneWidget);
+    // De frequentiekeuze bestaat niet meer; de lijst toont er ook geen restant van.
+    expect(find.textContaining('agelijks'), findsNothing);
+    expect(find.textContaining('antooruren'), findsNothing);
 
     await tester.tap(find.byTooltip('Verwijder Concertkaartjes'));
     await tester.pumpAndSettle();
@@ -212,7 +204,7 @@ void main() {
   });
 
   testWidgets(
-    'maakt watch aan met afzonderlijke velden, frequentie en pushvoorkeur',
+    'maakt watch aan met afzonderlijke velden en pushvoorkeur',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(900, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -226,10 +218,8 @@ void main() {
       await tester.enterText(fields.at(0), 'Concertkaartjes');
       await tester.enterText(fields.at(1), 'https://example.com/tickets');
       await tester.enterText(fields.at(2), 'Zoek twee kaarten naast elkaar');
-      await tester.tap(find.text('Dagelijks'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Kantooruren').last);
-      await tester.pumpAndSettle();
+      expect(find.textContaining('frequentie', findRichText: true), findsNothing);
+      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
       await tester.tap(find.byType(Switch));
       await tester.tap(find.widgetWithText(FilledButton, 'Opslaan'));
       await tester.pumpAndSettle();
@@ -237,7 +227,6 @@ void main() {
       expect(api.createdTitle, 'Concertkaartjes');
       expect(api.createdUrl, 'https://example.com/tickets');
       expect(api.createdInstruction, 'Zoek twee kaarten naast elkaar');
-      expect(api.createdFrequency, 'KANTOORUREN');
       expect(api.createdNotify, isFalse);
       expect(find.text('Concertkaartjes'), findsOneWidget);
       expect(find.text('Nog niet gecontroleerd.'), findsOneWidget);
@@ -273,10 +262,7 @@ void main() {
     await tester.enterText(fields.at(0), 'Drie concertkaartjes');
     await tester.enterText(fields.at(1), 'https://example.com/nieuw');
     await tester.enterText(fields.at(2), 'Zoek drie kaarten naast elkaar');
-    await tester.tap(find.text('Dagelijks'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Kantooruren').last);
-    await tester.pumpAndSettle();
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
     await tester.tap(find.byType(Switch));
     await tester.tap(find.widgetWithText(FilledButton, 'Opslaan'));
     await tester.pumpAndSettle();
@@ -285,7 +271,6 @@ void main() {
     expect(api.updatedTitle, 'Drie concertkaartjes');
     expect(api.updatedUrl, 'https://example.com/nieuw');
     expect(api.updatedInstruction, 'Zoek drie kaarten naast elkaar');
-    expect(api.updatedFrequency, 'KANTOORUREN');
     expect(api.updatedNotify, isFalse);
     expect(find.text('Drie concertkaartjes'), findsOneWidget);
     expect(find.text('Nog niet gecontroleerd.'), findsOneWidget);

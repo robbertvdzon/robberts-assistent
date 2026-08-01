@@ -95,7 +95,6 @@ class _WatchesScreenState extends State<WatchesScreen> {
         title: input.title,
         url: input.url,
         instruction: input.instruction,
-        frequency: input.frequency,
         notifyOnFound: input.notifyOnFound,
       );
       await _load();
@@ -120,7 +119,6 @@ class _WatchesScreenState extends State<WatchesScreen> {
         title: input.title,
         url: input.url,
         instruction: input.instruction,
-        frequency: input.frequency,
         notifyOnFound: input.notifyOnFound,
       );
       await _load();
@@ -241,16 +239,9 @@ class _WatchInput {
   final String title;
   final String url;
   final String instruction;
-  final String frequency;
   final bool notifyOnFound;
 
-  const _WatchInput(
-    this.title,
-    this.url,
-    this.instruction,
-    this.frequency,
-    this.notifyOnFound,
-  );
+  const _WatchInput(this.title, this.url, this.instruction, this.notifyOnFound);
 }
 
 class _WatchDialog extends StatefulWidget {
@@ -266,7 +257,6 @@ class _WatchDialogState extends State<_WatchDialog> {
   late final TextEditingController _title;
   late final TextEditingController _url;
   late final TextEditingController _instruction;
-  late String _frequency;
   late bool _notify;
   String? _validationError;
 
@@ -277,7 +267,6 @@ class _WatchDialogState extends State<_WatchDialog> {
     _title = TextEditingController(text: watch?.title);
     _url = TextEditingController(text: watch?.url);
     _instruction = TextEditingController(text: watch?.instruction);
-    _frequency = watch?.frequency ?? 'DAGELIJKS';
     _notify = watch?.notifyOnFound ?? true;
   }
 
@@ -311,7 +300,7 @@ class _WatchDialogState extends State<_WatchDialog> {
     }
     Navigator.pop(
       context,
-      _WatchInput(title, url, instruction, _frequency, _notify),
+      _WatchInput(title, url, instruction, _notify),
     );
   }
 
@@ -341,20 +330,6 @@ class _WatchDialogState extends State<_WatchDialog> {
             decoration: const InputDecoration(labelText: 'Zoekinstructie'),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _frequency,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Controlefrequentie'),
-            items: const [
-              DropdownMenuItem(value: 'DAGELIJKS', child: Text('Dagelijks')),
-              DropdownMenuItem(
-                value: 'KANTOORUREN',
-                child: Text('Kantooruren'),
-              ),
-            ],
-            onChanged: (value) =>
-                setState(() => _frequency = value ?? 'DAGELIJKS'),
-          ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Pushmelding bij vondst'),

@@ -1,7 +1,6 @@
 package nl.vdzon.robbertsassistent.assistant.ai
 
 import nl.vdzon.robbertsassistent.watches.Watch
-import nl.vdzon.robbertsassistent.watches.WatchFrequency
 import nl.vdzon.robbertsassistent.watches.WatchService
 import nl.vdzon.robbertsassistent.watches.WatchValidationException
 import org.springframework.ai.tool.annotation.Tool
@@ -19,8 +18,8 @@ class WatchTools(private val watchService: WatchService) {
 
     @Tool(
         description = "Som Robberts langdurige zoekopdrachten (watches) op: titel, webadres, " +
-            "zoekinstructie, frequentie, status, of 'ie nog actief is en wanneer 'ie voor het " +
-            "laatst gecontroleerd is.",
+            "zoekinstructie, status, of 'ie nog actief is en wanneer 'ie voor het laatst " +
+            "gecontroleerd is.",
     )
     fun listWatches(): String {
         val watches = watchService.list()
@@ -30,29 +29,23 @@ class WatchTools(private val watchService: WatchService) {
 
     @Tool(
         description = "Maak een nieuwe langdurige zoekopdracht (watch) aan: een webpagina die " +
-            "periodiek gecontroleerd wordt op iets wat Robbert zoekt. Zodra het gevonden is, " +
+            "elk uur overdag gecontroleerd wordt op iets wat Robbert zoekt. Zodra het gevonden is, " +
             "stopt de zoekopdracht en krijgt hij (optioneel) een push-notificatie.",
     )
     fun createWatch(
         @ToolParam(description = "Korte titel van de zoekopdracht") title: String,
         @ToolParam(description = "Het volledige webadres (http(s)) van de te controleren pagina") url: String,
         @ToolParam(description = "Waar op de pagina naar gezocht moet worden, in gewone taal") instruction: String,
-        @ToolParam(
-            description = "Hoe vaak er gecontroleerd wordt: 'kantooruren' of 'dagelijks' " +
-                "(leeg of onbekend = dagelijks)",
-            required = false,
-        )
-        frequency: String = "",
         @ToolParam(description = "Push-notificatie sturen zodra het gevonden is (standaard ja)", required = false)
         notifyOnFound: Boolean = true,
     ): String {
         val watch = try {
-            watchService.create(title, url, instruction, parseFrequency(frequency), notifyOnFound)
+            watchService.create(title, url, instruction, notifyOnFound)
         } catch (e: WatchValidationException) {
             return "Zoekopdracht niet aangemaakt: ${e.message}"
         }
         return "Zoekopdracht \"${watch.title}\" aangemaakt voor ${watch.url} " +
-            "(${frequencyText(watch.frequency)}, ${notifyText(watch.notifyOnFound)}) [id ${watch.id.take(8)}]."
+            "(elk uur overdag, ${notifyText(watch.notifyOnFound)}) [id ${watch.id.take(8)}]."
     }
 
     @Tool(
@@ -69,11 +62,6 @@ class WatchTools(private val watchService: WatchService) {
         @ToolParam(description = "Nieuwe zoekinstructie (leeg = niet wijzigen)", required = false)
         instruction: String = "",
         @ToolParam(
-            description = "Nieuwe frequentie: 'kantooruren' of 'dagelijks' (leeg = niet wijzigen)",
-            required = false,
-        )
-        frequency: String = "",
-        @ToolParam(
             description = "Push-notificatie sturen zodra het gevonden is: 'ja' of 'nee' " +
                 "(leeg = niet wijzigen)",
             required = false,
@@ -89,30 +77,23 @@ class WatchTools(private val watchService: WatchService) {
                 title = title.ifBlank { match.title },
                 url = url.ifBlank { match.url },
                 instruction = instruction.ifBlank { match.instruction },
-                frequency = if (frequency.isBlank()) match.frequency else parseFrequency(frequency),
                 notifyOnFound = parseNotify(notifyOnFound) ?: match.notifyOnFound,
             )
         } catch (e: WatchValidationException) {
             return "Zoekopdracht niet aangepast: ${e.message}"
         }
         return "Zoekopdracht \"${updated.title}\" aangepast (${updated.url}, " +
-            "${frequencyText(updated.frequency)}, ${notifyText(updated.notifyOnFound)}). " +
+            "elk uur overdag, ${notifyText(updated.notifyOnFound)}). " +
             "De zoekopdracht staat weer op actief en wordt opnieuw gecontroleerd."
     }
 
     private fun describe(watch: Watch): String {
         val laatst = watch.lastCheckedAt?.let { FORMATTER.format(it) } ?: "nog niet gecontroleerd"
         return "- ${watch.title} (${watch.url}) — zoekt naar: ${watch.instruction} — " +
-            "${frequencyText(watch.frequency)} — status ${watch.status.name}: ${watch.statusDescription} — " +
+            "elk uur overdag — status ${watch.status.name}: ${watch.statusDescription} — " +
             "${if (watch.active) "actief" else "niet actief"} — laatst gecontroleerd: $laatst " +
             "[id ${watch.id.take(8)}]"
     }
-
-    private fun parseFrequency(text: String): WatchFrequency =
-        when (text.trim().lowercase()) {
-            "kantooruren" -> WatchFrequency.KANTOORUREN
-            else -> WatchFrequency.DAGELIJKS
-        }
 
     /** Driewaardig: null betekent "niet meegegeven", dus niet wijzigen. */
     private fun parseNotify(text: String): Boolean? =
@@ -121,9 +102,6 @@ class WatchTools(private val watchService: WatchService) {
             "nee", "false", "no", "0" -> false
             else -> null
         }
-
-    private fun frequencyText(frequency: WatchFrequency): String =
-        if (frequency == WatchFrequency.KANTOORUREN) "elk uur tijdens kantooruren" else "dagelijks"
 
     private fun notifyText(notifyOnFound: Boolean): String =
         if (notifyOnFound) "met push-notificatie" else "zonder push-notificatie"

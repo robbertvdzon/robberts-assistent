@@ -2,11 +2,6 @@ package nl.vdzon.robbertsassistent.watches
 
 import java.time.Instant
 
-enum class WatchFrequency {
-    KANTOORUREN,
-    DAGELIJKS,
-}
-
 enum class WatchStatus {
     NOG_NIET_GECONTROLEERD,
     NIET_GEVONDEN,
@@ -19,7 +14,6 @@ data class Watch(
     val title: String,
     val url: String,
     val instruction: String,
-    val frequency: WatchFrequency,
     val notifyOnFound: Boolean,
     val status: WatchStatus = WatchStatus.NOG_NIET_GECONTROLEERD,
     val statusDescription: String = "Nog niet gecontroleerd.",

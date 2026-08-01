@@ -14,7 +14,6 @@ class WatchService(private val repository: WatchRepository) {
         title: String,
         url: String,
         instruction: String,
-        frequency: WatchFrequency,
         notifyOnFound: Boolean,
     ): Watch {
         val cleanTitle = title.trim()
@@ -27,7 +26,6 @@ class WatchService(private val repository: WatchRepository) {
                 title = cleanTitle,
                 url = cleanUrl,
                 instruction = cleanInstruction,
-                frequency = frequency,
                 notifyOnFound = notifyOnFound,
             ),
         )
@@ -42,7 +40,6 @@ class WatchService(private val repository: WatchRepository) {
         title: String,
         url: String,
         instruction: String,
-        frequency: WatchFrequency,
         notifyOnFound: Boolean,
     ): Watch {
         val cleanTitle = title.trim()
@@ -56,7 +53,6 @@ class WatchService(private val repository: WatchRepository) {
                 title = cleanTitle,
                 url = cleanUrl,
                 instruction = cleanInstruction,
-                frequency = frequency,
                 notifyOnFound = notifyOnFound,
                 status = WatchStatus.NOG_NIET_GECONTROLEERD,
                 statusDescription = "Nog niet gecontroleerd.",
