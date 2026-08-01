@@ -182,3 +182,33 @@ repo doet het al wél goed. Zie de bevinding hieronder in de handover.
 ### Laatste stap (ongewijzigd)
 Handmatig testen op Robberts telefoon blijft de laatste stap; er is opnieuw geen poging gedaan een
 Assistent-/Gemini-start na te bootsen in CI, emulator of preview.
+
+## Review SF-1705 (reviewer, herstelronde) — 2026-08-01
+
+Volledige story-diff `git diff main...HEAD` beoordeeld (19 bestanden, 3 delen), niet alleen de
+laatste wijziging.
+
+### Akkoord
+- **Testbevinding SF-1706 correct verholpen**: `MainActivity.onNewIntent` roept `setIntent(intent)`
+  aan *vóór* `LaunchSource.from(this, intent)`, met toelichtend commentaar. Daarmee leest
+  `Activity.getReferrer()` de `EXTRA_REFERRER` van het nieuwe intent i.p.v. die van de koude start;
+  zelfde patroon als `alarm/AlarmActivity.kt`. Verder is er niets aan de code gewijzigd.
+- Alle 15 acceptatiecriteria nagelopen tegen de code; deel 1 (`LaunchSource.kt`/`MainActivity.kt`),
+  deel 2 (module `applaunch`) en deel 3 (`launch_source.dart`/`home_screen.dart`/
+  `assistant_screen.dart`) dekken ze. Logformaat, `null`-weergave, newline-vervanging, 30-dagen-
+  opschoning als best effort, `limit`-begrenzing en de auth-gate zitten in tests.
+- Eigen gerichte verificatie: `flutter test test/home_screen_test.dart test/assistant_screen_test.dart`
+  → **15/15 groen**. Backend- en volledige Flutter-suite niet opnieuw gedraaid (developer-run
+  385/0/0 + 65/65 op deze revisie; laatste commit raakt alleen Kotlin + worklog).
+
+### Bevindingen (niet blokkerend)
+- [info] `./gradlew` ontbreekt in `robberts_assistent/android`, dus `LaunchSourceTest` kon ook in
+  deze sandbox niet draaien — conform de expliciete story-aanname.
+- [suggestie] `launchChannel` wordt niet opgeruimd bij engine-detach; bij een `onNewIntent` na
+  detach gaat de `invokeMethod` naar een oude messenger. Cosmetisch, geen crash.
+- [suggestie] `AppLaunchService.recent(0)` wordt door `coerceIn(1, MAX_LIMIT)` stil `1` i.p.v. een
+  lege lijst. Geen consument stuurt `limit=0`.
+- [info] Warme start *zonder* `EXTRA_REFERRER` blijft op `mReferrer` van de koude start terugvallen
+  (Android-platformbeperking) — terecht als observatiepunt voor de handmatige telefoontest.
+
+Handmatig testen op Robberts telefoon blijft de laatste stap.
