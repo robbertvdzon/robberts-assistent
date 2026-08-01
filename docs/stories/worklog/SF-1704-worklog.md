@@ -156,3 +156,29 @@ blijft teruggeven — Flutters `FlutterActivity.onNewIntent` zet 'm ook niet (ge
 `EXTRA_REFERRER` nooit gelezen. `action`/`categories`/`extras` komen wél uit het nieuwe intent,
 dus de gelogde regel mengt nieuwe intent-gegevens met een oude referrer. `AlarmActivity.kt` in dit
 repo doet het al wél goed. Zie de bevinding hieronder in de handover.
+
+## Herstelronde SF-1705 (developer) — 2026-08-01
+
+### Uitgevoerd
+- [x] Testbevinding SF-1706 verholpen: `MainActivity.onNewIntent` roept nu `setIntent(intent)` aan
+  vóór `LaunchSource.from(this, intent)`, met een korte toelichting in commentaar. Daardoor leest
+  `Activity.getReferrer()` bij een warme start de `EXTRA_REFERRER` van het *nieuwe* intent i.p.v.
+  die van het intent van de koude start, en mengt de `APP_LAUNCH`-regel geen nieuwe intent-gegevens
+  meer met een oude referrer. Zelfde patroon als `alarm/AlarmActivity.kt`, dat het al zo doet.
+- [x] Vangnet opnieuw gedraaid: `rm -rf target && mvn -o test` → **385 tests, 0 failures, 0 errors,
+  BUILD SUCCESS**; `flutter analyze` → *No issues found*; `flutter test` → **65/65 groen**.
+
+### Bewust niet gedaan
+- De twee reviewer-**suggesties** uit SF-1705 (loggen vóór `repository.save(...)`, en
+  `launchChannel` opruimen) zijn niet doorgevoerd: de eerste botst met AC6 ("bij elke **opgeslagen**
+  launch precies één INFO-regel") en zou ook bij een mislukte opslag een regel produceren; de tweede
+  is cosmetisch. Beide staan al als aandachtspunt in deze worklog.
+- De resterende helft van de bevinding — bij een warme start *zónder* `EXTRA_REFERRER` valt
+  `getReferrer()` terug op de bij `attach()` vastgelegde `mReferrer` van de koude start — is een
+  Android-platformbeperking en niet in code op te lossen. Dat blijft een observatiepunt voor de
+  handmatige telefoontest: start de app zowel koud als warm met "Hé Google, start Robberts
+  assistent app" en vergelijk de twee `APP_LAUNCH`-regels.
+
+### Laatste stap (ongewijzigd)
+Handmatig testen op Robberts telefoon blijft de laatste stap; er is opnieuw geen poging gedaan een
+Assistent-/Gemini-start na te bootsen in CI, emulator of preview.

@@ -29,6 +29,11 @@ class MainActivity : FlutterActivity() {
     /** De activity is `singleTop`, dus een tweede start komt hier binnen i.p.v. in [onCreate]. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Nodig vóór LaunchSource.from: Activity.getReferrer() leest eerst EXTRA_REFERRER uit
+        // getIntent(), en dat blijft zonder setIntent() het intent van de koude start hangen
+        // (FlutterActivity zet 'm zelf niet). Zonder deze regel mengt de logregel de action/
+        // extras van het nieuwe intent met de referrer van de vorige start.
+        setIntent(intent)
         val launch = LaunchSource.from(this, intent)
         lastLaunch = launch
         launchChannel?.invokeMethod("launchInfo", launch.toMap())
