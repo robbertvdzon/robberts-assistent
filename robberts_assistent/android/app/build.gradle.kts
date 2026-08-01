@@ -82,4 +82,6 @@ flutter {
 dependencies {
     // Core library desugaring — nodig voor flutter_local_notifications (java.time).
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // JVM-unittests (src/test), o.a. voor de pure launch-bron-classificatie in LaunchSource.kt.
+    testImplementation("junit:junit:4.13.2")
 }

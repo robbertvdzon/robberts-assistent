@@ -27,10 +27,24 @@ enum _Mode { voice, chat }
 /// met [conversationId] wordt eerst de bestaande geschiedenis geladen. Beide modi delen dezelfde
 /// [_history], zodat wisselen heen-en-terug niets van het gesprek verliest.
 class AssistantScreen extends StatefulWidget {
-  const AssistantScreen({super.key, required this.api, this.conversationId});
+  const AssistantScreen({
+    super.key,
+    required this.api,
+    this.conversationId,
+    this.startInVoiceMode = false,
+    this.autoStartListening = false,
+  });
 
   final ApiClient api;
   final String? conversationId;
+
+  /// Opent meteen in praatmodus i.p.v. chatmodus (gebruikt bij een start via Google Assistent).
+  final bool startInVoiceMode;
+
+  /// Begint na een geslaagde spraak-initialisatie meteen te luisteren. Is spraak niet beschikbaar
+  /// (of de microfoonpermissie geweigerd), dan gebeurt er niets extra's: het scherm toont gewoon
+  /// de bestaande foutmelding en de mic-knop.
+  final bool autoStartListening;
 
   @override
   State<AssistantScreen> createState() => _AssistantScreenState();
@@ -45,7 +59,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   final _picker = ImagePicker();
   final _pending = <AssistantAttachment>[];
 
-  _Mode _mode = _Mode.chat;
+  late _Mode _mode;
   var _listening = false;
   var _speechAvailable = false;
   var _busy = false;
@@ -58,6 +72,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   @override
   void initState() {
     super.initState();
+    _mode = widget.startInVoiceMode ? _Mode.voice : _Mode.chat;
     _conversationId = widget.conversationId;
     _tts.setLanguage('nl-NL');
     _initSpeech();
@@ -114,7 +129,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
         }
       },
     );
-    if (mounted) setState(() => _speechAvailable = available);
+    if (!mounted) return;
+    setState(() => _speechAvailable = available);
+    // Pas hier, niet blind in initState: zonder geslaagde initialisatie (spraak niet beschikbaar of
+    // microfoonpermissie geweigerd) heeft luisteren geen zin en toont het scherm de foutmelding.
+    if (widget.autoStartListening && available) await _startListening();
   }
 
   @override

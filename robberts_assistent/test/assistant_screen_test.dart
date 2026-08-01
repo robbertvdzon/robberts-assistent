@@ -128,4 +128,40 @@ void main() {
       expect(find.text('hallo!'), findsOneWidget);
     },
   );
+
+  testWidgets('met startInVoiceMode opent het scherm meteen in praatmodus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AssistantScreen(
+          api: _FakeApiClient(),
+          startInVoiceMode: true,
+          autoStartListening: true,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Tik op de microfoon en stel je vraag.'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    // Spraak is in een widget-test niet beschikbaar: dan gewoon de bestaande melding + mic-knop,
+    // geen crash.
+    expect(find.text('Spraakherkenning niet beschikbaar.'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('zonder startInVoiceMode blijft het scherm in chatmodus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: AssistantScreen(api: _FakeApiClient())),
+    );
+    await tester.pump();
+
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Tik op de microfoon en stel je vraag.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
