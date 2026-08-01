@@ -141,7 +141,12 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   te archiveren (reversibel) en te verwijderen (met bevestiging); de lijst toont eerst de 10
   meest recente, oudere onder een uitklapbare "Ouder"-sectie. Een gebruiker-breed geheugen
   (feiten/voorkeuren) wordt automatisch bijgewerkt na elke chat-beurt en gebruikt als context in
-  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". In **praatmodus** is het gesprek
+  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". Het chat-invoerveld start sinds
+  SF-1732 op één regel en groeit mee met de ingetypte tekst tot maximaal vijf regels; daarna scrollt
+  de tekst binnen het veld. Enter maakt een nieuwe regel in plaats van te versturen — versturen gaat
+  uitsluitend via de verzendknop rechts — en de foto- en verzendknop blijven onderaan staan terwijl
+  het veld groeit. Meerregelige tekst wordt met behoud van de regeleindes verstuurd; alleen
+  spaties aan het begin en eind vallen weg. In **praatmodus** is het gesprek
   sinds SF-1711 doorlopend: na een voorgelezen antwoord luistert de app automatisch weer, zonder dat
   Robbert de microfoon opnieuw hoeft aan te tikken. Dat stopt zodra hij zelf op de stop-/mic-knop
   tikt, naar chatmodus wisselt of het scherm verlaat, bij een spraak- of chat-fout (de bestaande
