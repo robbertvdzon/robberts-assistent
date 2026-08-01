@@ -119,3 +119,40 @@ keer met "Hé Google, start Robberts assistent app", daarna
 Gemini-package niet in `ASSISTANT_PACKAGES` te staan, dan is dat één regel bijwerken in
 `LaunchSource.kt`. Er is bewust géén poging gedaan een Assistent-/Gemini-start na te bootsen in
 CI, emulator of preview.
+
+## Testronde SF-1706 (tester) — 2026-08-01
+
+### Uitgevoerd
+- **Backend:** `mvn -o test` → **385 tests, 0 failures, 0 errors, BUILD SUCCESS** (incl.
+  `AppLaunchServiceTest` 8, `AppLaunchControllerTest` 2, `AppLaunchControllerAuthTest` 2 en de
+  groene `ModulithArchitectureTest` — de nieuwe `applaunch`-module breekt geen modulegrens).
+- **App:** `flutter analyze` → *No issues found*; `flutter test` → **65/65 groen** (incl. de twee
+  nieuwe `AssistantScreen`-praatmodustests en de twee nieuwe `HomeScreen`-launchtests).
+- **Preview `robberts-assistent-pr-44`** (bevestigd op `head.sha = 40f6ab2`, gelijk aan de branch-HEAD):
+  - `POST /api/v1/app-launches` met volledige gegevens → 200, server bepaalt `id` (UUID) en `at`.
+  - Onbekende bron (`GEMINI_IETS`), lege body `{}` en lowercase `"assistant"` → 200, geen 400;
+    respectievelijk `UNKNOWN`/`UNKNOWN`+`platform=onbekend`/`ASSISTANT`.
+  - `GET /api/v1/app-launches` levert nieuwste eerst; `limit=1` werkt, `limit=9999` en `limit=0`
+    geven 200 (begrensd, geen fout).
+  - **AC6 live bewezen** via `oc logs deploy/robberts-assistent-backend -n robberts-assistent-pr-44
+    | grep APP_LAUNCH`: precies één INFO-regel per opgeslagen launch, exact formaat, ontbrekende
+    waarden als `null` en lege lijst/map als lege waarde. Newlines in `platform`/`referrer`/
+    `action`/`categories`/`extras` worden spaties — de regel blijft één regel en blijft greppable.
+  - **Web-launch E2E (Playwright):** het openen van de preview-app stuurt precies één
+    `POST /api/v1/app-launches` met `{"source":"UNKNOWN","platform":"web",...}`, zonder
+    JS-pagefouten; de bijbehorende `APP_LAUNCH … platform=web`-regel staat in de pod-log en de
+    launch komt terug uit de `GET`. Bevestigt AC13 (web-build breekt niet) en de web-aanname.
+  - Screenshots in `screenshots/`: startscherm (gedrag ongewijzigd bij een niet-assistent-start) en
+    het praatmodus-scherm dat een ASSISTANT-start opent.
+- Testdata was preview-only en in-memory; door een pod-rollover tijdens de run is de opslag
+  vanzelf leeg — geen restanten.
+
+### Bevinding (terug naar developer)
+`MainActivity.onNewIntent` roept **`setIntent(intent)` niet aan**. `Activity.getReferrer()` leest
+eerst `getIntent()` (`EXTRA_REFERRER`/`EXTRA_REFERRER_NAME`) en pas daarna de bij `attach()`
+vastgelegde `mReferrer`. Omdat `getIntent()` zonder `setIntent()` het *oorspronkelijke* intent
+blijft teruggeven — Flutters `FlutterActivity.onNewIntent` zet 'm ook niet (geverifieerd met
+`javap` op `flutter.jar`) — wordt bij een warme start een door Gemini meegestuurde
+`EXTRA_REFERRER` nooit gelezen. `action`/`categories`/`extras` komen wél uit het nieuwe intent,
+dus de gelogde regel mengt nieuwe intent-gegevens met een oude referrer. `AlarmActivity.kt` in dit
+repo doet het al wél goed. Zie de bevinding hieronder in de handover.
