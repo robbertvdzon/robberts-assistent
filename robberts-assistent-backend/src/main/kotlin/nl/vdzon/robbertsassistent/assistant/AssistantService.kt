@@ -1,8 +1,10 @@
 package nl.vdzon.robbertsassistent.assistant
 
+import nl.vdzon.robbertsassistent.assistant.ai.VOICE_SYSTEM_PROMPT
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
+import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.content.Media
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.io.ByteArrayResource
@@ -73,7 +75,18 @@ class AssistantService(
         return true
     }
 
-    fun chat(conversationId: String?, text: String, uploads: List<PhotoUpload>): ChatResult {
+    /**
+     * Eén chat-beurt. Met [voice] `true` (het antwoord wordt in de app hardop voorgelezen) gaat er
+     * één extra system-boodschap mee met de spreektaal-instructie ([VOICE_SYSTEM_PROMPT]); de
+     * `defaultSystem(...)` van de assistent-[ChatClient] blijft daarbij gewoon van kracht. Zonder de
+     * vlag is de prompt exact zoals voorheen.
+     */
+    fun chat(
+        conversationId: String?,
+        text: String,
+        uploads: List<PhotoUpload>,
+        voice: Boolean = false,
+    ): ChatResult {
         val conversation = conversationId?.let { conversations.findById(it) } ?: conversations.create()
         val isFirstExchange = conversation.messages.isEmpty()
 
@@ -81,7 +94,8 @@ class AssistantService(
         val imageIds = uploads.map { photos.store(it.bytes, it.contentType) }
         val media = uploads.map { Media(MimeTypeUtils.parseMimeType(it.contentType), ByteArrayResource(it.bytes)) }
 
-        val history = conversation.messages.map { it.toSpringMessage() }
+        val history = conversation.messages.map { it.toSpringMessage() } +
+            if (voice) listOf(SystemMessage(VOICE_SYSTEM_PROMPT)) else emptyList()
         val memoryText = memory.current()
         val promptText = buildPromptText(text, memoryText)
 

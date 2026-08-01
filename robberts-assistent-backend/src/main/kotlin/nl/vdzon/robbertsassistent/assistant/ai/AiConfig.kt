@@ -56,6 +56,21 @@ private val SYSTEM_PROMPT = """
 """.trimIndent()
 
 /**
+ * Extra instructie die **bovenop** [SYSTEM_PROMPT] meegaat wanneer het antwoord hardop wordt
+ * voorgelezen (praatmodus in de app, `voice=true` op `POST /api/v1/assistant/chat`). Bewust een
+ * losse system-boodschap per request i.p.v. een request-level `.system(...)`: dat laatste zou de
+ * `defaultSystem(...)` van `assistantChatClient` vervangen i.p.v. aanvullen. Zonder de vlag gaat er
+ * niets van deze tekst mee en is de prompt exact als voorheen.
+ */
+val VOICE_SYSTEM_PROMPT = """
+    Dit antwoord wordt hardop voorgelezen. Antwoord daarom in vlotte spreektaal en zo kort mogelijk:
+    maximaal 2 korte zinnen. Geen opsommingen, geen markdown, geen kopjes, geen URL's, geen emoji en
+    geen tabellen. Geen inleiding of samenvatting vooraf — geef meteen het antwoord. Schrijf getallen
+    en eenheden uitspreekbaar op (bijvoorbeeld "twintig knopen uit het zuidwesten"). Antwoord alleen
+    langer als Robbert expliciet om details of een lijst vraagt.
+""".trimIndent()
+
+/**
  * Bewust GEEN spring-ai-starter-model-openai (auto-configuratie op basis van properties) — met
  * handmatige bean-wiring kiezen we hier zelf tussen het echte OpenAI-model en [MockChatModel],
  * gestuurd door [AppSecrets.effectiveMockAi] (altijd mock in preview/tests, nooit in productie).

@@ -21,6 +21,73 @@ class ChatMessage {
 
 enum _Mode { voice, chat }
 
+/// Smalle test-seam rond de spraakherkenning-plugin (`speech_to_text`): alleen wat dit scherm
+/// nodig heeft, zodat de doorluister-lus in een widget-test aanstuurbaar is zonder microfoon.
+/// Productie gebruikt de plugin-implementatie hieronder; er komt geen dependency bij.
+abstract class SpeechRecognizer {
+  Future<bool> initialize({
+    required void Function(String status) onStatus,
+    required void Function(String errorMsg) onError,
+  });
+
+  /// [onResult] wordt per (tussen)resultaat aangeroepen; [isFinal] markeert het eindresultaat.
+  Future<void> listen({
+    required void Function(String words, bool isFinal) onResult,
+  });
+
+  Future<void> stop();
+}
+
+/// Smalle test-seam rond de tekst-naar-spraak-plugin (`flutter_tts`). [speak] is bewust
+/// afwachtbaar: de Future komt pas terug als het uitspreken klaar is, zodat de lus niet alweer
+/// luistert terwijl de assistent nog praat.
+abstract class VoiceSpeaker {
+  Future<void> speak(String text);
+
+  Future<void> stop();
+}
+
+class _PluginSpeechRecognizer implements SpeechRecognizer {
+  final _speech = SpeechToText();
+
+  @override
+  Future<bool> initialize({
+    required void Function(String status) onStatus,
+    required void Function(String errorMsg) onError,
+  }) => _speech.initialize(
+    onStatus: onStatus,
+    onError: (error) => onError(error.errorMsg),
+  );
+
+  @override
+  Future<void> listen({
+    required void Function(String words, bool isFinal) onResult,
+  }) => _speech.listen(
+    listenOptions: SpeechListenOptions(localeId: 'nl_NL'),
+    onResult: (result) => onResult(result.recognizedWords, result.finalResult),
+  );
+
+  @override
+  Future<void> stop() => _speech.stop();
+}
+
+class _PluginVoiceSpeaker implements VoiceSpeaker {
+  _PluginVoiceSpeaker() {
+    _tts.setLanguage('nl-NL');
+    // Zonder dit komt speak() al terug zodra het uitspreken start, en zou de lus tijdens het
+    // praten van de assistent alweer gaan luisteren.
+    _tts.awaitSpeakCompletion(true);
+  }
+
+  final _tts = FlutterTts();
+
+  @override
+  Future<void> speak(String text) async => await _tts.speak(text);
+
+  @override
+  Future<void> stop() async => await _tts.stop();
+}
+
 /// Eén gesprek met de assistent: "Praat met de assistent" (spraak in, gesproken antwoord terug)
 /// met een wisselknop naar chat (getypt, met foto-ondersteuning). Zonder [conversationId] wordt bij
 /// het eerste bericht een nieuw, persistent gesprek aangemaakt (zie backend `AssistantService`);
@@ -33,10 +100,17 @@ class AssistantScreen extends StatefulWidget {
     this.conversationId,
     this.startInVoiceMode = false,
     this.autoStartListening = false,
+    this.speech,
+    this.speaker,
   });
 
   final ApiClient api;
   final String? conversationId;
+
+  /// Alleen voor tests: vervangt de echte spraakherkenning-/TTS-plugin. Niet meegegeven, dan
+  /// gedraagt het scherm zich exact als in productie.
+  final SpeechRecognizer? speech;
+  final VoiceSpeaker? speaker;
 
   /// Opent meteen in praatmodus i.p.v. chatmodus (gebruikt bij een start via Google Assistent).
   final bool startInVoiceMode;
@@ -52,8 +126,8 @@ class AssistantScreen extends StatefulWidget {
 
 class _AssistantScreenState extends State<AssistantScreen> {
   final _history = <ChatMessage>[];
-  final _speech = SpeechToText();
-  final _tts = FlutterTts();
+  late final SpeechRecognizer _speech = widget.speech ?? _PluginSpeechRecognizer();
+  late final VoiceSpeaker _speaker = widget.speaker ?? _PluginVoiceSpeaker();
   final _chatController = TextEditingController();
   final _scrollController = ScrollController();
   final _picker = ImagePicker();
@@ -69,12 +143,25 @@ class _AssistantScreenState extends State<AssistantScreen> {
   String? _conversationId;
   String _title = 'Nieuw gesprek';
 
+  /// Loopt de doorluister-lus (praatmodus)? Alleen dan wordt er na een antwoord of na een stille
+  /// ronde opnieuw geluisterd.
+  var _loopActive = false;
+
+  /// Generatieteller: elke stop (knop, mode-wissel, dispose, fout) hoogt hem op, zodat een
+  /// antwoord dat pas dáárna klaar is met uitspreken de lus niet alsnog herstart.
+  var _loopGeneration = 0;
+
+  /// Opeenvolgende luisterrondes zonder verstane spraak; bij [_maxSilentRounds] stopt de lus.
+  var _silentRounds = 0;
+  var _heardThisRound = false;
+
+  static const _maxSilentRounds = 2;
+
   @override
   void initState() {
     super.initState();
     _mode = widget.startInVoiceMode ? _Mode.voice : _Mode.chat;
     _conversationId = widget.conversationId;
-    _tts.setLanguage('nl-NL');
     _initSpeech();
     if (_conversationId != null) _loadHistory(_conversationId!);
   }
@@ -115,16 +202,15 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   Future<void> _initSpeech() async {
     final available = await _speech.initialize(
-      onStatus: (status) {
-        if (status == 'done' || status == 'notListening') {
-          if (mounted) setState(() => _listening = false);
-        }
-      },
-      onError: (error) {
+      onStatus: _onSpeechStatus,
+      onError: (errorMsg) {
+        // Een spraakfout beëindigt de lus: de bestaande foutmelding blijft staan i.p.v. dat het
+        // scherm er stilletjes doorheen blijft luisteren.
+        _stopLoop();
         if (mounted) {
           setState(() {
             _listening = false;
-            _error = 'Spraakherkenning: ${error.errorMsg}';
+            _error = 'Spraakherkenning: $errorMsg';
           });
         }
       },
@@ -133,31 +219,68 @@ class _AssistantScreenState extends State<AssistantScreen> {
     setState(() => _speechAvailable = available);
     // Pas hier, niet blind in initState: zonder geslaagde initialisatie (spraak niet beschikbaar of
     // microfoonpermissie geweigerd) heeft luisteren geen zin en toont het scherm de foutmelding.
-    if (widget.autoStartListening && available) await _startListening();
+    if (widget.autoStartListening && available) await _startVoiceLoop();
+  }
+
+  /// De spraakplugin meldt zelf wanneer een luistersessie afloopt. Kwam er in die ronde niets
+  /// verstaanbaars binnen (stilte/timeout), dan luistert de lus nog [_maxSilentRounds] keer
+  /// opnieuw en stopt daarna netjes — zonder foutmelding, terug op de mic-knop.
+  void _onSpeechStatus(String status) {
+    if (status != 'done' && status != 'notListening') return;
+    if (mounted) setState(() => _listening = false);
+    if (!_loopActive || _heardThisRound || _busy) return;
+    _silentRounds++;
+    if (_silentRounds >= _maxSilentRounds) {
+      _stopLoop();
+    } else {
+      _startListening();
+    }
   }
 
   @override
   void dispose() {
+    _stopLoop(notify: false);
     _speech.stop();
-    _tts.stop();
+    _speaker.stop();
     _chatController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
+  /// Start de doorluister-lus: luisteren → versturen → antwoord uitspreken → opnieuw luisteren,
+  /// tot de gebruiker stopt (of een van de andere stopcondities optreedt).
+  Future<void> _startVoiceLoop() async {
+    _loopActive = true;
+    _silentRounds = 0;
+    await _startListening();
+  }
+
+  /// Beëindigt de lus. Hoogt de generatieteller op, zodat een nog lopende beurt (versturen of
+  /// uitspreken) na afloop niet alsnog opnieuw gaat luisteren. [notify] uit vanuit [dispose],
+  /// waar `setState` niet meer mag.
+  void _stopLoop({bool notify = true}) {
+    _loopActive = false;
+    _silentRounds = 0;
+    _loopGeneration++;
+    if (notify && mounted) setState(() {});
+  }
+
   Future<void> _startListening() async {
-    if (!_speechAvailable || _listening) return;
+    if (!mounted || !_speechAvailable || _listening) return;
+    _heardThisRound = false;
     setState(() {
       _error = null;
       _partialTranscript = '';
       _listening = true;
     });
     await _speech.listen(
-      listenOptions: SpeechListenOptions(localeId: 'nl_NL'),
-      onResult: (result) async {
-        setState(() => _partialTranscript = result.recognizedWords);
-        if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
-          final heard = result.recognizedWords.trim();
+      onResult: (words, isFinal) async {
+        if (!mounted) return;
+        setState(() => _partialTranscript = words);
+        if (isFinal && words.trim().isNotEmpty) {
+          final heard = words.trim();
+          _heardThisRound = true;
+          _silentRounds = 0;
           setState(() {
             _listening = false;
             _partialTranscript = '';
@@ -168,7 +291,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
     );
   }
 
+  /// Handmatig stoppen (stop-knop): de lus eindigt, de microfoon gaat uit en een lopend
+  /// gesproken antwoord wordt afgebroken.
   Future<void> _stopListening() async {
+    _stopLoop();
+    await _speaker.stop();
     await _speech.stop();
     if (mounted) setState(() => _listening = false);
   }
@@ -242,6 +369,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   Future<void> _send(String text, {required bool speakReply}) async {
     if (text.isEmpty && _pending.isEmpty) return;
+    final generation = _loopGeneration;
     final attachments = List<AssistantAttachment>.from(_pending);
     setState(() {
       _history.add(
@@ -256,26 +384,48 @@ class _AssistantScreenState extends State<AssistantScreen> {
       _error = null;
     });
     _scrollToBottom();
+    var succeeded = false;
     try {
       final result = await widget.api.assistantChat(
         message: text,
         conversationId: _conversationId,
         photos: attachments,
+        voice: speakReply,
       );
-      setState(() {
-        _conversationId = result.conversationId;
-        _title = result.title;
-        _history.add(ChatMessage(fromUser: false, text: result.reply));
-      });
+      if (mounted) {
+        setState(() {
+          _conversationId = result.conversationId;
+          _title = result.title;
+          _history.add(ChatMessage(fromUser: false, text: result.reply));
+        });
+      }
       _scrollToBottom();
       if (speakReply && result.reply.isNotEmpty) {
-        await _tts.speak(result.reply);
+        // Microfoon expliciet uit vóór het spreken: nooit luisteren terwijl de assistent praat.
+        await _speech.stop();
+        await _speaker.speak(result.reply);
       }
+      succeeded = true;
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+    if (!speakReply) return;
+    // Een fout in de chat-API stopt de lus; de foutmelding blijft staan.
+    if (!succeeded) {
+      _stopLoop();
+      return;
+    }
+    _listenAgain(generation);
+  }
+
+  /// Volgende ronde van de doorluister-lus, mits er intussen niet gestopt is (stop-knop,
+  /// mode-wissel, dispose of een fout hogen [_loopGeneration] op).
+  void _listenAgain(int generation) {
+    if (!mounted || generation != _loopGeneration) return;
+    if (!_loopActive || _mode != _Mode.voice) return;
+    _startListening();
   }
 
   void _scrollToBottom() {
@@ -312,6 +462,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
               ],
               selected: {_mode},
               onSelectionChanged: (selection) {
+                // Ook zonder actieve luistersessie de lus stoppen: er kan nog een antwoord
+                // onderweg zijn dat anders na het uitspreken opnieuw zou gaan luisteren.
+                _stopLoop();
+                _speaker.stop();
                 if (_listening) _stopListening();
                 setState(() => _mode = selection.first);
               },
@@ -462,11 +616,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
           ),
         FloatingActionButton.large(
           heroTag: 'spraakbediening',
-          onPressed: !_speechAvailable || _busy
+          // Tijdens de lus blijft de knop bruikbaar — ook terwijl de assistent nog antwoordt of
+          // praat — zodat één tik het gesprek altijd beëindigt.
+          onPressed: !_speechAvailable || (_busy && !_loopActive)
               ? null
-              : (_listening ? _stopListening : _startListening),
-          backgroundColor: _listening ? Colors.red : null,
-          child: Icon(_listening ? Icons.stop : Icons.mic),
+              : (_loopActive || _listening ? _stopListening : _startVoiceLoop),
+          backgroundColor: _loopActive || _listening ? Colors.red : null,
+          child: Icon(_loopActive || _listening ? Icons.stop : Icons.mic),
         ),
         const SizedBox(height: 8),
         Text(

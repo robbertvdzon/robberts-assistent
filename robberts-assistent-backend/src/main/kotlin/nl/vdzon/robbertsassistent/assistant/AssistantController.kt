@@ -36,6 +36,10 @@ class AssistantController(
         @RequestParam("message", required = false, defaultValue = "") message: String,
         @RequestParam("conversationId", required = false) conversationId: String?,
         @RequestParam("photos", required = false) photos: List<MultipartFile>?,
+        // Praatmodus in de app: het antwoord wordt voorgelezen, dus vraagt de service om een kort
+        // spreektaal-antwoord. Ontbrekend veld = false, zodat bestaande clients (o.a. de wind-app)
+        // exact hetzelfde gedrag houden.
+        @RequestParam("voice", required = false, defaultValue = "false") voice: Boolean,
     ): AssistantChatResponse {
         authService.requireAuthorization(authorization)
         val uploads = (photos ?: emptyList())
@@ -44,7 +48,7 @@ class AssistantController(
         if (message.isBlank() && uploads.isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Stuur een bericht en/of minstens één foto")
         }
-        val result = assistantService.chat(conversationId, message, uploads)
+        val result = assistantService.chat(conversationId, message, uploads, voice)
         return AssistantChatResponse(
             conversationId = result.conversationId,
             title = result.title,

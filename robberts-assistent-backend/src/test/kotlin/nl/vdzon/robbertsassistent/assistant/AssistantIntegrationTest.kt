@@ -173,6 +173,28 @@ class AssistantIntegrationTest {
         assertEquals("houdt van windsurfen", overwriteResponse.body!!.text)
     }
 
+    @Test
+    fun `POST assistant chat werkt met en zonder het optionele voice-veld`() {
+        // Zonder het veld (o.a. de wind-app): onveranderd gedrag, geen 400.
+        val zonderVlag = LinkedMultiValueMap<String, Any>()
+        zonderVlag.add("message", "wat is de wind")
+        assertEquals(HttpStatus.OK, post(zonderVlag).statusCode)
+
+        // Mét de vlag: hetzelfde endpoint, ook gewoon een antwoord.
+        val metVlag = LinkedMultiValueMap<String, Any>()
+        metVlag.add("message", "wat is de wind")
+        metVlag.add("voice", "true")
+        val response = post(metVlag)
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertTrue(response.body!!.reply.isNotBlank())
+    }
+
+    private fun post(body: LinkedMultiValueMap<String, Any>) = restTemplate.postForEntity(
+        "/api/v1/assistant/chat",
+        HttpEntity(body, HttpHeaders().apply { contentType = MediaType.MULTIPART_FORM_DATA }),
+        AssistantChatResponse::class.java,
+    )
+
     private fun startConversation(message: String): AssistantChatResponse {
         val body = LinkedMultiValueMap<String, Any>()
         body.add("message", message)
