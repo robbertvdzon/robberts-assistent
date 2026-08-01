@@ -90,6 +90,27 @@ Done / rationale:
   2.1.21, tegen minimale Android-stubs) en zijn alle vier de `classify`-gevallen daadwerkelijk
   uitgevoerd en groen; de APK-build draait in CI.
 
+### Review SF-1705 (reviewer)
+Akkoord. Zelf gedraaid ter verificatie (naast het developer-bewijs):
+- `mvn -o test -Dtest='AppLaunch*Test,ModulithArchitectureTest,WatchesControllerTest'` →
+  14 tests, 0 failures/errors (incl. `ModulithArchitectureTest` met de nieuwe `applaunch`-module
+  en één bestaande `@SpringBootTest` om te bevestigen dat de nieuwe beans wiren — de
+  `now: () -> Instant`-defaultparameter op `AppLaunchService` blijkt gewoon te resolven).
+- `flutter analyze` → No issues found; `flutter test` → 65/65 groen.
+- `./gradlew test` (`LaunchSourceTest`) is hier niet uitvoerbaar: er is geen Gradle-wrapper in
+  `robberts_assistent/android`. Conform de story-aanname acceptabel.
+
+Aandachtspunten voor de handmatige telefoontest (geen blockers):
+- **Warme start.** `MainActivity` is `singleTop`, dus een tweede "Hé Google"-start terwijl de app
+  al draait komt in `onNewIntent`. `Activity.getReferrer()` valt daar terug op de referrer van de
+  oorspronkelijke start als de nieuwe intent geen `EXTRA_REFERRER` bevat — de start kan dan als
+  `LAUNCHER`/`OTHER` binnenkomen. Test dus expliciet zowel koud (app weggeswipet) als warm.
+- **Logregel hangt aan een geslaagde opslag.** `AppLaunchService.record` logt pas ná
+  `repository.save(...)`; faalt Firestore, dan is er géén `APP_LAUNCH`-regel. Zie je bij het
+  grepppen niets, kijk dan ook naar Firestore-fouten in dezelfde logs.
+- De JUnit-test op `classify` draait nergens automatisch (`flutter test` dekt alleen Dart, er is
+  geen Gradle-teststap in CI) — bewust buiten scope van deze story.
+
 ### Laatste stap
 Handmatig testen op Robberts telefoon is de laatste stap: alleen daar is te zien wát Google
 Assistent/Gemini als referrer/extras meestuurt. Werkwijze: app een keer normaal starten en een
