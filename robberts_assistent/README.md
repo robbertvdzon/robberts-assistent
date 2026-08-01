@@ -42,6 +42,13 @@ bolletje én het woord **goed**, **let op** of **niet**.
   bevestiging), een AppBar-toggle toont ook gearchiveerde gesprekken. Chat met de backend's AI
   (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda, Google Docs en
   windmetingen/-voorspellingen bij IJmuiden (`robberts-assistent-backend/.../assistant/ai/`).
+  Het invoerveld is sinds SF-1732 multiline (`minLines: 1`, `maxLines: 5`,
+  `TextInputType.multiline`, `TextInputAction.newline`): het start op één regel, groeit mee tot vijf
+  regels en scrollt daarna intern. Enter voegt een nieuwe regel toe — `onSubmitted` is van dit veld
+  verwijderd en er is geen sneltoets-alternatief, versturen gaat uitsluitend via de send-knop. De
+  omliggende `Row` staat op `CrossAxisAlignment.end`, zodat de foto- en send-knop onderaan
+  uitgelijnd blijven als het veld groeit; newlines blijven behouden (`_sendTyped()` doet alleen
+  `trim()`).
   Wordt de app gestart via Google Assistent/Gemini ("Hé Google, start Robberts assistent app"),
   dan selecteert de app deze tab en opent 'ie meteen een nieuw gesprek in **praatmodus** dat al
   probeert te luisteren (`AssistantScreen(startInVoiceMode: true, autoStartListening: true)`).

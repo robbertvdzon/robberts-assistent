@@ -187,7 +187,10 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
   opent een verse Zoekopdrachten-route; de briefing-deeplink kiest Vandaag en Assistent blijft de
   standaardtab. Daarnaast: chat-assistent met
   persistente, benoemde gesprekken (gesprekkenlijst → chatscherm, foto's via camera/galerij, net
-  als `groentetuin`). In `conversations_screen.dart`: de eerste 10 (niet-gearchiveerde) gesprekken
+  als `groentetuin`). Het chat-invoerveld is sinds SF-1732 multiline: het start op één regel, groeit
+  mee tot vijf regels en scrollt daarna intern; Enter voegt een nieuwe regel toe (versturen gaat
+  uitsluitend via de send-knop rechts) en foto- en send-knop blijven onderaan uitgelijnd terwijl het
+  veld groeit. In `conversations_screen.dart`: de eerste 10 (niet-gearchiveerde) gesprekken
   direct zichtbaar, oudere onder een uitklapbare "Ouder"-sectie; swipe-links (`flutter_slidable`)
   toont Archiveren/Verwijderen (verwijderen met bevestigingsdialoog); een AppBar-toggle laat
   gearchiveerde gesprekken alsnog zien. Plus Koppelingen-, Nachtchecks- en **Geheugen**-schermen
@@ -738,6 +741,25 @@ uitgesproken, maar de lus herstart niet; (4) `voice=onzin` geeft HTTP 400 (Sprin
 geen regressie. Echte microfoon/TTS is niet in CI na te bootsen (alleen de callback-/lus-logica is
 getest), dus handmatige eindverificatie op Robberts telefoon (twee vragen achter elkaar zonder
 opnieuw te tikken + kort voorgelezen antwoord) is de laatste stap.
+
+Nieuw (SF-1732): **multiline chat-invoerveld**. Alleen frontend, alleen `_chatControls()` in
+`robberts_assistent/lib/assistant_screen.dart`: de chat-`TextField` (`hintText: 'Typ een vraag…'`)
+kreeg `minLines: 1`, `maxLines: 5`, `keyboardType: TextInputType.multiline` en
+`textInputAction: TextInputAction.newline`, zodat het veld op één regel start, meegroeit tot vijf
+regels en daarna intern scrollt (standaardgedrag van `TextField`, dus geen extra `ConstrainedBox`).
+`onSubmitted: (_) => _sendTyped()` is van dit veld verwijderd — Enter voegt nu een nieuwe regel toe
+in plaats van te versturen; de send-knop rechts is bewust de enige verstuurweg (géén Ctrl/Shift+Enter-
+sneltoets toegevoegd). De omliggende `Row` kreeg `crossAxisAlignment: CrossAxisAlignment.end` zodat
+de foto-knop links en de send-knop rechts onderaan uitgelijnd blijven terwijl het veld groeit.
+Ongewijzigd: `_sendTyped()`/`_send(...)` (dat alleen `trim()` doet, dus interne newlines blijven
+vanzelf behouden), de `_busy`-afhandeling, de `_pending`-bijlagenflow, de volledige spraakmodus
+(`_Mode.voice`, spraaklus, TTS, `voice: true`) en het backend-/API-contract — het multipart-veld
+`message` ondersteunde meerregelige tekst al. Nieuwe widget-test in
+`robberts_assistent/test/assistant_screen_test.dart` leest `minLines`/`maxLines`/`keyboardType`/
+`textInputAction` en de nu `null` zijnde `onSubmitted` af via `tester.widget<TextField>(...)` (geen
+pixel-/hoogtemeting, want de gerenderde hoogte hangt van het thema af) en toont via het bestaande
+`_FakeApiClient`-patroon aan dat tekst met newlines na een tik op de send-knop ongewijzigd — alleen
+ge-`trim()`d — als `message` bij `assistantChat(...)` aankomt. Geen bevindingen uit review/testronde.
 
 ---
 

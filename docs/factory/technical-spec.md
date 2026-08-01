@@ -137,6 +137,17 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   geaccepteerd. Restbeperking: bij een warme start *zonder* `EXTRA_REFERRER` valt `getReferrer()`
   terug op de `mReferrer` van de koude start; dat is niet in code op te lossen en blijft een
   observatiepunt voor de handmatige telefoontest.
+- **Multiline chat-invoerveld (Flutter):** de chat-`TextField` in `_chatControls()` van
+  `robberts_assistent/lib/assistant_screen.dart` gebruikt `minLines: 1` + `maxLines: 5` (bewust
+  geen `maxLines: null` + `ConstrainedBox`; zelfde gedrag inclusief intern scrollen, minder code)
+  met `TextInputType.multiline` en `TextInputAction.newline`. `onSubmitted` is van dit veld
+  verwijderd — met `TextInputAction.newline` zou het toch niet meer voor Enter afgaan — en er is
+  bewust geen sneltoets-alternatief (Ctrl/Shift+Enter); de send-knop is de enige verstuurweg. De
+  omliggende `Row` staat op `CrossAxisAlignment.end`. `_sendTyped()` doet alleen `trim()`, dus
+  interne newlines blijven behouden; het backend-contract (multipart-veld `message`) is ongewijzigd.
+  De widget-test leest `minLines`/`maxLines`/`keyboardType`/`textInputAction`/`onSubmitted` af via
+  `tester.widget<TextField>(...)` in plaats van via een pixel-/hoogtemeting, omdat de gerenderde
+  hoogte van het thema afhangt.
 - **Doorluister-lus praatmodus (Flutter):** `robberts_assistent/lib/assistant_screen.dart` draait in
   `_Mode.voice` de lus luisteren → versturen → uitspreken → opnieuw luisteren. Het uitspreken is
   afwachtbaar (`awaitSpeakCompletion(true)`), de spraakherkenning wordt expliciet gestopt vóór het
