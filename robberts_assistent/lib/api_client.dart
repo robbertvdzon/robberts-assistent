@@ -134,11 +134,14 @@ class ApiClient {
   // -- Assistent-gesprekken -----------------------------------------------------
   /// Stuurt een tekstbericht + optionele foto's naar de assistent (multipart POST
   /// `/api/v1/assistant/chat`) en geeft het antwoord + bijgewerkte gesprek terug. Zonder
-  /// `conversationId` maakt de backend een nieuw gesprek aan.
+  /// `conversationId` maakt de backend een nieuw gesprek aan. Met [voice] `true` (praatmodus: het
+  /// antwoord wordt voorgelezen) gaat het extra veld `voice` mee, waarop de backend een kort
+  /// spreektaal-antwoord geeft; de getypte route stuurt de vlag niet mee.
   Future<AssistantChatReply> assistantChat({
     required String message,
     String? conversationId,
     List<AssistantAttachment> photos = const [],
+    bool voice = false,
   }) async {
     final request = http.MultipartRequest(
       'POST',
@@ -149,6 +152,7 @@ class ApiClient {
     if (conversationId != null) {
       request.fields['conversationId'] = conversationId;
     }
+    if (voice) request.fields['voice'] = 'true';
     for (final photo in photos) {
       request.files.add(
         http.MultipartFile.fromBytes(

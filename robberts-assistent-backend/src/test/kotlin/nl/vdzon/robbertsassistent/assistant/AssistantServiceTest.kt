@@ -1,9 +1,11 @@
 package nl.vdzon.robbertsassistent.assistant
 
 import nl.vdzon.robbertsassistent.assistant.ai.MockChatModel
+import nl.vdzon.robbertsassistent.assistant.ai.VOICE_SYSTEM_PROMPT
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.messages.AssistantMessage
+import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.chat.model.Generation
@@ -26,8 +28,12 @@ class AssistantServiceTest {
         mockAi: Boolean = true,
         memory: MemoryRepository = InMemoryMemoryRepository(),
         memoryChatModel: ChatModel = MockChatModel(),
+        chatModel: ChatModel = MockChatModel(),
+        defaultSystemPrompt: String? = null,
     ): AssistantService {
-        val client = ChatClient.builder(MockChatModel()).build()
+        val client = ChatClient.builder(chatModel)
+            .apply { if (defaultSystemPrompt != null) defaultSystem(defaultSystemPrompt) }
+            .build()
         val memoryClient = ChatClient.builder(memoryChatModel).build()
         val secrets = AppSecrets(
             rememberSecret = "test-remember-secret",
@@ -253,6 +259,44 @@ class AssistantServiceTest {
     }
 
     @Test
+    fun `chat met de voice-vlag stuurt de spreektaal-instructie mee, bovenop de bestaande system-prompt`() {
+        val model = FixedChatModel("kort antwoord")
+        val service = newService(chatModel = model, defaultSystemPrompt = DEFAULT_SYSTEM)
+
+        service.chat(null, "hoe hard waait het", emptyList(), voice = true)
+
+        val systemTexts = model.lastPrompt!!.instructions.filterIsInstance<SystemMessage>().map { it.text }
+        assertTrue(
+            systemTexts.any { it.contains(VOICE_SYSTEM_PROMPT) },
+            "verwacht de spreektaal-instructie in de prompt: $systemTexts",
+        )
+        assertTrue(
+            systemTexts.any { it.contains(DEFAULT_SYSTEM) },
+            "de bestaande system-prompt moet van kracht blijven: $systemTexts",
+        )
+    }
+
+    @Test
+    fun `chat zonder de voice-vlag stuurt geen spreektaal-instructie mee en laat de prompt verder ongewijzigd`() {
+        val withoutFlag = FixedChatModel("uitgebreid antwoord")
+        val withFlag = FixedChatModel("kort antwoord")
+        newService(chatModel = withoutFlag, defaultSystemPrompt = DEFAULT_SYSTEM)
+            .chat(null, "hoe hard waait het", emptyList())
+        newService(chatModel = withFlag, defaultSystemPrompt = DEFAULT_SYSTEM)
+            .chat(null, "hoe hard waait het", emptyList(), voice = true)
+
+        val plain = withoutFlag.lastPrompt!!.instructions
+        assertTrue(
+            plain.none { it.text.contains(VOICE_SYSTEM_PROMPT) },
+            "zonder vlag mag de spreektaal-instructie nergens in de prompt staan: ${plain.map { it.text }}",
+        )
+        // Verder onveranderd: dezelfde boodschappen als mét vlag, minus die ene extra system-boodschap.
+        val voiced = withFlag.lastPrompt!!.instructions
+        assertEquals(plain.size + 1, voiced.size)
+        assertEquals(plain.map { it.text }, voiced.filter { !it.text.contains(VOICE_SYSTEM_PROMPT) }.map { it.text })
+    }
+
+    @Test
     fun `chat laat het geheugen ongewijzigd als de geheugen-AI-aanroep faalt`() {
         val memory = InMemoryMemoryRepository()
         memory.update("blijft staan")
@@ -265,5 +309,9 @@ class AssistantServiceTest {
         service.chat(null, "iets", emptyList())
 
         assertEquals("blijft staan", memory.current())
+    }
+
+    private companion object {
+        const val DEFAULT_SYSTEM = "Je bent Robberts persoonlijke assistent (test-systemprompt)."
     }
 }

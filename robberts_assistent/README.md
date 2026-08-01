@@ -47,7 +47,17 @@ bolletje én het woord **goed**, **let op** of **niet**.
   probeert te luisteren (`AssistantScreen(startInVoiceMode: true, autoStartListening: true)`).
   Luisteren start pas ná een geslaagde spraak-initialisatie; is spraak niet beschikbaar of de
   microfoonpermissie geweigerd, dan verschijnt gewoon de bestaande foutmelding en de mic-knop.
-  Bij elke andere startbron verandert er niets.
+  Bij elke andere startbron verandert er niets. In praatmodus loopt het gesprek sinds SF-1711 door:
+  na het uitspreken van een antwoord luistert het scherm automatisch weer (luisteren → versturen →
+  uitspreken → opnieuw luisteren), met de bestaande listening-indicator en stop-/mic-FAB. De lus
+  stopt bij de stop-knop, wisselen naar chatmodus, het verlaten van het scherm, een spraak- of
+  chat-fout, en na twee luisterrondes achter elkaar zonder verstane spraak (dan terug naar de
+  mic-knop zonder foutmelding). De spraakroute stuurt `voice: true` mee
+  (`ApiClient.assistantChat(..., voice: true)` → multipart-veld `voice`), waarop de backend een kort
+  spreektaal-antwoord geeft (max. twee korte zinnen, geen opmaak/lijstjes/URL's/emoji); de getypte
+  route stuurt de vlag niet en blijft even uitgebreid als voorheen. Spraakherkenning en TTS zijn via
+  de optionele `AssistantScreen`-parameters `speech`/`speaker` injecteerbaar — alleen voor
+  widget-tests, productiegedrag is ongewijzigd als ze niet meegegeven worden.
 - **Taken** — hoofdnavigatielabel voor het bestaande scherm **Herinneringen**, met overzicht en
   beheer van reminders en alarmen.
 - **Zoekopdrachten** — maakt, bewerkt en verwijdert langdurige websitezoekopdrachten en

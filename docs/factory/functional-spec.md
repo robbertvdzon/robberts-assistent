@@ -141,7 +141,15 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   te archiveren (reversibel) en te verwijderen (met bevestiging); de lijst toont eerst de 10
   meest recente, oudere onder een uitklapbare "Ouder"-sectie. Een gebruiker-breed geheugen
   (feiten/voorkeuren) wordt automatisch bijgewerkt na elke chat-beurt en gebruikt als context in
-  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". "Zoekopdrachten"
+  latere gesprekken; te bekijken/bewerken via "Meer" → "Geheugen". In **praatmodus** is het gesprek
+  sinds SF-1711 doorlopend: na een voorgelezen antwoord luistert de app automatisch weer, zonder dat
+  Robbert de microfoon opnieuw hoeft aan te tikken. Dat stopt zodra hij zelf op de stop-/mic-knop
+  tikt, naar chatmodus wisselt of het scherm verlaat, bij een spraak- of chat-fout (de bestaande
+  foutmelding blijft staan), en na twee luisterrondes achter elkaar waarin niets verstaanbaars
+  binnenkwam (dan gewoon terug naar de mic-knop, zonder foutmelding). Een antwoord dat wordt
+  voorgelezen is kort en in gewone spreektaal (maximaal twee korte zinnen, geen lijstjes/opmaak/
+  URL's/emoji, getallen uitspreekbaar geschreven); getypt chatten blijft even uitgebreid als
+  voorheen. "Zoekopdrachten"
   beheert langdurige websitezoekopdrachten en toont hun leesbare actuele status.
   De aanmaak- en bewerkdialoog valideert titel, absolute HTTP(S)-URL en instructie vóór verzenden; de backend
   herhaalt die validatie. De lijst wordt herladen bij openen, via de reload-knop en na een

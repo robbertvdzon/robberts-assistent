@@ -60,6 +60,12 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   `ChatModel` hergebruikt (bv. `briefing.BriefingAiConfig.weekTasksChatClient` en
   `watches.WatchAiConfig.watchChatClient`), zodat mock/echt automatisch
   meeloopt met `AppSecrets.effectiveMockAi` zonder eigen schakelaar.
+  Een per-request instructie komt erbij als extra `SystemMessage` in de berichtenlijst, niet als
+  request-level `.system(...)` — dat laatste vervángt de `defaultSystem(...)` van de client. Zo
+  werkt sinds SF-1711 de optionele multipart-param `voice` op `POST /api/v1/assistant/chat`
+  (`defaultValue = "false"` ⇒ bestaande clients ongewijzigd): bij `true` gaat `VOICE_SYSTEM_PROMPT`
+  (`assistant/ai/AiConfig.kt`) naast de bestaande `SYSTEM_PROMPT` mee voor een kort
+  spreektaal-antwoord.
 - **Data:** notities, reminders, langdurige zoekopdrachten (`watches`) + chat-conversaties
   (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) + gelogde app-starts
   (`app-launches`, 30 dagen bewaard) in Firestore (named
@@ -131,6 +137,19 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   geaccepteerd. Restbeperking: bij een warme start *zonder* `EXTRA_REFERRER` valt `getReferrer()`
   terug op de `mReferrer` van de koude start; dat is niet in code op te lossen en blijft een
   observatiepunt voor de handmatige telefoontest.
+- **Doorluister-lus praatmodus (Flutter):** `robberts_assistent/lib/assistant_screen.dart` draait in
+  `_Mode.voice` de lus luisteren → versturen → uitspreken → opnieuw luisteren. Het uitspreken is
+  afwachtbaar (`awaitSpeakCompletion(true)`), de spraakherkenning wordt expliciet gestopt vóór het
+  spreken en er wordt niet geluisterd tijdens versturen/wachten. Stoppen gebeurt bij de stop-/
+  mic-knop, mode-wissel, `dispose`, spraakfout, chat-API-fout en na `_maxSilentRounds` (= 2)
+  opeenvolgende rondes zonder verstane spraak; elke stop hoogt `_loopGeneration` op zodat een
+  antwoord dat pas dáárna klaar is met uitspreken de lus niet alsnog herstart, naast de bestaande
+  `_listening`-guard tegen dubbele sessies. Om dat in widget-tests te kunnen aansturen zijn er twee
+  smalle seams — `SpeechRecognizer`/`VoiceSpeaker`, met de plugin-implementaties als
+  productiedefault en injecteerbaar via de optionele `AssistantScreen`-parameters `speech`/`speaker`
+  (stijl `_FakeApiClient`); geen nieuwe dependency. Alleen de spraakroute zet `voice: true` op
+  `ApiClient.assistantChat(...)`. Echte microfoon/TTS wordt bewust niet nagebootst: getest is
+  uitsluitend de callback-/lus-logica, eindverificatie gebeurt handmatig op toestel.
 - **Gelijktijdigheid watches:** een pollresultaat wordt met
   `WatchRepository.compareAndSet(expected, updated)` alleen opgeslagen wanneer
   de actuele opdracht nog exact gelijk is aan het gelezen snapshot. In-memory
