@@ -42,6 +42,12 @@ bolletje én het woord **goed**, **let op** of **niet**.
   bevestiging), een AppBar-toggle toont ook gearchiveerde gesprekken. Chat met de backend's AI
   (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda, Google Docs en
   windmetingen/-voorspellingen bij IJmuiden (`robberts-assistent-backend/.../assistant/ai/`).
+  Wordt de app gestart via Google Assistent/Gemini ("Hé Google, start Robberts assistent app"),
+  dan selecteert de app deze tab en opent 'ie meteen een nieuw gesprek in **praatmodus** dat al
+  probeert te luisteren (`AssistantScreen(startInVoiceMode: true, autoStartListening: true)`).
+  Luisteren start pas ná een geslaagde spraak-initialisatie; is spraak niet beschikbaar of de
+  microfoonpermissie geweigerd, dan verschijnt gewoon de bestaande foutmelding en de mic-knop.
+  Bij elke andere startbron verandert er niets.
 - **Taken** — hoofdnavigatielabel voor het bestaande scherm **Herinneringen**, met overzicht en
   beheer van reminders en alarmen.
 - **Zoekopdrachten** — maakt, bewerkt en verwijdert langdurige websitezoekopdrachten en
@@ -109,6 +115,32 @@ Een watch-response bevat `id`, de vier invoervelden, `status`,
 Na wijzigen zijn status en omschrijving weer `NOG_NIET_GECONTROLEERD`/`Nog niet gecontroleerd.`,
 is `lastCheckedAt` leeg en is de opdracht actief. Validatiefouten op `POST` en `PUT` geven HTTP 400
 met een Nederlandstalig `message`; wijzigen van een onbekende id geeft HTTP 404.
+
+## App-start-logging (`/api/v1/app-launches`)
+
+Bij elke app-start meldt de app waar die start vandaan kwam, zodat later te zien is wat Google
+Assistent/Gemini precies meestuurt (`lib/launch_source.dart`, `ApiClient.logAppLaunch`).
+
+- **Android** — `MainActivity` bepaalt de launch in `onCreate` én in `onNewIntent` en levert 'm via
+  MethodChannel `nl.vdzon.robberts_assistent/launch`: pull (`launchInfo`, dekt de koude start) en
+  push (`invokeMethod` bij een warme start). De bron wordt in
+  `android/.../LaunchSource.kt` bepaald uit het referrer-package: `ASSISTANT` (bekende Google
+  Assistent-/Gemini-packages, lijst bovenaan het bestand en bedoeld om bij te stellen zodra de
+  echte logs bekend zijn), `LAUNCHER`, `OTHER`, of `UNKNOWN` als er geen referrer is.
+- **Web** — geen MethodChannel; er gaat één launch uit met `platform = "web"` en `source = UNKNOWN`.
+
+| Methode | Pad | Gedrag |
+|---|---|---|
+| `POST` | `/api/v1/app-launches` | Slaat één start op met `source`, `platform`, `referrer`, `action`, `categories`, `extras` en `appVersion`. Server bepaalt `id` en `at`; een onbekende/ontbrekende `source` wordt `UNKNOWN` (geen 400), een leeg `platform` wordt `onbekend`. |
+| `GET` | `/api/v1/app-launches?limit=50` | Geeft `{"launches":[...]}` terug, nieuwste eerst; `limit` is standaard 50 en wordt begrensd op 200. |
+
+Beide calls sturen het bestaande Bearer-sessietoken mee. De app post fire-and-forget: zonder token
+wordt de melding stil overgeslagen en een mislukte post wordt genegeerd — nooit crashen, nooit de UI
+blokkeren. Uitlezen gebeurt bewust via de backend-log, er is geen scherm voor:
+
+```bash
+oc logs deploy/robberts-assistent-backend -n robberts-assistent | grep APP_LAUNCH
+```
 
 ## Build & test
 

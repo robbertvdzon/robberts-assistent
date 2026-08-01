@@ -111,6 +111,17 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   Verwijderen haalt een opdracht blijvend uit overzicht en planning, ook wanneer er gelijktijdig
   nog een controle loopt. Pagina's achter login/cookies/captcha en uitsluitend via JavaScript
   geladen inhoud vallen buiten dit gedrag.
+- **App-start-logging** (sinds SF-1704, diagnostisch) — elke app-start legt één regeltje vast in de
+  backend: waar de start vandaan kwam (`ASSISTANT`, `LAUNCHER`, `OTHER` of `UNKNOWN`) en wat er
+  precies aan gegevens meekwam (referrer, action, categories, extras, platform, app-versie). Dat is
+  nodig omdat nog niet zeker is wát Google Assistent/Gemini meestuurt; met die gegevens kan de
+  herkenning later scherper gezet worden. De backend bepaalt zelf tijdstip en id (de klok van het
+  toestel wordt niet vertrouwd), bewaart de laatste starts 30 dagen en schrijft per opgeslagen start
+  precies één logregel `APP_LAUNCH source=… platform=… referrer=… action=… categories=… extras=…`.
+  Uitlezen gaat bewust via de backend-log (`oc logs … | grep APP_LAUNCH`) — er is met opzet geen
+  app-scherm voor. Een onbekende of ontbrekende bron is geen fout maar `UNKNOWN`; juist dán wil je
+  de regel hebben. Zonder sessie-token slaat de app het melden stil over, en een mislukte melding
+  mag de app nooit ophouden of laten crashen.
 
 ## Push / meldingen
 
@@ -139,6 +150,12 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   `SnackBar` zonder de lijst kwijt te raken; een ouder, later voltooid laadverzoek mag nieuwere gegevens niet overschrijven.
   Briefing-pushes sluiten een eventueel geopende Meer-route en openen Vandaag; watch-pushes openen
   een verse Zoekopdrachten-route. Statussen worden met kleur én een woordelijke pil getoond.
+  Start Robbert de app met "Hé Google, start Robberts assistent app", dan opent de app sinds
+  SF-1704 meteen een **nieuw gesprek in praatmodus** dat al probeert te luisteren, zodat hij direct
+  zijn vraag kan stellen; is spraak niet beschikbaar of is de microfoonpermissie geweigerd, dan
+  toont het scherm gewoon de bestaande foutmelding en de mic-knop. Start hij de app op de gewone
+  manier, dan verandert er niets aan het gedrag. Elke start (ook op web, dan met `platform = "web"`
+  en bron `UNKNOWN`) wordt op de achtergrond bij de backend gemeld, zie "App-start-logging".
   Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.

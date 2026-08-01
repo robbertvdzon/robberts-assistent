@@ -61,7 +61,8 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   `watches.WatchAiConfig.watchChatClient`), zodat mock/echt automatisch
   meeloopt met `AppSecrets.effectiveMockAi` zonder eigen schakelaar.
 - **Data:** notities, reminders, langdurige zoekopdrachten (`watches`) + chat-conversaties
-  (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) in Firestore (named
+  (incl. `archived`-veld) + gebruiker-breed geheugen (`assistant-memory`) + gelogde app-starts
+  (`app-launches`, 30 dagen bewaard) in Firestore (named
   database `robberts-assistent`, project `tuinbewatering`); moestuin-foto's in Firebase Storage
   (`tuinbewatering.firebasestorage.app`, map `moestuin/`).
 - **Watches:** `GET`/`POST /api/v1/watches`, `PUT`/`DELETE /api/v1/watches/{id}` en
@@ -96,6 +97,40 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   `@ToolParam(required = false)`-parameters met neutrale defaults en worden
   overgenomen van de bestaande watch, omdat `WatchService.update` alle velden
   verwacht. Verwijderen is bewust niet als tool ontsloten.
+- **App-start-logging (`applaunch`):** `POST /api/v1/app-launches` en
+  `GET /api/v1/app-launches?limit=50` zijn geauthenticeerd (`authService.requireAuthorization`,
+  net als `WatchesController`). `AppLaunchStoreConfig` kiest de Firestore-collectie `app-launches`
+  of `InMemoryAppLaunchRepository` — hetzelfde selector-patroon als `WatchStoreConfig`, met
+  `runCatching` rond de Firestore-init. `AppLaunchService` bepaalt `id` (UUID) en `at`
+  (`Instant.now()`, injecteerbaar als `now`-lambda voor tests) server-side, begrenst `limit` met
+  `coerceIn(1, MAX_LIMIT = 200)` en ruimt bij elke opslag alles ouder dan `RETENTION` (30 dagen) op
+  als best effort (`runCatching` + `logger.warn`; een falende opschoning mag het opslaan niet laten
+  mislukken). Een onbekende/ontbrekende `source` wordt via `runCatching { valueOf(...) }` stil
+  `UNKNOWN` in plaats van een 400, en een leeg `platform` wordt `onbekend`. De uitleesweg is bewust
+  de slf4j-log: precies één INFO-regel per opgeslagen launch, op één regel, waarbij `null` letterlijk
+  als `null` wordt gelogd, lege lijsten/maps als lege waarde en newlines door spaties worden
+  vervangen zodat `grep APP_LAUNCH` altijd blijft werken. De module gebruikt alleen `auth` en
+  `firebase`, zodat `ModulithArchitectureTest` groen blijft.
+- **Launch-bron (Android/Flutter):** de classificatie zit in
+  `robberts_assistent/android/.../LaunchSource.kt` als **pure** functie
+  `classify(referrer: String?)` zonder Android-classes, juist zodat die met een gewone JUnit-test
+  (`android/app/src/test/…/LaunchSourceTest.kt`, `testImplementation("junit:junit:4.13.2")`) te
+  dekken is; de assistent- en launcher-packages staan als constante bovenaan en zijn bedoeld om
+  bijgesteld te worden zodra de echte logs bekend zijn. Het verzamelen van intent-gegevens is
+  defensief (`runCatching` per extra-key, `toString()`, newlines weg, waarde ≤ 200 tekens, ≤ 50
+  keys). `MainActivity` (`singleTop`) bepaalt de `LaunchInfo` in `onCreate` (vóór `super.onCreate`)
+  én in `onNewIntent`, en moet daar `setIntent(intent)` aanroepen vóór het uitlezen — `getReferrer()`
+  leest eerst `EXTRA_REFERRER` uit `getIntent()`, en Flutters `FlutterActivity.onNewIntent` zet dat
+  intent zelf niet (zelfde patroon als `alarm/AlarmActivity.kt`). Ontsluiting via MethodChannel
+  `nl.vdzon.robberts_assistent/launch` met pull (`launchInfo`, dekt de koude start) én push
+  (`invokeMethod` bij `onNewIntent`). Flutter-kant: `lib/launch_source.dart` biedt de laatste launch
+  aan via een `ValueNotifier` in de stijl van `FcmService.deepLinkTarget` (na afhandeling weer
+  `null`), leest het channel alleen als `!kIsWeb` en meldt op web één launch met `platform = "web"`
+  / `source = UNKNOWN`. `LaunchSourceTest` draait niet in CI (er is geen Gradle-wrapper in
+  `robberts_assistent/android` en de APK-workflow draait alleen `flutter test`) — bewust
+  geaccepteerd. Restbeperking: bij een warme start *zonder* `EXTRA_REFERRER` valt `getReferrer()`
+  terug op de `mReferrer` van de koude start; dat is niet in code op te lossen en blijft een
+  observatiepunt voor de handmatige telefoontest.
 - **Gelijktijdigheid watches:** een pollresultaat wordt met
   `WatchRepository.compareAndSet(expected, updated)` alleen opgeslagen wanneer
   de actuele opdracht nog exact gelijk is aan het gelezen snapshot. In-memory
