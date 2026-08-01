@@ -99,3 +99,50 @@ Volledige story-diff (`git diff main...HEAD`) beoordeeld tegen de acceptatiecrit
   en `flutter test` 61 tests groen.
 - [suggestie] `test/watches_screen_test.dart:183` heeft na het verwijderen van het
   `frequency`-veld een scheve inspringing; puur cosmetisch (geen format-check in CI).
+
+## Test (SF-1699, tester)
+
+Getest op commit `3b3ac51` (branch `ai/SF-1697`, PR #43 — head-sha bevestigd via de publieke
+GitHub-API) en op preview `robberts-assistent-pr-43`.
+
+Vangnet:
+
+- `mvn -o test` (vanuit `robberts-assistent-backend/`): exitcode 0, **373 tests, 0 failures,
+  0 errors, 0 skipped** (surefire-rapporten opgeteld).
+- `flutter analyze` (vanuit `robberts_assistent/`): "No issues found!".
+- `flutter test`: **61 tests groen**. (Flutter bleek in deze sandbox gewoon bruikbaar via
+  `/opt/flutter`; geen code-review-vervanging nodig.)
+
+E2E op de preview (`/api/v1/watches` via de frontend-proxy, geen auth-header nodig):
+
+- AC6: `POST` zonder `frequency` → HTTP 200; response bevat **geen** `frequency`-veld. Idem voor
+  `PUT /{id}` (HTTP 200, geen `frequency` in de response).
+- Regressiecheck oude client: een `POST` mét een meegestuurd oud `frequency:"KANTOORUREN"`-veld
+  wordt geaccepteerd (HTTP 200) en genegeerd — geen 400 door een onbekend veld.
+- `POST /run-now` blijft werken (HTTP 200, beide opdrachten gecontroleerd → `ONBEKEND` omdat de
+  preview-pod geen internet-egress heeft; bekend en verwacht gedrag).
+- Testdata opgeruimd: alle aangemaakte watches verwijderd, `GET /api/v1/watches` levert weer
+  `{"watches":[]}`.
+
+UI (screenshots in `screenshots/`):
+
+- `03-zoekopdrachten-lijst.png` / `06-lijst-met-watch.png`: de lijst toont titel, status en
+  statuspil — nergens nog een frequentie. Dat de lijst überhaupt rendert bewijst ook dat de
+  preview de nieuwe frontend-build draait: de oude `Watch.fromJson` (`m['frequency'] as String`)
+  zou op de nieuwe backend-response een fout gooien.
+- `05-aanmaakdialoog-geen-frequentie.png`: "Nieuwe zoekopdracht" heeft alleen Titel, Webadres,
+  Zoekinstructie en de pushmelding-switch — de dropdown "Controlefrequentie" is weg.
+- `04-bewerkdialoog-geen-frequentie.png`: "Zoekopdracht bewerken" idem, met correct voorgevulde
+  velden (AC9).
+
+Overig:
+
+- AC2–AC5 zijn afgedekt door de vijf cases in `WatchScheduleTest` (dagvenster 08–22, weekend,
+  ≥ 1 uur sinds `lastCheckedAt`, verstreken uur buiten het venster, inactieve watch) — allemaal
+  groen.
+- AC8 (`WatchTools`) is niet E2E via de preview-chat te testen (`RA_MOCK_AI=true`, `MockChatModel`
+  roept per ontwerp geen tools aan); geverifieerd via `WatchToolsTest` (groen) en een grep die
+  bevestigt dat `frequency`/`WatchFrequency`/`parseFrequency`/`frequencyText` nergens meer in
+  productiecode voorkomen.
+
+Geen bevindingen. Geen flaky tests waargenomen.
