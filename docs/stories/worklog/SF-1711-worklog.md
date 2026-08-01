@@ -114,3 +114,50 @@ Bevindingen:
 - [info] Handmatige toestelverificatie (twee vragen achter elkaar zonder opnieuw te tikken, kort
   voorgelezen antwoord) blijft terecht de laatste stap — callback-logica is wél getest, echte
   microfoon/TTS niet na te bootsen.
+
+## Testronde (SF-1713, tester)
+
+Getest op branch `ai/SF-1711` @ `8a4a0f9` (= `head.sha` van PR #45, dus preview
+`robberts-assistent-pr-45` draait exact deze revisie).
+
+Vangnet:
+- `mvn -o test` (backend): exitcode 0, **388 tests, 0 failures, 0 errors, 0 skipped**
+  (surefire-reports opgeteld) — incl. de nieuwe `AssistantServiceTest`-cases voor de
+  spreektaal-instructie en de `AssistantIntegrationTest`-case met/zonder `voice`-veld.
+- `flutter analyze` (robberts_assistent): **No issues found!**
+- `flutter test` (robberts_assistent): **74/74 groen**, incl. de 9 nieuwe
+  `assistant_screen_test.dart`-cases van de doorluister-lus. Geen flakes waargenomen.
+- APK-build niet lokaal verifieerbaar (geen gradle-wrapper/Android-SDK in de sandbox);
+  wijziging is puur Dart/Kotlin-backend, geen native/manifest-wijziging.
+
+Gedrags-/E2E-verificatie op preview
+`https://robberts-assistent-frontend-robberts-assistent-pr-45...`:
+- `POST /api/v1/assistant/chat` **zonder** `voice`-veld → HTTP 200, normaal antwoord
+  (bestaande clients zoals de `wind`-app blijven werken).
+- Idem met `voice=true` → HTTP 200, en met `voice=false` → HTTP 200.
+- `voice=onzin` → HTTP 400 (Spring-boolean-conversie). Niet in de story-scope beschreven,
+  geen regressie; gemeld als observatie.
+- Playwright-netwerkintercept op de Flutter-web-preview: een **getypt** bericht stuurt een
+  multipart-body met alléén `message` — dus de getypte route stuurt de `voice`-vlag
+  aantoonbaar niet mee (live bewijs naast de widget-test).
+- Screenshots in `/work/screenshots/SF-1713-*.png`: Assistent-tab, nieuw gesprek in
+  praatmodus (mic-FAB + "Tik op de microfoon en stel je vraag."), en de getypte route met
+  vraag + antwoord. De praatmodus-lus zelf is op web niet te driven (geen echte
+  spraakherkenning/TTS) — die is gedekt door de widget-tests.
+
+Codecontrole tegen de acceptatiecriteria: alle criteria gedekt; de stopcondities
+(handmatig stoppen, mode-wissel, `dispose`, API-fout, spraakfout, 2× stilte) leunen op de
+`_loopGeneration`-guard en zijn per stuk in een widget-test vastgelegd. Bestaande tests in
+`assistant_screen_test.dart` zijn alleen aangevuld, niet aangepast (diff bevat geen
+verwijderde regels in dat bestand).
+
+Observaties (geen blocker, geen AC-schending):
+- Wordt de stop-knop ingedrukt terwijl het API-antwoord nog onderweg is, dan wordt dat
+  antwoord daarna alsnog één keer uitgesproken (`_speaker.speak(...)` staat ná de `await`
+  op `assistantChat`). De lus herstart niet — dat is wat de story eist.
+- De door de reviewer genoemde theoretische race in `_onSpeechStatus` (late `done` van een
+  vorige sessie) is niet reproduceerbaar met de test-seam; blijft een observatiepunt voor de
+  handmatige toestelverificatie.
+
+Testdata op preview (drie chat-gesprekken) opgeruimd; `GET
+/api/v1/assistant/conversations` is weer leeg.
