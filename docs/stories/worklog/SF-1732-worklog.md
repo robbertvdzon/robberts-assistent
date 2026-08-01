@@ -59,3 +59,34 @@ Vangnet (in `robberts_assistent/`):
   `flutter test` → 75 tests, "All tests passed!" (incl. de nieuwe multiline-test en alle
   bestaande spraakmodus-tests). Testbewijs is dus echt uitgevoerd, niet alleen overgenomen.
 - Geen bevindingen; akkoord.
+
+## Test (SF-1734)
+
+Getest op preview `robberts-assistent-pr-46` (PR-head `9e224d9` = branch-HEAD, hard
+bevestigd via de GitHub-API) plus lokaal in `robberts_assistent/`.
+
+- `flutter analyze` → "No issues found!" ; `flutter test` → **75 tests, All tests passed!**
+  (incl. de nieuwe multiline-test en alle 11 spraakmodus-tests).
+- AC1 (groeien tot 5 regels, daarna intern scrollen): live in de web-preview getypt.
+  Screenshots `04-een-regel.png` (1 regel), `05-vijf-regels.png` (veld op 5 regels),
+  `06-zeven-regels-scrollt.png` (nog steeds 5 regels hoog, inhoud scrollt mee —
+  "regel drie t/m regel zeven" zichtbaar).
+- AC2 (Enter verstuurt niet): vier keer Enter in het veld; Playwright
+  `page.on('request')` op `/assistant/chat` registreerde **geen enkele request**.
+- AC3 (send-knop verstuurt, veld leegt): klik op de send-knop verstuurt en het veld is
+  daarna leeg (`08-na-verzenden.png`).
+- AC4 (newlines behouden, alleen trim): onderschepte multipart-body van de echte
+  Flutter-web-app: `name="message"` bevat `regel een\nregel twee\n\nregel vier` —
+  leading/trailing spaties weg, interne newlines (incl. lege regel) intact. Backend-respons
+  toont dezelfde tekst terug. Geen `voice`-veld in de getypte route (ongewijzigd t.o.v. SF-1711).
+- AC5 (knoppen onderaan): foto-knop links en send-knop rechts staan op alle screenshots
+  onderaan uitgelijnd, ook bij een veld van 5 regels.
+- AC6 (spraakmodus ongewijzigd): geen codewijziging in de spraakroute; alle bestaande
+  spraaklus-tests groen.
+- AC7/AC8: zie analyze/test hierboven; de nieuwe widget-test controleert
+  `minLines`/`maxLines`/`keyboardType`/`textInputAction`/`onSubmitted == null` én het
+  versturen van meerregelige tekst.
+- Testdata opgeruimd: het aangemaakte previewgesprek verwijderd
+  (`DELETE /api/v1/assistant/conversations/{id}` → 204, lijst daarna leeg).
+
+Geen bevindingen.
