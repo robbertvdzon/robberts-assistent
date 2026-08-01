@@ -45,3 +45,17 @@ Vangnet (in `robberts_assistent/`):
   spraakmodus-tests.
 - Backend niet geraakt, dus geen `mvn test` nodig. `pubspec.lock` is ongewijzigd
   gebleven.
+
+## Review (SF-1733)
+
+- Volledige story-diff t.o.v. `main` beoordeeld (`git diff main...HEAD`): alleen
+  `lib/assistant_screen.dart` (`_chatControls()`), `test/assistant_screen_test.dart`
+  en dit worklog. Geen scope-overschrijding, geen backend-/API-wijziging.
+- Acceptatiecriteria 1-6 nagelopen op de code: `minLines: 1`/`maxLines: 5` +
+  `TextInputType.multiline` + `TextInputAction.newline`, `onSubmitted` weg,
+  `CrossAxisAlignment.end` op de `Row`, send-knop nog steeds `_busy ? null : _sendTyped`,
+  `_sendTyped()` doet alleen `trim()` (newlines blijven behouden), spraakmodus ongeraakt.
+- Zelf gedraaid in `robberts_assistent/`: `flutter analyze` → "No issues found!" en
+  `flutter test` → 75 tests, "All tests passed!" (incl. de nieuwe multiline-test en alle
+  bestaande spraakmodus-tests). Testbewijs is dus echt uitgevoerd, niet alleen overgenomen.
+- Geen bevindingen; akkoord.
