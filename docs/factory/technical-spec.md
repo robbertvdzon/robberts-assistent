@@ -83,7 +83,15 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   tools en `WatchAssessmentParser` accepteert alleen `GEVONDEN` of `NIET
   GEVONDEN` plus een omschrijving. Netwerk-, HTTP-, AI- en parsefouten worden
   als `ONBEKEND` opgeslagen en bij een volgende geplande beurt opnieuw
-  geprobeerd.
+  geprobeerd. De chat-kant loopt via `assistant/ai/WatchTools` (`listWatches`,
+  `createWatch`, `updateWatch` bovenop `WatchService`, geregistreerd in
+  `AiConfig.defaultTools(...)`); die tools hergebruiken de bestaande service en
+  validatie, vangen `WatchValidationException` af als Nederlandse tekst en
+  zoeken een opdracht via het begin van het id (`startsWith`, zelfde patroon als
+  `ReminderTools.deleteReminder`). Niet-meegegeven update-velden zijn optionele
+  `@ToolParam(required = false)`-parameters met neutrale defaults en worden
+  overgenomen van de bestaande watch, omdat `WatchService.update` alle velden
+  verwacht. Verwijderen is bewust niet als tool ontsloten.
 - **Gelijktijdigheid watches:** een pollresultaat wordt met
   `WatchRepository.compareAndSet(expected, updated)` alleen opgeslagen wanneer
   de actuele opdracht nog exact gelijk is aan het gelezen snapshot. In-memory
