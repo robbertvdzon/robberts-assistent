@@ -11,7 +11,14 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 ## Skills (backend)
 
 - **Notities** — één auto-opslaande notitie-string; lezen/overschrijven via REST en via de
-  agent (`NotesTools`).
+  agent (`NotesTools`). Sinds SF-1808 bewaart de backend bovendien **elke opgeslagen versie**:
+  bij elke save (ook die via de agent) komt er een versie-record bij, tenzij de tekst identiek is
+  aan de vorige versie — zo levert de autosave elke 10 seconden geen stapel dubbels op. Het
+  versie-overzicht (nieuwste eerst, maximaal 200, zonder tekst) en de tekst van één versie zijn
+  op te vragen; een onbekende versie geeft "niet gevonden". Elke nacht om 03:30 ruimt de backend
+  op: van de laatste 7 dagen blijft alles bewaard, van alles daarvóór blijft per kalenderdag
+  alleen de laatste versie over. De notitie zelf en het opslagformaat (platte markdown) blijven
+  ongewijzigd.
 - **Wind / kite-check** — de agent haalt actuele wind + voorspelling bij IJmuiden op
   (windfinder + Open-Meteo, `WindTools`) en beantwoordt kite-vragen.
 - **Reminders** — een reminder met tekst + tijdstip; een `@Scheduled`-agent controleert elke
@@ -187,7 +194,14 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   `- ` voor bullets), zodat de assistent en de dagelijkse briefing er net als voorheen bij
   kunnen; alle overige tekst en opmaak (kopjes, tabellen, links, lege regels) blijft letterlijk
   staan, dus tekst die de assistent zelf toevoegt raakt niet beschadigd. Automatisch opslaan,
-  de Opslaan-knop, de statusregel en uitloggen werken ongewijzigd.
+  de Opslaan-knop, de statusregel en uitloggen werken ongewijzigd. Sinds SF-1808 staan links in
+  die balk een **Ongedaan maken**- en een **Opnieuw**-knop (uitgegrijsd als er niets te doen valt;
+  vlak na het openen van de notitie dus allebei, zodat één keer undo de notitie nooit leegmaakt),
+  en opent de knop **Versies** in de AppBar een lijst van eerdere versies met Nederlandse datum en
+  tijd (`vandaag 11:30`, `gisteren 11:30`, `ma 28 jul 09:05`). Tikken op een regel toont die oude
+  tekst alleen-lezen; **Terugzetten** vraagt eerst om bevestiging en zet de tekst daarna terug in
+  de editor — dat terugzetten is met de undo-knop ongedaan te maken en wordt via de gewone
+  autosave als nieuwe versie opgeslagen.
 - **wind** — "Hey Google, vraag Wind …" → onzichtbare trampoline die het antwoord uitspreekt
   (TTS) + als notificatie post (leesbaar op Garmin-horloge).
 

@@ -209,6 +209,44 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   geaccepteerd: bold/italic buiten underline in handmatig aangeleverde markdown wordt bij de
   eerste cyclus naar de canonieke nestvolgorde genormaliseerd (stabiel vanaf cyclus 2), en een
   geplakte embed verdwijnt stil bij het opslaan.
+- **Notitie-versiegeschiedenis (backend `notes`, SF-1808):** `NoteVersion(id, text, savedAt:
+  Instant)` in de Firestore-subcollectie `notes/note/versions` (velden `text` + `savedAt`,
+  auto-id; `InMemoryNotesRepository` gebruikt UUID's en `asReversed()` vóór het stabiele sorteren,
+  zodat twee saves binnen dezelfde milliseconde tóch nieuwste-eerst blijven). `NotesRepository`
+  kreeg `addVersion`/`latestVersions(limit)`/`version(id)`/`allVersions()`/`deleteVersion(id)`, in
+  beide implementaties volledig ingevuld zodat tests zonder Firebase draaien. `NotesService.update`
+  schrijft eerst de huidige tekst weg (ongewijzigde returnwaarde) en bewaart daarna best-effort
+  (`runCatching` + `logger.warn`; een falende versie-opslag mag de `PUT` niet laten mislukken) een
+  versie, tenzij de tekst identiek is aan de laatste bestaande versie — vergelijking dus met de
+  laatste *versie*, niet met de huidige notitietekst, zodat A → B → A drie versies oplevert.
+  `now` is een constructorparameter met productiedefault (`Instant::now`), geen `Clock`-bean.
+  Endpoints: `GET /api/v1/notes/versions` en `GET /api/v1/notes/versions/{id}` (`savedAt` als
+  ISO-8601 UTC, 404 via `ResponseStatusException`), beide met hetzelfde
+  `authService.requireAuthorization(...)` als de bestaande notes-endpoints. Opruimen zit in de
+  **pure** `object NoteVersionCleanup.idsToDelete(versions, now)` (geen klok, geen Firestore, dus
+  zonder wachttijd te testen; retentie 7 dagen, groepering per kalenderdag in `Europe/Amsterdam`,
+  bij een gelijk tijdstip beslist het id zodat de uitkomst deterministisch is); de
+  `NoteVersionCleanupScheduler` (`@Scheduled(cron = "0 30 3 * * *", zone = "Europe/Amsterdam")`,
+  stijl van `briefing/BriefingCacheScheduler`) doet alleen ophalen → functie → verwijderen en logt
+  één INFO-regel met het aantal verwijderde versies. Het opruimen leest bewust álle versies
+  (zonder de 200-limiet van het endpoint) en verwijdert per id — geen batch/paginatie, acceptabel
+  omdat de taak dagelijks draait. Geen migratie nodig: bestaande installaties hebben simpelweg nog
+  geen versies. `NotesTools`, `WeekTasksSectionProvider` en `GET`/`PUT /api/v1/notes` zijn
+  ongewijzigd.
+- **Undo/redo + versies terugzetten (Flutter, `notities/`, SF-1808):** de undo/redo-knoppen leunen
+  volledig op de historie die `QuillController` zelf bijhoudt (`undo()`/`redo()`,
+  `hasUndo`/`hasRedo`); er is geen eigen historie-stack en geen sneltoets. Terugzetten van een oude
+  versie gebeurt met `controller.replaceText(0, document.length, markdownToDelta(...), ...)` — een
+  bewerking op het bestaande document i.p.v. `_controller.document = …`, want een nieuw `Document`
+  wist de undo-historie en vereist een nieuw `changes`-abonnement; bewust de volledige lengte
+  inclusief Quills afsluitende newline, die de blok-opmaak (bullet) van de laatste regel draagt.
+  De Nederlandse datum/tijd-weergave is een eigen mini-helper (`formatVersionMoment()` in
+  `note_versions_screen.dart`, vaste dag-/maandafkortingen + `vandaag`/`gisteren` op
+  `savedAt.toLocal()`) i.p.v. `intl` of een timezone-package — **geen nieuwe dependency**. De
+  versielijst is een eigen `Navigator.push`-route, niet een dialoog, zodat de alleen-lezen weergave
+  er als tweede route bovenop past. Testhaak: de opmaakbalk hertekent op controller-notificaties,
+  dus een widget-test die rechtstreeks `document` wijzigt heeft twee `pump()`s nodig voordat de
+  undo-knop enabled is.
 - **Gelijktijdigheid watches:** een pollresultaat wordt met
   `WatchRepository.compareAndSet(expected, updated)` alleen opgeslagen wanneer
   de actuele opdracht nog exact gelijk is aan het gelezen snapshot. In-memory

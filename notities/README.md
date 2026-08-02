@@ -25,6 +25,25 @@ Flutter-app (APK-only) met één auto-opslaande notitie, gekoppeld aan
   regels) is platte tekst en gaat letterlijk heen en terug — tekst die de assistent
   of de briefing toevoegt blijft dus ongeschonden. `notities/lib/api_client.dart` en
   het contract van `GET`/`PUT /api/v1/notes` zijn ongewijzigd.
+- Links in diezelfde opmaakbalk staan sinds SF-1808 twee knoppen `Ongedaan maken`
+  (`Icons.undo`) en `Opnieuw` (`Icons.redo`). Ze gebruiken de undo-historie die
+  `QuillController` zelf bijhoudt en zijn uitgegrijsd als er niets te doen valt —
+  direct na het laden van de notitie dus allebei, want het initiële laden staat
+  niet in de historie (één keer undo maakt de notitie nooit leeg). Een undo/redo
+  is een gewone wijziging en gaat via de normale debounce-autosave. Er is bewust
+  geen Ctrl+Z-sneltoets; de knoppen zijn de enige weg.
+- **Versies** (`Icons.history`) in de AppBar opent een eigen scherm
+  (`lib/note_versions_screen.dart`) met de eerdere versies van de notitie uit
+  `GET /api/v1/notes/versions` (nieuwste eerst, max 200). Per regel datum + tijd in
+  lokale tijd en Nederlandse notatie — `vandaag 11:30`, `gisteren 11:30`,
+  `ma 28 jul 09:05` — via de eigen helper `formatVersionMoment()`, dus zonder
+  `intl` of een extra dependency. Tikken opent een alleen-lezen weergave van die
+  oude tekst (selecteerbare platte markdown) met de knop `Terugzetten` en een
+  bevestigingsdialoog. Terugzetten vervangt de inhoud van de editor via een
+  bewerking op het bestaande document, dus het is met de undo-knop ongedaan te
+  maken en wordt daarna gewoon door de autosave als nieuwe versie opgeslagen.
+  De backend bewaart bij elke save een versie (tenzij de tekst identiek is aan de
+  vorige) en ruimt 's nachts op: laatste 7 dagen alles, daarvóór één versie per dag.
 - Slaat automatisch op: 10 seconden na de laatste wijziging (debounce), en
   meteen bij het naar de achtergrond gaan of afsluiten van de app.
 - Heeft daarnaast een "Opslaan"-knop in de `AppBar` van de editor
