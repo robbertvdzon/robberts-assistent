@@ -179,7 +179,15 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.
-- **notities** — één auto-opslaande notitie. Google-login.
+- **notities** — één auto-opslaande notitie. Google-login. De app is donker (zwarte
+  achtergrond, witte tekst, ook op het inlogscherm) en de notitie is sinds SF-1801 echt op te
+  maken terwijl je typt: een smalle balk bovenin met precies vijf knoppen — vet, cursief,
+  onderstrepen, opsomming en 'opmaak wissen' — en wat je ziet is wat je krijgt. Onder water
+  blijft de notitie één platte markdown-tekst (`**vet**`, `*cursief*`, `<u>onderstreept</u>`,
+  `- ` voor bullets), zodat de assistent en de dagelijkse briefing er net als voorheen bij
+  kunnen; alle overige tekst en opmaak (kopjes, tabellen, links, lege regels) blijft letterlijk
+  staan, dus tekst die de assistent zelf toevoegt raakt niet beschadigd. Automatisch opslaan,
+  de Opslaan-knop, de statusregel en uitloggen werken ongewijzigd.
 - **wind** — "Hey Google, vraag Wind …" → onzichtbare trampoline die het antwoord uitspreekt
   (TTS) + als notificatie post (leesbaar op Garmin-horloge).
 

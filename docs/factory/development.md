@@ -11,7 +11,9 @@ Deze repo bevat vier Flutter/Android-apps en één Kotlin/Spring-Boot-backend:
   Draait als APK én als web-app op OpenShift.
 - **groentetuin/** — moestuin-AI-chat (tekst + foto's → vision-antwoord), Google-
   login. Draait als APK én als web-app (`moestuin.vdzonsoftware.nl`).
-- **notities/** — één auto-opslaande notitie, Google-login. Alleen APK.
+- **notities/** — één auto-opslaande notitie, Google-login. Alleen APK. Donker
+  thema en een `flutter_quill`-WYSIWYG-editor (vet/cursief/onderstreept/opsomming),
+  maar de notitie wordt als platte markdown-tekst opgeslagen (`lib/markdown_delta.dart`).
 - **robberts-assistent-backend/** — Kotlin/Spring Boot/Spring Modulith backend
   voor alle apps. Onder meer de modules `auth`, `config`, `health`, `notes`,
   `summary`, `briefing`, `assistant` (+`ai/`), `reminders`, `watches`,
