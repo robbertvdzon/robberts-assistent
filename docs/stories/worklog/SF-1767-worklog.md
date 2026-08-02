@@ -68,3 +68,60 @@ Review (SF-1777, reviewer):
 - Geen blockers of bugs gevonden; alleen kleine, niet-blokkerende observaties (unawaited
   `_attach` zonder foutafhandeling — kan bij in-memory bytes niet falen; `content.mimeType`
   gaat ongewijzigd als `contentType` mee terwijl de filter lowercased vergelijkt).
+
+## Test (SF-1778, tester)
+
+Gedraaid op branch `ai/SF-1767` (HEAD `5869780`, = `head.sha` van PR #47, dus de preview
+`robberts-assistent-pr-47` hoort bij deze code).
+
+Vangnet (zelf gedraaid, `robberts_assistent/`):
+- `flutter analyze` → "No issues found!" (exit 0).
+- `flutter test` → **78/78 groen**, inclusief de drie nieuwe plak-tests en de bestaande
+  SF-1732-asserties. Geen flakes gezien.
+- Backend niet gedraaid: de story-diff raakt uitsluitend `robberts_assistent/lib/
+  assistant_screen.dart`, `test/assistant_screen_test.dart` en deze worklog.
+
+Code-verificatie tegen de acceptatiecriteria:
+- AC1: `contentInsertionConfiguration` met `allowedMimeTypes: _pasteableMimeTypes`
+  (`image/png`, `image/jpeg`) op het chat-`TextField` in `_chatControls()`. ✔
+- AC2/AC3: `_onContentInserted` maakt een `XFile.fromData(bytes, path: …, name: …,
+  mimeType: …)` en gaat door de bestaande `_attach(...)`-route, dus `_pending`,
+  `_pendingPreview()` en `_send(...)` blijven ongewijzigd. Zelf nagelopen in
+  `cross_file-0.3.5+4/lib/src/types/io.dart`: `readAsBytes()` geeft de meegegeven bytes
+  terug zodra `_bytes != null`, dus het gezette `path` leidt niet tot een filesystem-lees
+  op Android. ✔
+- AC4: `null`/lege `data` of een mimetype buiten PNG/JPEG → geen bijlage, één `SnackBar`
+  ("Geen afbeelding op het klembord") via `hideCurrentSnackBar()` + `showSnackBar`, geen
+  exception (`ScaffoldMessenger.maybeOf`). ✔
+- AC5: veldinstellingen ongewijzigd, live bevestigd op de preview (zie hieronder). ✔
+- AC6: drie nieuwe widget-tests dekken 2, 3 en 4 via `tester.widget<TextField>(...)` +
+  directe aanroep van `onContentInserted(...)` en `_FakeApiClient.lastPhotos`. ✔
+- AC8: geen wijziging aan `pubspec.yaml`. ✔
+
+Preview-verificatie (`https://robberts-assistent-frontend-robberts-assistent-pr-47.
+apps.sno.lab.vdzon.com`), Playwright/Chromium 390x844:
+- De preview-build bevat de nieuwe code: `main.dart.js` bevat de string
+  "Geen afbeelding op het klembord".
+- Chat-invoerveld gedraagt zich als vóór de story: getypte tekst + `Enter` maakt een
+  tweede regel en het veld groeit mee (`04-multiline-enter.png`); `page.on('request')`
+  toont dat er bij die Enter **geen** `POST /api/v1/assistant/chat` uitgaat, en pas na een
+  tik op de send-knop wél — de meerregelige tekst komt ongewijzigd in het gesprek terecht
+  (`05-na-versturen.png`). Geen JS-fouten (`pageerror`) tijdens de hele run.
+- Screenshots: `01-start.png`, `02-gesprekken.png`, `03-chat-leeg.png`,
+  `04-multiline-enter.png`, `05-na-versturen.png`.
+- Testdata opgeruimd: het aangemaakte gesprek `d10725ef-…` verwijderd via
+  `DELETE /api/v1/assistant/conversations/{id}` (HTTP 204); lijst daarna weer `[]`.
+
+Niet testbaar in deze omgeving (conform de Aannames in de story): het écht plakken van een
+afbeelding gebeurt via `ContentInsertionConfiguration`, wat alleen door een Android-IME
+(Gboard) wordt aangeroepen — Flutter-web stuurt geen rich content, dus dit is op de
+preview niet te forceren. Eindverificatie blijft handmatig op de telefoon (screenshot →
+kopiëren → in de chat plakken → versturen).
+
+Bevindingen (niet-blokkerend, geen bug):
+- `contentType` krijgt `content.mimeType` ongewijzigd mee terwijl de filter op de
+  lowercase-variant vergelijkt; een IME die `IMAGE/PNG` stuurt levert dus die hoofdletter-
+  variant als multipart-`Content-Type`. Praktisch onwaarschijnlijk en de backend leest de
+  bytes, niet de contentType — geen reden om af te keuren.
+
+Oordeel: **geslaagd**.
