@@ -1,0 +1,261 @@
+# SF-1801 - Worklog
+
+Story-context bij eerste pickup:
+Donker thema + Quill rich-text editor met markdown-opslag in notities-app
+
+Implementeer SF-1801 volledig in notities/ (geen backend-wijziging, api_client.dart ongewijzigd).
+
+1) Donker thema in lib/main.dart: MaterialApp.theme wordt ThemeData(brightness: Brightness.dark, useMaterial3: true, scaffoldBackgroundColor: Colors.black) met ColorScheme.dark; de amber-seed en gele achtergrond vervallen. AppBar donker met witte titel/iconen; tekst, cursor, selectie en hint leesbaar op zwart (hint grijs). In _loginView(): Card, het Icons.edit_note-icoon (nu Colors.amber) en de tekst 'Log in met Google om verder te gaan.' (nu Colors.black54) leesbaar maken op donker; de teksten 'Notities' en 'Log in met Google om verder te gaan.' blijven letterlijk staan (widget_test.dart matcht erop).
+
+2) Nieuwe lib/markdown_delta.dart met markdownToDelta() en deltaToMarkdown(), zonder widget-afhankelijkheden. Mapping en niets anders: bold = **tekst**, italic = *tekst*, underline = <u>tekst</u>, bullet = regel die begint met exact '- '. Per regel parsen, markers lopen niet over regelgrenzen; niet-afgesloten markers blijven letterlijke tekst. Vaste deterministische nestvolgorde bij schrijven (underline buiten, dan bold, dan italic) die de parser ook weer inleest. Alle overige markup (#-kopjes, genummerde lijsten, '* '-bullets, inspringing, tabellen, links, code) is platte tekst en gaat letterlijk heen en terug; lege regels blijven behouden; niets escapen. Quill's interne afsluitende newline wordt bij het schrijven afgeknipt zodat deltaToMarkdown(markdownToDelta(s)) == s byte-identiek geldt voor opmaakloze notities.
+
+3) lib/notes_editor_screen.dart: vervang de TextField door een QuillEditor + QuillController (flutter_quill, caret-constraint in pubspec.yaml, geen flutter_quill_extensions; localizations-delegate toevoegen in MaterialApp en in de widget-tests). Direct onder de AppBar een compacte rij met precies vijf knoppen met tooltips 'Vet', 'Cursief', 'Onderstreept', 'Opsomming', 'Opmaak wissen' (die laatste haalt bold/italic/underline en de bullet-opmaak van de selectie af); geen andere opmaakknoppen. Witte iconen, zichtbaar verschil tussen actieve en inactieve staat. Placeholder 'Typ hier je notities…' blijft. Voorkeur voor een zelfgebouwde knoppenrij boven QuillSimpleToolbar.
+
+4) Laden: api.getNotes() -> markdownToDelta -> document. Opslaan: deltaToMarkdown(document.toDelta()) -> bestaande api.saveNotes(). Behoud 10s-debounce (nu gevoed door een document-listener; het initiële laden mag geen save triggeren), directe save bij paused/inactive in didChangeAppLifecycleState en best-effort save in dispose() (controller pas na die save disposen). Statusregel ('Opgeslagen' / 'Opslaan mislukt: ...'), force-save-knop, Uitloggen, laad-spinner en foutmelding blijven ongewijzigd.
+
+5) Tests horen bij deze subtaak: unit-tests op markdown_delta.dart (bold/italic/underline/bullet heen en terug, gecombineerde/geneste opmaak op dezelfde tekst, en een byte-identieke roundtrip op een notitie met platte tekst, meerdere lege regels en onbekende markup incl. een #-kop); nieuwe widget-tests (de vijf knoppen bestaan; selectie + 'Vet' + opslaan levert **tekst** in _FakeApiClient.lastSavedText; daarna 'Opmaak wissen' op dezelfde selectie levert weer de kale tekst); en het aanpassen van test/notes_editor_screen_test.dart en test/widget_test.dart waar ze nog van een kale TextField uitgaan.
+
+Voer zelf een reviewstap uit. Acceptatie: flutter analyze zonder nieuwe warnings, flutter test groen in notities/, en de dependency mag geen extra CI-stap of platform-configuratie vereisen zodat .github/workflows/notities-apk.yml (pub get + test + build apk --release) ongewijzigd blijft slagen - pak bij twijfel een oudere compatibele flutter_quill-major i.p.v. de workflow aan te passen.
+
+Belangrijkste risico: er mag NOOIT Delta-JSON of gemangelde markdown in het gedeelde notitie-tekstveld belanden; dat breekt assistant/ai/NotesTools.kt en briefing/WeekTasksSectionProvider.kt.
+
+Stappenplan:
+[x]: read issue and target docs
+[x]: implement requested changes
+[x]: run relevant tests
+[x]: update story-log with results
+
+Done / rationale:
+- Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
+
+## SF-1802 (development)
+
+### Donker thema (`notities/lib/main.dart`)
+- Nieuw top-level `notitiesDarkTheme`: `Brightness.dark`, `useMaterial3: true`,
+  `scaffoldBackgroundColor: Colors.black`, `ColorScheme.dark(surface: Colors.black)`,
+  donkere `AppBarTheme` met witte titel/iconen, witte cursor/selectie
+  (`textSelectionTheme`) en een grijze hint (`inputDecorationTheme`). De amber-seed en
+  `Colors.yellow` zijn weg.
+- `_loginView()`: de `Card` krijgt een donkergrijze kleur, het `Icons.edit_note`-icoon is
+  wit, 'Notities' expliciet wit en 'Log in met Google om verder te gaan.' `Colors.white70`
+  i.p.v. `Colors.black54`. De teksten zelf en de inlogflow zijn ongewijzigd.
+- `MaterialApp` krijgt `FlutterQuillLocalizations.localizationsDelegates`/`supportedLocales`
+  (vereist door flutter_quill).
+
+### Conversie (`notities/lib/markdown_delta.dart`, nieuw)
+- `markdownToDelta()`/`deltaToMarkdown()` zonder Flutter-widget-afhankelijkheden (alleen
+  `package:flutter_quill/quill_delta.dart`, dat puur Dart is), dus als unit-test te draaien.
+- Mapping en niets anders: bold `**tekst**`, italic `*tekst*`, underline `<u>tekst</u>`,
+  bullet = regel met exact `- ` (in Quill een `list: bullet`-attribuut op het newline-teken).
+  Alles daarbuiten is platte tekst.
+- Per regel parsen; niet-afgesloten markers blijven letterlijk. Schrijven gebeurt in een
+  vaste nestvolgorde (underline buiten, dan bold, dan italic → `<u>***tekst***</u>`); de
+  parser leest een `***`-run daarom expliciet als vet+cursief terug.
+- Quill's afsluitende newline wordt afgeknipt, aangrenzende stukken met dezelfde opmaak
+  worden samengevoegd (`**ab**` i.p.v. `**a****b**`), zodat
+  `deltaToMarkdown(markdownToDelta(s)) == s` byte-identiek geldt voor opmaakloze notities.
+
+### Editor (`notities/lib/notes_editor_screen.dart`)
+- `TextField` → `QuillEditor` + `QuillController`; zelfgebouwde opmaakbalk (geen
+  `QuillSimpleToolbar`) met precies vijf `IconButton`s met tooltips 'Vet', 'Cursief',
+  'Onderstreept', 'Opsomming', 'Opmaak wissen'. De balk zit in een `ListenableBuilder` op de
+  controller zodat de actieve staat (accentkleur + gevulde achtergrond) meeloopt met de
+  selectie; de `Row` heeft `ValueKey('opmaakbalk')` als testhaak voor "precies vijf knoppen".
+- Laden: `getNotes()` → `markdownToDelta` → `Document.fromDelta`. Pas ná het zetten van het
+  document wordt op `document.changes` geabonneerd, zodat het initiële laden geen save
+  triggert. Opslaan is altijd `deltaToMarkdown(document.toDelta())` via de bestaande
+  `api.saveNotes(...)` — er gaat dus nooit Delta-JSON naar `/api/v1/notes`.
+- 10s-debounce, directe save bij `paused`/`inactive`, best-effort save in `dispose()` (tekst
+  wordt opgehaald vóór `_controller.dispose()`), statusregel, force-save-knop, Uitloggen,
+  laadspinner en foutmelding ongewijzigd.
+
+### Tests
+- Nieuw `test/markdown_delta_test.dart`: bold/italic/underline/bullet heen en terug,
+  gecombineerde opmaak, niet-afgesloten markers, markers over regelgrenzen, en byte-identieke
+  roundtrips (o.a. een notitie met `#`-kop, lege regels, tabel/link/code, lege notitie en een
+  afsluitende lege regel).
+- `test/notes_editor_screen_test.dart` omgebouwd van `TextField` naar Quill: bestaande
+  save-/foutgevallen behouden, plus de vijf knoppen, 'selectie + Vet' → `**notitie**`,
+  daarna 'Opmaak wissen' → `notitie`, 'Opsomming' → `- melk`, en autosave (niets na 9 s, wél
+  na 11 s) en directe save bij `paused`.
+- `test/widget_test.dart` uitgebreid met een thema-assert (dark + zwarte achtergrond) en de
+  leesbaarheid van icoon/tekst op het loginscherm.
+
+### Verificatie
+- `flutter test` in `notities/`: 30 tests groen. `flutter analyze`: "No issues found!".
+- Backend `mvn -o test` gedraaid als regressiecheck (geen backendwijziging in deze story).
+- `flutter build apk` is in deze sandbox niet te draaien (geen Android SDK). Wel gecheckt dat
+  de nieuwe dependency geen platform-configuratie vraagt: `flutter_quill 11.5.1` trekt
+  `quill_native_bridge_android` en `url_launcher_android` mee, die `minSdk = 24` eisen — dat
+  is precies de `flutter.minSdkVersion`-default die `notities/android/app/build.gradle.kts`
+  al gebruikt. `.github/workflows/notities-apk.yml` blijft dus ongewijzigd.
+- `pubspec.lock` bevat naast flutter_quill enkele transitieve bumps (matcher, meta, test_api,
+  material_color_utilities) die de lokale Flutter-SDK bij `pub get` afdwingt.
+
+## Review SF-1802 (reviewer, 2026-08-02)
+
+Zelf geverifieerd in `notities/`: `flutter test` → 30 tests groen, `flutter analyze` →
+"No issues found!". Scope klopt: alleen `notities/**` + dit worklog; geen backend,
+`api_client.dart` of workflow-wijziging. Donker thema, de vijf toolbarknoppen met de
+afgesproken tooltips, de placeholder, laden/opslaan via `markdownToDelta`/`deltaToMarkdown`
+en het autosave-/dispose-gedrag zijn conform de story.
+
+**Afgekeurd op de roundtrip-garantie van `markdown_delta.dart`.** Met een gerichte
+fuzz-/steekproefrun (20.000 willekeurige strings uit markdown-atomen + handmatige gevallen)
+blijkt `deltaToMarkdown(markdownToDelta(s)) == s` niet te gelden zodra er losse
+marker-tekens in de tekst staan — dat is precies het "gemangelde markdown in het gedeelde
+notitieveld"-risico uit de description:
+
+- `Bereken 2 * 3 en **let op** dit * dat` → `Bereken 2 * 3 en let op dit *dat`
+  (de `**`-markers verdwijnen: een losse `*` opent cursief en slikt het `**`-paar op).
+- `**Lijst: melk * brood * kaas**` → `**Lijst: melk ***** brood ***** kaas**`.
+- `******` → `` en `<u></u>` → `` (lege opmaak-span wordt stil weggegooid).
+- `a **b <u>c</u> d** e` → `a **b **<u>**c**</u>** d** e` (normalisatie naar underline-buiten;
+  wel stabiel bij een tweede cyclus).
+
+Alle gevallen zijn idempotent vanaf de tweede cyclus, dus er is geen onbegrensde corruptie,
+maar de eerste open+opslaan-cyclus wijzigt de opgeslagen tekst wél.
+
+Voorgestelde richting: in `_parseInline` een sluit-marker alleen accepteren als 'ie niet
+deel is van een langere `*`-run (dus geen enkele `*` matchen op een positie binnen `**`/`***`),
+en bij een lege inner-inhoud terugvallen op letterlijke tekst i.p.v. het segment weg te gooien.
+Plus regressietests op bovenstaande vier strings.
+
+## SF-1802 (development, ronde 2 — reviewbevindingen verwerkt)
+
+Alleen `notities/lib/markdown_delta.dart` + `notities/test/markdown_delta_test.dart` gewijzigd;
+geen andere app-, backend- of workflowwijziging.
+
+### [blocker] losse `*` slikte een `**`-paar op — opgelost
+`_parseInline` behandelt een `*`-reeks nu **atomair**. Twee nieuwe helpers: `_starRunLength()`
+(lengte van de ononderbroken `*`-reeks) en `_findStarRun()` (zoekt de eerstvolgende reeks met
+*exact* dezelfde lengte en slaat reeksen van een andere lengte in hun geheel over). Een opener
+van lengte 1/2/3 wordt dus alleen gesloten door een reeks van precies 1/2/3; een reeks van 4 of
+langer is nooit een marker en blijft letterlijke tekst. Vindt de parser geen sluiter, dan wordt
+de **hele** reeks letterlijk overgenomen (i.p.v. één teken), zodat een volgende `*` niet alsnog
+als opener wordt gelezen. De `indexOf('*'/'**'/'***')`-aanpak is daarmee verdwenen.
+
+- `Bereken 2 * 3 en **let op** dit * dat` → byte-identiek terug.
+- `**Lijst: melk * brood * kaas**` → byte-identiek terug.
+
+### [bug] lege opmaak-span verdween — opgelost
+`<u></u>` wordt alleen nog als underline gelezen bij niet-lege inhoud (`end > start`); anders
+blijft het letterlijke tekst. Een leeg vet/cursief-paar bestaat niet meer als marker omdat
+`****`/`******` één reeks van 4+ is en dus letterlijk blijft. `******` en `<u></u>` komen nu
+ongeschonden terug.
+
+### [suggestie] opgeblazen markup bij underline-in-bold — opgelost
+`deltaToMarkdown` wikkelde elk segment los in (`_Marks.wrap`), waardoor opmaak die zich over
+meerdere segmenten uitstrekt per segment opnieuw geopend/gesloten werd
+(`a **b <u>c</u> d** e` → `a **b **<u>**c**</u>** d** e`). `_renderSegments()` schrijft nu
+**genest**: het pakt per positie het buitenste nog niet actieve kenmerk (vaste volgorde
+underline → bold → italic, nieuwe enum `_Mark`), verzamelt alle aaneengesloten segmenten met dat
+kenmerk en zet daar één markerpaar omheen. `a **b <u>c</u> d** e`, `**a *b* c**` en
+`*a **b** c*` roundtrippen daardoor byte-identiek. `_Marks.wrap` is vervangen door
+`has()`/`firstMissing()`/`with_()`.
+
+### Tests
+Vier nieuwe testgroepen in `test/markdown_delta_test.dart`: losse sterretjes naast `**`-paren,
+markers zonder inhoud (`******`, `<u></u>`, `****`, `**`), opmaak over meerdere segmenten, en
+een expliciete stabiliteitstest die vier bronstrings 4 cycli achter elkaar roundtript.
+
+### Verificatie
+- `notities/`: `flutter test` → **34 tests groen**, `flutter analyze` → "No issues found!".
+- Tijdelijke fuzzrun (2× 30.000 willekeurige strings uit markdown-atomen, daarna weer verwijderd):
+  **7 mismatches** (was: hele klassen fouten), allemaal idempotent vanaf cyclus 2.
+- Backend `mvn -o test` als regressiecheck gedraaid (geen backendwijziging).
+
+### Bewust niet opgelost (binnen de story-aanname)
+De resterende 7 fuzz-mismatches zijn allemaal dezelfde, in de story expliciet geaccepteerde
+normalisatie: staat in de brontekst bold/italic *buiten* underline (`**<u>x</u>**`), dan schrijft
+de editor 'm in de vaste nestvolgorde terug als `<u>**x**</u>`. Semantisch identiek en stabiel.
+In 3 van de 30.000 gevallen valt die hernestte marker direct naast een *letterlijk* sterretje
+(bv. `**<u>*</u>**` → `<u>*****</u>`), waardoor dat sterretje bij een volgende lees-beurt anders
+geïnterpreteerd wordt. Zonder escapen — dat de story uitdrukkelijk verbiedt — is dat niet op te
+lossen; de gewone app-flow schrijft altijd de canonieke vorm weg, dus dit treft alleen
+handmatig aangeleverde markdown met deze combinatie.
+
+## Review SF-1802 (reviewer, 2e ronde)
+
+**Besluit: akkoord.** Volledige story-diff (`git diff main...HEAD`, 9 bestanden) beoordeeld.
+
+### Zelf geverifieerd (niet alleen op de worklog vertrouwd)
+- `notities/`: `flutter test` → **34 tests groen**, `flutter analyze` → "No issues found!"
+  (flutter is in deze sandbox wél beschikbaar, dus geen beroep op de
+  "flutter-tests-niet-uitvoerbaar"-uitzondering).
+- Eigen tijdelijke fuzzruns op `markdown_delta.dart` (daarna verwijderd, worktree schoon):
+  - 20.000 strings uit **platte tekst + onbekende markup** (`# `, `1. `, `> `, `|t|`,
+    `` `code` ``, inspringing, lege regels): **0 mismatches** — de byte-identieke
+    roundtrip-garantie uit acceptatiecriterium 5/§3 houdt stand.
+  - 30.000 adversariële strings uit markdown-atomen (`*`,`**`,`***`,`****`,`<u>`,`</u>`,`- `,`# `):
+    32 mismatches, **allemaal idempotent** (cyclus 2 == cyclus 1) en zonder verlies van
+    tekstinhoud. Het gaat uitsluitend om de in de story geaccepteerde nestvolgorde-normalisatie
+    (`**<u>x</u>**` → `<u>**x**</u>`); in 21 gevallen komen daarbij letterlijke sterretjes naast
+    een hernestte marker te staan, precies de beperking die de developer al had gedocumenteerd.
+- Scope: geen wijziging aan backend, `api_client.dart`, `/api/v1/notes` of
+  `.github/workflows/notities-apk.yml` (leeg diff).
+
+### Bevindingen
+- [info] Risico "Delta-JSON in het gedeelde notitieveld" is afgedekt: `_save()` gaat altijd via
+  `deltaToMarkdown(...)`; embeds (`data is! String`) worden overgeslagen i.p.v. als JSON
+  weggeschreven.
+- [info] `flutter_quill` 11.5.1 heeft `characterShortcutEvents`/`spaceShortcutEvents` standaard
+  **leeg**, dus typen van `# ` of `1. ` maakt géén header/ordered-list-attribuut aan dat bij het
+  opslaan stil zou verdwijnen. Via een hardware-toetsenbord (Ctrl+Shift+S/O/H) kan dat wel; dan
+  gaat alleen de opmaak verloren, nooit de tekst. Op de APK-only doelgroep (Android soft keyboard)
+  niet relevant.
+- [info] CI-risico dependency: `quill_native_bridge_android` eist `minSdk = 24`, gelijk aan
+  `flutter.minSdkVersion` (24) die de app al gebruikt; jvmTarget 17 van die module past bij de
+  JDK 17 uit `notities-apk.yml` (AGP 8.9.1 / Gradle 8.12). `flutter build apk` is hier niet te
+  draaien (geen Android SDK) — dat blijft de enige onbewezen stap, expliciet zo gemeld.
+- [suggestie] Een geplakte afbeelding/embed verdwijnt stil bij het opslaan (klopt voor
+  platte-tekst-opslag, maar er is geen melding aan de gebruiker). Geen actie nodig binnen deze
+  story.
+
+## Test SF-1803 (tester, 2026-08-02)
+
+Getest op branch `ai/SF-1801`. `notities/` is APK-only (geen web-preview), dus geen
+preview-URL-verificatie; in plaats daarvan zijn de tests lokaal gedraaid en is de UI
+gerenderd naar screenshots.
+
+### Uitgevoerd
+- `flutter pub get` + `flutter analyze` in `notities/`: **No issues found** (AC9).
+- `flutter test` in `notities/`: **34/34 groen**, 0 failures/errors (AC5–AC9). Dekt o.a. de
+  vijf toolbar-knoppen, selectie+Vet → `**tekst**`, Opmaak wissen → kale tekst, Opsomming →
+  `- melk`, Opslaan-knop met status 'Opgeslagen', mislukte save met 'Opslaan mislukt: …'
+  zonder inhoudsverlies, autosave-debounce (9s niets, na 11s wél) en direct opslaan bij
+  `paused`.
+- Onafhankelijke roundtrip-check (eigen script buiten de repo, `dart run` op
+  `markdown_delta.dart`): 25 extra gevallen, **allemaal byte-identiek** — o.a. `# Kop`,
+  tabellen, links, code, inspringing, `* `/genummerde lijsten, meerdere lege regels, lege
+  string, tekst zonder afsluitende newline, niet-afgesloten markers (`**niet afgesloten`,
+  `<u>niet dicht`), `<u></u>`, `******`, `3 * 4 * 5`, `-geen bullet`, `  - ingesprongen`.
+  Bevestigt AC5 en de eis dat door de assistent toegevoegde tekst ongeschonden blijft.
+- Visuele verificatie via gerenderde screenshots (widget-render naar PNG,
+  `/work/screenshots/`):
+  - `SF-1801-loginscherm-donker.png`: zwarte achtergrond, donkere kaart, wit icoon + witte
+    titel, lichtgrijze uitleg, leesbare knop (AC1/AC2).
+  - `SF-1801-editor-donker-opmaak.png`: zwarte editor met witte tekst, precies **vijf**
+    toolbar-knoppen waarvan de actieve (vet, opsomming) zichtbaar afwijkend (accentkleur +
+    gevulde achtergrond) worden getoond; bullets, cursief en onderstreept renderen als echte
+    opmaak en `# Kop blijft plat` blijft platte tekst (AC3/AC4).
+    Let op: `flutter test` gebruikt testfonts, dus letters zijn blokjes — kleuren, layout en
+    opmaakattributen zijn wél representatief.
+- Scope-controle: diff raakt alleen `notities/` + het worklog; **geen** wijziging aan de
+  backend, `notities/lib/api_client.dart` of `.github/workflows/notities-apk.yml` (AC10/AC11).
+- Dependency-controle voor de APK-build: `flutter_quill ^11.5.1` voegt drie Android-native
+  transitieve plugins toe (`quill_native_bridge_android`, `url_launcher_android`,
+  `flutter_keyboard_visibility_temp_fork`). Hun `minSdk` (24) is gelijk aan de
+  `flutter.minSdkVersion` (24) die de app al gebruikt, hun `jvmTarget 17` past bij de JDK 17
+  uit `notities-apk.yml`; er is geen extra platform-configuratie of CI-stap nodig.
+
+### Bevindingen
+- Geen bugs gevonden; alle acceptatiecriteria houden stand.
+- [info, niet-blokkerend] `flutter build apk --release` is in deze sandbox **niet** uitvoerbaar
+  ("No Android SDK found"), dus AC10 is niet zelf gebouwd maar afgeleid uit de
+  plugin-/SDK-eisen hierboven. De APK-workflow draait pas op push naar `main` en is daarmee
+  de eerste echte bevestiging.
+- [info] `notities/pubspec.lock` legt nu `dart >=3.12.0` / `flutter >=3.44.0` vast, terwijl
+  `pubspec.yaml` nog `sdk: ^3.9.0` declareert. Met `channel: stable` in de workflow (hier
+  Flutter 3.44.7 / Dart 3.12.2) is dat prima; een oudere Flutter zou wél op de lockfile
+  stuklopen.

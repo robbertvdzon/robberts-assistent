@@ -35,7 +35,7 @@ robberts-assistent/
 ├── robberts-assistent-backend/   ← Kotlin/Spring Boot/Spring Modulith backend
 ├── robberts_assistent/           ← Flutter app: briefings, chat, reminders en zoekopdrachten (web + APK)
 ├── groentetuin/                  ← Flutter app: moestuin-AI-chat (web op moestuin.vdzonsoftware.nl + APK)
-├── notities/                     ← Flutter app: één auto-opslaande notitie (APK)
+├── notities/                     ← Flutter app: één auto-opslaande notitie, rich text (APK)
 ├── wind/                         ← Flutter/native PoC: "Hey Google" App Actions → wind-antwoord (APK)
 ├── deploy/                       ← kustomize-manifests (base + preview-overlay) + sealed secret
 ├── docs/
@@ -222,7 +222,17 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
 - **`groentetuin/`** — moestuin-AI-chat: login → foto's maken/kiezen + tekst → vision-antwoord,
   multi-turn. `ApiClient.gardenChat` (multipart). Web op `moestuin.vdzonsoftware.nl` + APK.
   App-id blijft `nl.vdzon.groentetuin` (interne naam ≠ publieke host "moestuin").
-- **`notities/`** — één auto-opslaande notitie, Google-login. Alleen APK.
+- **`notities/`** — één auto-opslaande notitie, Google-login. Alleen APK. Sinds SF-1801 een
+  **donker thema** (zwart, witte tekst, ook op het inlogscherm) en een **WYSIWYG-editor**
+  (`flutter_quill`) met een vaste opmaakbalk van precies vijf knoppen: Vet, Cursief,
+  Onderstreept, Opsomming en Opmaak wissen. De notitie wordt nog steeds als **platte
+  markdown-tekst** opgeslagen via het ongewijzigde `PUT /api/v1/notes` — conversie in
+  `lib/markdown_delta.dart` (`markdownToDelta()`/`deltaToMarkdown()`), mapping uitsluitend
+  `**vet**`, `*cursief*`, `<u>onderstreept</u>` en `- ` voor bullets; al het andere (kopjes,
+  tabellen, links, code, lege regels) blijft letterlijke tekst, zodat door de assistent
+  toegevoegde tekst ongeschonden blijft. Autosave (10s debounce, direct bij `paused`/`inactive`
+  en best-effort bij `dispose`), de handmatige Opslaan-knop, de statusregel en Uitloggen zijn
+  ongewijzigd.
 - **`wind/`** — PoC "Hey Google" → App Actions → native trampoline (TTS + notificatie), praat
   met de backend-chat-assistent voor het windantwoord. Alleen APK.
 
@@ -801,6 +811,60 @@ vergelijkt, dus een IME die `IMAGE/PNG` stuurt levert die hoofdlettervariant als
 `Content-Type` — onschadelijk, de backend leest de bytes. Het écht plakken is niet automatisch te
 testen (vereist een fysiek toestel met Gboard); eindverificatie handmatig op Robberts telefoon
 (screenshot → kopiëren → in de chat plakken → versturen).
+
+Nieuw (SF-1801): **notities-app krijgt een donker thema en een WYSIWYG-opmaakbalk**. Alleen
+`notities/`; geen backendwijziging, `notities/lib/api_client.dart` en het contract van
+`GET`/`PUT /api/v1/notes` zijn ongemoeid, en `.github/workflows/notities-apk.yml` blijft
+ongewijzigd (de nieuwe dependency vraagt geen extra CI-stap of platform-configuratie:
+`quill_native_bridge_android` eist `minSdk 24`, precies de `flutter.minSdkVersion` die de app al
+gebruikt). **Thema** (`lib/main.dart`): nieuw top-level `notitiesDarkTheme` met
+`Brightness.dark`, `useMaterial3: true`, `scaffoldBackgroundColor: Colors.black`,
+`ColorScheme.dark(surface: Colors.black)`, een donkere `AppBarTheme` met witte titel/iconen,
+witte cursor/selectie en een grijze hint; de oude `colorSchemeSeed: Colors.amber` +
+`scaffoldBackgroundColor: Colors.yellow` zijn weg. `_loginView()` is leesbaar op zwart gemaakt
+(donkergrijze `Card`, wit `Icons.edit_note`, witte titel, `Colors.white70` voor de uitleg); de
+teksten 'Notities' en 'Log in met Google om verder te gaan.' en de inlogflow zijn onveranderd.
+**Editor** (`lib/notes_editor_screen.dart`): de kale `TextField` is vervangen door een
+`QuillEditor` + `QuillController` (`flutter_quill ^11.5.1`, géén `flutter_quill_extensions`;
+`FlutterQuillLocalizations.localizationsDelegates`/`supportedLocales` toegevoegd aan
+`MaterialApp` en aan de widget-tests). Direct onder de AppBar een **zelfgebouwde** rij (dus geen
+`QuillSimpleToolbar`) met precies vijf `IconButton`s met de tooltips `Vet`, `Cursief`,
+`Onderstreept`, `Opsomming` en `Opmaak wissen` (die laatste haalt bold/italic/underline én de
+bullet-opmaak van de selectie af); de rij zit in een `ListenableBuilder` op de controller zodat
+de actieve staat (accentkleur + gevulde achtergrond) met de selectie meeloopt, en heeft
+`ValueKey('opmaakbalk')` als testhaak. De placeholder 'Typ hier je notities…' blijft.
+**Opslagformaat** (`lib/markdown_delta.dart`, nieuw, zonder Flutter-widget-afhankelijkheden dus
+puur als unittest te draaien): laden is `getNotes()` → `markdownToDelta()` →
+`Document.fromDelta`, opslaan altijd `deltaToMarkdown(document.toDelta())` via de bestaande
+`api.saveNotes(...)` — er gaat dus **nooit** Delta-JSON naar `/api/v1/notes` (embeds worden
+overgeslagen i.p.v. als JSON weggeschreven), wat `assistant/ai/NotesTools.kt` en
+`briefing/WeekTasksSectionProvider.kt` intact houdt. Mapping en niets anders: bold `**tekst**`,
+italic `*tekst*`, underline `<u>tekst</u>`, bullet = regel die met exact `- ` begint; alle
+overige markup (`#`-kopjes, genummerde lijsten, `* `-bullets, inspringing, tabellen, links,
+code) is platte tekst en gaat letterlijk heen en terug, lege regels blijven behouden en er wordt
+niets ge-escaped. Inline wordt per regel geparseerd (markers lopen niet over regelgrenzen), een
+`*`-reeks wordt **atomair** behandeld (`_starRunLength()`/`_findStarRun()`: een opener van lengte
+1/2/3 wordt alleen door een reeks van precies die lengte gesloten, een reeks van 4+ is nooit een
+marker), een niet-afgesloten marker of een leeg paar (`<u></u>`, `******`) blijft letterlijke
+tekst, en schrijven gebeurt genest in een vaste volgorde (underline buiten, dan bold, dan italic
+→ `<u>***tekst***</u>`) waarbij aaneengesloten segmenten met hetzelfde kenmerk één markerpaar
+delen. Quill's interne afsluitende newline wordt afgeknipt, zodat
+`deltaToMarkdown(markdownToDelta(s)) == s` byte-identiek geldt voor notities zonder opmaak.
+Autosave (10s debounce, nu gevoed door `document.changes` — het abonnement wordt pas ná het
+initiële laden gezet zodat laden geen save triggert), directe save bij `paused`/`inactive`,
+best-effort save in `dispose()` (tekst opgehaald vóór `_controller.dispose()`), statusregel
+('Opgeslagen' / 'Opslaan mislukt: …'), force-save-knop, Uitloggen, laadspinner en foutmelding
+zijn ongewijzigd. Verificatie: `flutter test` in `notities/` → 34 groen, `flutter analyze` →
+"No issues found!". Bekende, bewust geaccepteerde aandachtspunten: (1) staat in een handmatig
+aangeleverde notitie bold/italic *buiten* underline (`**<u>x</u>**`), dan wordt die bij de
+eerste open+opslaan-cyclus genormaliseerd naar de canonieke nestvolgorde (`<u>**x**</u>`) —
+semantisch identiek en vanaf cyclus 2 stabiel; in zeldzame gevallen komt daarbij een letterlijk
+sterretje naast een hernestte marker te staan, wat zonder escapen (door de story verboden) niet
+op te lossen is; (2) een geplakte afbeelding/embed verdwijnt stil bij het opslaan, zonder
+melding; (3) `flutter build apk --release` is in de sandbox niet uitvoerbaar (geen Android SDK),
+dus de APK-workflow op `main` is de eerste echte bevestiging; (4) `notities/pubspec.lock` legt
+nu `dart >=3.12.0` / `flutter >=3.44.0` vast terwijl `pubspec.yaml` `sdk: ^3.9.0` declareert —
+met `channel: stable` in CI prima, een oudere Flutter zou op de lockfile stuklopen.
 
 ---
 

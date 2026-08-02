@@ -183,6 +183,32 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   (stijl `_FakeApiClient`); geen nieuwe dependency. Alleen de spraakroute zet `voice: true` op
   `ApiClient.assistantChat(...)`. Echte microfoon/TTS wordt bewust niet nagebootst: getest is
   uitsluitend de callback-/lus-logica, eindverificatie gebeurt handmatig op toestel.
+- **Rich-text-notitie met platte-tekst-opslag (Flutter, `notities/`):** sinds SF-1801 gebruikt
+  `notities/lib/notes_editor_screen.dart` een `QuillEditor` + `QuillController`
+  (`flutter_quill ^11.5.1`, géén `flutter_quill_extensions`;
+  `FlutterQuillLocalizations.localizationsDelegates`/`supportedLocales` in `MaterialApp` en in de
+  widget-tests) in plaats van een kale `TextField`, met een **zelfgebouwde** opmaakbalk (geen
+  `QuillSimpleToolbar`) van precies vijf `IconButton`s met de tooltips `Vet`, `Cursief`,
+  `Onderstreept`, `Opsomming`, `Opmaak wissen` — die tooltips zijn de afgesproken testhaak, naast
+  `ValueKey('opmaakbalk')` op de rij. De opslaglaag blijft één platte markdown-string: laden gaat
+  via `markdownToDelta()`, opslaan altijd via `deltaToMarkdown(document.toDelta())` naar de
+  ongewijzigde `api.saveNotes(...)`, dus er belandt nooit Delta-JSON in `/api/v1/notes` (embeds
+  worden overgeslagen) en `assistant/ai/NotesTools`/`briefing/WeekTasksSectionProvider` blijven
+  werken. De conversie zit in `notities/lib/markdown_delta.dart` zonder
+  Flutter-widget-afhankelijkheden (alleen `package:flutter_quill/quill_delta.dart`), dus puur als
+  unittest te draaien. Mapping en niets anders: `**vet**`, `*cursief*`, `<u>onderstreept</u>`,
+  bullet = regel met exact `- `; al het overige is platte tekst, niets wordt ge-escaped en lege
+  regels blijven staan. Parsen gebeurt per regel; een `*`-reeks is atomair
+  (`_starRunLength()`/`_findStarRun()`, opener van lengte 1/2/3 alleen gesloten door precies die
+  lengte, 4+ nooit een marker), een niet-afgesloten marker of een leeg paar blijft letterlijk, en
+  schrijven gebeurt genest in de vaste volgorde underline → bold → italic met één markerpaar over
+  aaneengesloten segmenten met hetzelfde kenmerk. Quill's afsluitende newline wordt afgeknipt,
+  zodat `deltaToMarkdown(markdownToDelta(s)) == s` byte-identiek geldt voor opmaakloze notities.
+  Autosave wordt gevoed door `document.changes` (abonnement pas ná het initiële laden, anders
+  triggert laden een save); `dispose()` haalt de tekst op vóór `_controller.dispose()`. Bewust
+  geaccepteerd: bold/italic buiten underline in handmatig aangeleverde markdown wordt bij de
+  eerste cyclus naar de canonieke nestvolgorde genormaliseerd (stabiel vanaf cyclus 2), en een
+  geplakte embed verdwijnt stil bij het opslaan.
 - **Gelijktijdigheid watches:** een pollresultaat wordt met
   `WatchRepository.compareAndSet(expected, updated)` alleen opgeslagen wanneer
   de actuele opdracht nog exact gelijk is aan het gelezen snapshot. In-memory
