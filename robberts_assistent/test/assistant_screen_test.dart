@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -100,6 +101,30 @@ class _FakeSpeaker implements VoiceSpeaker {
 
   @override
   Future<void> stop() async => stopCount++;
+}
+
+/// Geldige 1x1-PNG: de pending-strook rendert de bijlage met `Image.memory`, dat op willekeurige
+/// bytes een decodeerfout in de test zou geven.
+final _pngBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+);
+
+/// Biedt het scherm rich content aan zoals het toetsenbord (Gboard 'plakken') dat zou doen.
+Future<void> _paste(
+  WidgetTester tester, {
+  required String mimeType,
+  Uint8List? data,
+}) async {
+  final field = tester.widget<TextField>(find.byType(TextField));
+  field.contentInsertionConfiguration!.onContentInserted(
+    KeyboardInsertedContent(
+      mimeType: mimeType,
+      uri: 'content://com.google.android.inputmethod/1',
+      data: data,
+    ),
+  );
+  await tester.pump();
+  await tester.pump();
 }
 
 void main() {
@@ -268,6 +293,92 @@ void main() {
     expect(find.text('Tik op de microfoon en stel je vraag.'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'een geplakte afbeelding komt als bijlage in de pending-strook te staan',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: AssistantScreen(api: _FakeApiClient())),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Chatten'));
+      await tester.pump();
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(
+        field.contentInsertionConfiguration!.allowedMimeTypes,
+        containsAll(<String>['image/png', 'image/jpeg']),
+      );
+      expect(find.byType(Image), findsNothing);
+
+      await _paste(tester, mimeType: 'image/png', data: _pngBytes);
+
+      // Precies één bijlage in de strook, en het veld is verder ongewijzigd.
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.text('Geen afbeelding op het klembord'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'de geplakte afbeelding gaat mee als foto bij het versturen, ook zonder tekst',
+    (tester) async {
+      final api = _FakeApiClient()
+        ..nextReply = const AssistantChatReply(
+          conversationId: 'conv-1',
+          title: 'Screenshot',
+          reply: 'Dat is een screenshot.',
+        );
+
+      await tester.pumpWidget(MaterialApp(home: AssistantScreen(api: api)));
+      await tester.pump();
+      await tester.tap(find.text('Chatten'));
+      await tester.pump();
+
+      await _paste(tester, mimeType: 'image/png', data: _pngBytes);
+
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pump();
+      await tester.pump();
+
+      expect(api.lastMessage, '');
+      expect(api.lastPhotos, hasLength(1));
+      final photo = api.lastPhotos!.single;
+      expect(photo.bytes, _pngBytes);
+      expect(photo.contentType, 'image/png');
+      expect(photo.filename, isNotEmpty);
+      expect(find.text('Dat is een screenshot.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'een aanbieding zonder bruikbare afbeelding voegt niets toe en crasht niet',
+    (tester) async {
+      final api = _FakeApiClient();
+
+      await tester.pumpWidget(MaterialApp(home: AssistantScreen(api: api)));
+      await tester.pump();
+      await tester.tap(find.text('Chatten'));
+      await tester.pump();
+
+      // Geen data.
+      await _paste(tester, mimeType: 'image/png');
+      expect(find.byType(Image), findsNothing);
+      expect(find.text('Geen afbeelding op het klembord'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Lege data en een niet-ondersteunde mimetype leveren evenmin een bijlage op.
+      await _paste(tester, mimeType: 'image/png', data: Uint8List(0));
+      await _paste(tester, mimeType: 'image/gif', data: _pngBytes);
+      expect(find.byType(Image), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      // Zonder tekst én zonder bijlage gebeurt er bij versturen niets.
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pump();
+      expect(api.lastPhotos, isNull);
+    },
+  );
 
   group('doorluister-lus in praatmodus', () {
     late _FakeApiClient api;

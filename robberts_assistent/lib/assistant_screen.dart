@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -20,6 +21,9 @@ class ChatMessage {
 }
 
 enum _Mode { voice, chat }
+
+/// Mimetypes die het toetsenbord in het chat-invoerveld mag plakken (screenshots zijn PNG of JPEG).
+const _pasteableMimeTypes = ['image/png', 'image/jpeg'];
 
 /// Smalle test-seam rond de spraakherkenning-plugin (`speech_to_text`): alleen wat dit scherm
 /// nodig heeft, zodat de doorluister-lus in een widget-test aanstuurbaar is zonder microfoon.
@@ -337,6 +341,36 @@ class _AssistantScreenState extends State<AssistantScreen> {
       );
     }
     if (mounted) setState(() {});
+  }
+
+  /// Afbeelding die het toetsenbord aanbiedt (Gboard 'plakken' van een screenshot) als bijlage
+  /// toevoegen via dezelfde route als camera/galerij. Deze callback is synchroon terwijl [_attach]
+  /// async is — het Future loopt bewust door, de strook verschijnt zodra de bytes verwerkt zijn.
+  void _onContentInserted(KeyboardInsertedContent content) {
+    final bytes = content.data;
+    final mimeType = content.mimeType.toLowerCase();
+    if (bytes == null ||
+        bytes.isEmpty ||
+        !_pasteableMimeTypes.contains(mimeType)) {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Geen afbeelding op het klembord')),
+        );
+      return;
+    }
+    final extension = mimeType == 'image/png' ? 'png' : 'jpg';
+    final filename =
+        'geplakt-${DateTime.now().millisecondsSinceEpoch}.$extension';
+    // `name` telt alleen op web; op mobiel leidt XFile de naam uit `path` af — dus beide zetten.
+    final file = XFile.fromData(
+      bytes,
+      path: filename,
+      name: filename,
+      mimeType: content.mimeType,
+    );
+    unawaited(_attach([file]));
   }
 
   void _showAttachSheet() {
@@ -667,6 +701,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
             maxLines: 5,
             keyboardType: TextInputType.multiline,
             textInputAction: TextInputAction.newline,
+            // Het toetsenbord mag een gekopieerde afbeelding rechtstreeks in het veld plakken.
+            contentInsertionConfiguration: ContentInsertionConfiguration(
+              allowedMimeTypes: _pasteableMimeTypes,
+              onContentInserted: _onContentInserted,
+            ),
             enabled: !_busy,
           ),
         ),
