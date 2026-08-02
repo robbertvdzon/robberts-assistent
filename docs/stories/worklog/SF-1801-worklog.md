@@ -174,3 +174,40 @@ In 3 van de 30.000 gevallen valt die hernestte marker direct naast een *letterli
 geïnterpreteerd wordt. Zonder escapen — dat de story uitdrukkelijk verbiedt — is dat niet op te
 lossen; de gewone app-flow schrijft altijd de canonieke vorm weg, dus dit treft alleen
 handmatig aangeleverde markdown met deze combinatie.
+
+## Review SF-1802 (reviewer, 2e ronde)
+
+**Besluit: akkoord.** Volledige story-diff (`git diff main...HEAD`, 9 bestanden) beoordeeld.
+
+### Zelf geverifieerd (niet alleen op de worklog vertrouwd)
+- `notities/`: `flutter test` → **34 tests groen**, `flutter analyze` → "No issues found!"
+  (flutter is in deze sandbox wél beschikbaar, dus geen beroep op de
+  "flutter-tests-niet-uitvoerbaar"-uitzondering).
+- Eigen tijdelijke fuzzruns op `markdown_delta.dart` (daarna verwijderd, worktree schoon):
+  - 20.000 strings uit **platte tekst + onbekende markup** (`# `, `1. `, `> `, `|t|`,
+    `` `code` ``, inspringing, lege regels): **0 mismatches** — de byte-identieke
+    roundtrip-garantie uit acceptatiecriterium 5/§3 houdt stand.
+  - 30.000 adversariële strings uit markdown-atomen (`*`,`**`,`***`,`****`,`<u>`,`</u>`,`- `,`# `):
+    32 mismatches, **allemaal idempotent** (cyclus 2 == cyclus 1) en zonder verlies van
+    tekstinhoud. Het gaat uitsluitend om de in de story geaccepteerde nestvolgorde-normalisatie
+    (`**<u>x</u>**` → `<u>**x**</u>`); in 21 gevallen komen daarbij letterlijke sterretjes naast
+    een hernestte marker te staan, precies de beperking die de developer al had gedocumenteerd.
+- Scope: geen wijziging aan backend, `api_client.dart`, `/api/v1/notes` of
+  `.github/workflows/notities-apk.yml` (leeg diff).
+
+### Bevindingen
+- [info] Risico "Delta-JSON in het gedeelde notitieveld" is afgedekt: `_save()` gaat altijd via
+  `deltaToMarkdown(...)`; embeds (`data is! String`) worden overgeslagen i.p.v. als JSON
+  weggeschreven.
+- [info] `flutter_quill` 11.5.1 heeft `characterShortcutEvents`/`spaceShortcutEvents` standaard
+  **leeg**, dus typen van `# ` of `1. ` maakt géén header/ordered-list-attribuut aan dat bij het
+  opslaan stil zou verdwijnen. Via een hardware-toetsenbord (Ctrl+Shift+S/O/H) kan dat wel; dan
+  gaat alleen de opmaak verloren, nooit de tekst. Op de APK-only doelgroep (Android soft keyboard)
+  niet relevant.
+- [info] CI-risico dependency: `quill_native_bridge_android` eist `minSdk = 24`, gelijk aan
+  `flutter.minSdkVersion` (24) die de app al gebruikt; jvmTarget 17 van die module past bij de
+  JDK 17 uit `notities-apk.yml` (AGP 8.9.1 / Gradle 8.12). `flutter build apk` is hier niet te
+  draaien (geen Android SDK) — dat blijft de enige onbewezen stap, expliciet zo gemeld.
+- [suggestie] Een geplakte afbeelding/embed verdwijnt stil bij het opslaan (klopt voor
+  platte-tekst-opslag, maar er is geen melding aan de gebruiker). Geen actie nodig binnen deze
+  story.
