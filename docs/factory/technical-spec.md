@@ -223,6 +223,40 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   gewijzigd: A−/A+ triggert dus geen `document.changes`, dirty-state, autosave of API-aanroep en
   handmatig opslaan blijft byte-identieke markdown leveren. AppBar, balk, statusmeldingen en de
   alleen-lezen versieweergave gebruiken hun bestaande grootte.
+- **Editorstijl los van de inherited `DefaultTextStyle` (Flutter, `notities/`, SF-1823):**
+  `_editorStyles(context)` in `notes_editor_screen.dart` bouwt de `DefaultStyles` voor
+  `QuillEditorConfig.customStyles` niet meer op `DefaultStyles.getInstance(context)`. Die leest
+  `DefaultTextStyle.of(context)`, en de `context` van de `State` zit bóven de `Material` van het
+  `Scaffold`, waar `MaterialApp`s `_errorTextStyle` (`Color(0xD0FF0000)`, `monospace`, uit
+  `flutter/lib/src/material/app.dart`) staat — niet debug-only, dus het symptoom (rode
+  monospace-notitie) trad ook in de release-APK op. De nieuwe helper `_baseTextStyle(context)`
+  leidt de basisstijl expliciet af uit het thema (`textTheme.bodyMedium` voor
+  fontFamily/-fallback/`fontWeight`/`letterSpacing`, `colorScheme.onSurface` voor `color`) en zet
+  `fontSize`, `height: 1.15` en `decoration: TextDecoration.none`. `paragraph`, `lists` en
+  `leading` worden ermee opgebouwd met exact Quills eigen spacing (`HorizontalSpacing(0, 0)`;
+  lists `VerticalSpacing(6, 0)`/`VerticalSpacing(0, 6)`, rest `VerticalSpacing.zero`), dus geen
+  layoutregressie. Omdat er geen inherited tekststijl meer in meegaat is de gebruikte
+  `BuildContext` irrelevant — een `Builder` was niet nodig. De overige bloktypes (h1..h6, quote,
+  code, placeholder) blijven ongewijzigd: `QuillRawEditorState.didChangeDependencies` merget de
+  customStyles ónder de `Material` met Quills defaults. Het SF-1809-gedrag (A−/A+, 12–28 pt,
+  `notes_editor_font_size`, samen meeschalen van tekst/lijsttekst/bulletmarkering) is
+  functioneel ongewijzigd. Testhaak: `_app`/`_pumpLoaded` in `notes_editor_screen_test.dart`
+  hebben een optionele `theme`-parameter, zodat de kleurtests binnen `notitiesDarkTheme` draaien;
+  één test loopt de gerenderde `RenderParagraph`s ín de `QuillEditor` af en faalt op de code van
+  vóór de fix.
+- **Versiedetail rood + `SafeArea` (Flutter, `notities/`, SF-1823):** één top-level constante
+  `noteVersionColor = Color(0xFFE57373)` (`Colors.red.shade300`, als letterlijke `Color`
+  geschreven zodat 'ie `const` kan zijn — `Colors.red.shade300` is dat niet) in
+  `note_versions_screen.dart` kleurt in `NoteVersionDetailScreen` zowel het label
+  `Oude versie van ${formatVersionMoment(...)}` (semi-bold) als de `SelectableText` met de
+  versietekst; één plek om te wijzigen en daarmee direct testbaar. Het onderste knopblok
+  (`Divider` + `Padding` + `FilledButton.icon('Terugzetten')`) zit in een `SafeArea(top: false)`
+  met een `Column(mainAxisSize: .min)` eromheen; `left`/`right` staan bewust op de default `true`
+  (in landschap met notch dus ook horizontale inset — onschadelijk geacht). De knop houdt de
+  standaard `FilledButton`-themakleuren, dus geen eigen kleuroverride. Versielijst,
+  laad-/fout-/lege-toestanden, bevestigingsdialoog en de terugzetflow (`Navigator.pop(_text)` →
+  `replaceText`) zijn ongewijzigd. Alleen op een fysiek toestel met gesture-navigatie is de
+  systeembalk-overlap visueel te bevestigen; de widgettest dekt de aanwezigheid van de `SafeArea`.
 - **Notitie-versiegeschiedenis (backend `notes`, SF-1808):** `NoteVersion(id, text, savedAt:
   Instant)` in de Firestore-subcollectie `notes/note/versions` (velden `text` + `savedAt`,
   auto-id; `InMemoryNotesRepository` gebruikt UUID's en `asReversed()` vóór het stabiele sorteren,

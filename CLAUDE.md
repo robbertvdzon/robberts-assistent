@@ -248,7 +248,15 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
   markdown) met de knop **Terugzetten** + bevestigingsdialoog; terugzetten vervangt de
   editorinhoud via `controller.replaceText(0, document.length, …)` — een bewerking op het
   bestáánde document, zodat de undo-historie en het `changes`-abonnement intact blijven en de
-  normale debounce-autosave 'm als nieuwe versie opslaat.
+  normale debounce-autosave 'm als nieuwe versie opslaat. Sinds SF-1823 komt de tekststijl van de
+  editor expliciet uit het thema (`textTheme.bodyMedium` + `colorScheme.onSurface`) i.p.v. uit
+  `DefaultStyles.getInstance(context)` — die las `DefaultTextStyle.of(context)` en leverde boven
+  de `Material` van het `Scaffold` Flutters error-fallback (rood `0xD0FF0000`, monospace) op,
+  waardoor de notitie rood en in schrijfmachineletter stond; de alleen-lezen versieweergave toont
+  de oude tekst juist wél in rood (`noteVersionColor = Color(0xFFE57373)`, één benoemde constante
+  in `note_versions_screen.dart`) met daarboven het rode label `Oude versie van <datum tijd>`, en
+  het onderste knopblok met **Terugzetten** zit in een `SafeArea(top: false)` zodat 'ie bij
+  edge-to-edge/gesture-navigatie niet achter de systeembalk valt.
 - **`wind/`** — PoC "Hey Google" → App Actions → native trampoline (TTS + notificatie), praat
   met de backend-chat-assistent voor het windantwoord. Alleen APK.
 
@@ -950,6 +958,48 @@ alleen-lezen versieweergave, AppBar, status en overige knoppen schalen bewust ni
 gerichte editortests 21/21 groen, volledige `flutter test` 50/50 groen, `flutter analyze` zonder
 issues en `flutter build bundle --release` geslaagd; geen APK-/previewtest omdat de ARM64-sandbox
 geen Android SDK heeft en `notities/` APK-only is.
+
+Nieuw (SF-1823): **notitietekst weer wit, oude versie juist rood, Terugzetten altijd zichtbaar**.
+Alleen `notities/lib/notes_editor_screen.dart`, `notities/lib/note_versions_screen.dart` en hun
+widgettests; geen backend-, API-, opslagformaat- of dependency-wijziging. (1) **Editortekst**:
+`_editorStyles()` bouwde de `DefaultStyles` voor `QuillEditorConfig.customStyles` op
+`DefaultStyles.getInstance(context)`, en die leest `DefaultTextStyle.of(context)`. De `context`
+van de `State` zit boven de `Material` van het `Scaffold`, waar `MaterialApp`s `_errorTextStyle`
+(`Color(0xD0FF0000)`, `monospace`, uit `flutter/lib/src/material/app.dart` — **niet** debug-only,
+dus ook in de release-APK) staat; die stijl werd zo als documentbrede tekststijl gekopieerd.
+`_editorStyles()` gebruikt `getInstance` niet meer: de nieuwe helper `_baseTextStyle(context)`
+leidt de basisstijl expliciet af uit het thema (`textTheme.bodyMedium` voor
+fontFamily/-fallback/gewicht/letterSpacing, `colorScheme.onSurface` voor de kleur) en zet
+`fontSize`, `height: 1.15` en `decoration: TextDecoration.none` — exact Quills eigen waarden.
+`paragraph`, `lists` en `leading` worden daarmee opgebouwd met dezelfde spacing als Quill
+(`HorizontalSpacing(0, 0)`; lists `VerticalSpacing(6, 0)`/`VerticalSpacing(0, 6)`, rest
+`VerticalSpacing.zero`), dus geen layoutregressie. Omdat er geen enkele inherited tekststijl meer
+in meegaat, maakt de gebruikte `BuildContext` niet meer uit en was een `Builder` niet nodig; de
+overige stijlen (h1..h6, quote, code, placeholder) komen ongewijzigd uit Quill zelf, dat de
+customStyles intern ónder de `Material` merget (`QuillRawEditorState.didChangeDependencies`).
+A−/A+ (12–28 pt, stappen van 2, standaard 16), de voorkeur onder `notes_editor_font_size`, het
+samen meeschalen van tekst/lijsttekst/bulletmarkering, opmaakknoppen, undo/redo, autosave,
+statusregel en de Versies-actie zijn ongewijzigd. (2) **Oude versie in rood**: nieuwe top-level
+constante `noteVersionColor = Color(0xFFE57373)` (`Colors.red.shade300`, als letterlijke `Color`
+zodat 'ie `const` kan zijn) in `note_versions_screen.dart` — één plek om te wijzigen en direct
+testbaar. `NoteVersionDetailScreen` toont boven de tekst het label
+`Oude versie van <formatVersionMoment(...)>` (semi-bold) en geeft de `SelectableText` met de
+versietekst dezelfde kleur. De versielijst, de laad-/fout-/lege-toestanden en de
+bevestigingsdialoog zijn ongewijzigd. (3) **Terugzetten zichtbaar**: het onderste blok (`Divider`
++ `Padding` + `FilledButton.icon`) zit nu in een `SafeArea(top: false)`, zodat de knop bij
+edge-to-edge/gesture-navigatie (Android 15) volledig zichtbaar en aantikbaar blijft; AppBar en
+scrollende tekst behouden hun layout, de knop houdt de standaard `FilledButton`-themakleuren
+(contrastrijk op zwart) en het terugzetgedrag (dialoog → `Navigator.pop(_text)` → `replaceText`
+op het bestaande document, undo-historie intact) is niet aangeraakt. Verificatie: `flutter
+analyze` → "No issues found!", `flutter test` in `notities/` → **57/57 groen** (was 50); één van
+de nieuwe tests loopt de gerenderde `RenderParagraph`s ín de `QuillEditor` af en faalde op de code
+van vóór de fix, waarmee de diagnose bewezen is. Bekende, niet-blokkerende aandachtspunten:
+(1) het detailscherm toont het versiemoment nu twee keer (AppBar-titel + het nieuwe rode label) —
+zo gevraagd in de story; (2) `SafeArea(top: false)` laat `left`/`right` op `true`, dus in
+landschap met een notch krijgt het knopblok ook horizontale inset (onschadelijk); (3) punt 3 is
+alleen op een fysiek toestel met gesture-navigatie visueel te bevestigen — de widgettest dekt
+alleen de aanwezigheid van de `SafeArea` — en een APK bouwen kan niet in de sandbox, dus de
+`notities-apk.yml`-workflow op `main` blijft de laatste bevestiging.
 
 ---
 

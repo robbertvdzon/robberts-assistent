@@ -206,7 +206,13 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   tijd (`vandaag 11:30`, `gisteren 11:30`, `ma 28 jul 09:05`). Tikken op een regel toont die oude
   tekst alleen-lezen; **Terugzetten** vraagt eerst om bevestiging en zet de tekst daarna terug in
   de editor — dat terugzetten is met de undo-knop ongedaan te maken en wordt via de gewone
-  autosave als nieuwe versie opgeslagen.
+  autosave als nieuwe versie opgeslagen. Sinds SF-1823 is de tekst in de editor weer gewoon
+  wit en leesbaar in het normale lettertype (hij was rood en monospace geworden), staat de
+  alleen-lezen weergave van een oude versie juist in een lichte roodtint met daarboven een rood
+  label `Oude versie van <datum tijd>` — zodat direct duidelijk is dat je niet naar je huidige
+  notitie kijkt — en is de knop **Terugzetten** onderaan dat scherm altijd volledig zichtbaar en
+  aantikbaar, ook op telefoons met gesture-navigatie waar hij eerder deels achter de systeembalk
+  verdween.
 - **wind** — "Hey Google, vraag Wind …" → onzichtbare trampoline die het antwoord uitspreekt
   (TTS) + als notificatie post (leesbaar op Garmin-horloge).
 

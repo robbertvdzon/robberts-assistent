@@ -39,6 +39,12 @@ String formatVersionMoment(DateTime savedAt, {DateTime? now}) {
   return '${_weekdays[local.weekday - 1]} ${local.day} ${_months[local.month - 1]} $time';
 }
 
+/// Kleur van een oude versie: een lichte roodtint met goed contrast op de
+/// zwarte achtergrond (`Colors.red.shade300`). Zowel het label als de tekst
+/// gebruiken deze kleur, zodat direct duidelijk is dat je niet naar de huidige
+/// notitie kijkt. Eén plek om te wijzigen — en zo ook testbaar.
+const noteVersionColor = Color(0xFFE57373);
+
 /// Toont de bewaarde versies van de notitie (nieuwste eerst). Tikken op een
 /// regel opent een alleen-lezen weergave met een `Terugzetten`-knop; die geeft
 /// de gekozen tekst terug aan de editor via `Navigator.pop`.
@@ -202,19 +208,43 @@ class _NoteVersionDetailScreenState extends State<NoteVersionDetailScreen> {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
-                    child: SelectableText(_text.isEmpty ? '(lege notitie)' : _text),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Oude versie van ${formatVersionMoment(widget.version.savedAt)}',
+                          style: const TextStyle(color: noteVersionColor, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 8),
+                        SelectableText(
+                          _text.isEmpty ? '(lege notitie)' : _text,
+                          style: const TextStyle(color: noteVersionColor),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      icon: const Icon(Icons.restore),
-                      label: const Text('Terugzetten'),
-                      onPressed: _confirmRestore,
-                    ),
+                // SafeArea alleen om het knopblok: bij edge-to-edge/gesture-
+                // navigatie (Android 15) valt de knop anders deels achter de
+                // systeembalk.
+                SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            icon: const Icon(Icons.restore),
+                            label: const Text('Terugzetten'),
+                            onPressed: _confirmRestore,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

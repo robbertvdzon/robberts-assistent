@@ -101,14 +101,52 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     unawaited(_preferences.setInt(_fontSizePreferenceKey, _fontSize));
   }
 
+  /// De basisstijl van de bewerkbare tekst, expliciet uit het thema afgeleid.
+  ///
+  /// Bewust *niet* via `DefaultStyles.getInstance(context)`: die leest
+  /// `DefaultTextStyle.of(context)`, en boven de `Material` van het `Scaffold`
+  /// is dat in debug-builds Flutters error-fallback (rood `0xD0FF0000`,
+  /// monospace). Die lekte zo in de editor. Door de stijl hier zelf op
+  /// te bouwen — met `color` en `fontFamily` expliciet gezet — maakt het niet
+  /// meer uit vanaf welke `BuildContext` de stijlen worden gemaakt.
+  TextStyle _baseTextStyle(BuildContext context) {
+    final theme = Theme.of(context);
+    final body = theme.textTheme.bodyMedium ?? const TextStyle();
+    return TextStyle(
+      color: theme.colorScheme.onSurface,
+      fontFamily: body.fontFamily,
+      fontFamilyFallback: body.fontFamilyFallback,
+      fontWeight: body.fontWeight,
+      letterSpacing: body.letterSpacing,
+      fontSize: _fontSize.toDouble(),
+      // Dezelfde regelhoogte/decoratie als Quills eigen basisstijl.
+      height: 1.15,
+      decoration: TextDecoration.none,
+    );
+  }
+
+  /// Alleen de drie onderdelen die de documentbrede lettergrootte bepalen:
+  /// [DefaultStyles.paragraph] voor gewone tekst, [DefaultStyles.lists] voor
+  /// lijsttekst en [DefaultStyles.leading] voor de bulletmarkering. De rest
+  /// van de stijlen komt ongewijzigd uit Quill zelf (die worden intern, onder
+  /// de `Material`, met deze overschrijvingen samengevoegd).
   DefaultStyles _editorStyles(BuildContext context) {
-    final defaults = DefaultStyles.getInstance(context);
-    final fontSize = _fontSize.toDouble();
+    final style = _baseTextStyle(context);
+    // Dezelfde afstanden als Quills eigen basisstijlen; alleen de tekststijl
+    // wijkt af.
+    const spacing = HorizontalSpacing(0, 0);
     return DefaultStyles(
-      paragraph: defaults.paragraph!.copyWith(style: defaults.paragraph!.style.copyWith(fontSize: fontSize)),
-      lists: defaults.lists!.copyWith(style: defaults.lists!.style.copyWith(fontSize: fontSize)),
+      paragraph: DefaultTextBlockStyle(style, spacing, VerticalSpacing.zero, VerticalSpacing.zero, null),
+      lists: DefaultListBlockStyle(
+        style,
+        spacing,
+        const VerticalSpacing(6, 0),
+        const VerticalSpacing(0, 6),
+        null,
+        null,
+      ),
       // Quill tekent de bulletmarkering met deze aparte stijl.
-      leading: defaults.leading!.copyWith(style: defaults.leading!.style.copyWith(fontSize: fontSize)),
+      leading: DefaultTextBlockStyle(style, spacing, VerticalSpacing.zero, VerticalSpacing.zero, null),
     );
   }
 
