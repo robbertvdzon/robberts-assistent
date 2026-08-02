@@ -11,11 +11,19 @@ Flutter-app (APK-only) met één auto-opslaande notitie, gekoppeld aan
   iconen, witte cursor/selectie, grijze hint; ook het login-scherm is leesbaar op
   zwart (donkergrijze kaart, wit `Icons.edit_note`, `Colors.white70`-uitleg).
 - De notitie is een **WYSIWYG-editor** (`flutter_quill`, `lib/notes_editor_screen.dart`)
-  met een opmaakbalk van precies vijf knoppen direct onder de AppBar — tooltips
+  met precies vijf opmaakknoppen direct onder de AppBar — tooltips
   `Vet`, `Cursief`, `Onderstreept`, `Opsomming` en `Opmaak wissen` (die laatste haalt
   vet/cursief/onderstreept én de bullet-opmaak van de selectie af). Actieve knoppen
   zijn te herkennen aan een accentkleur met gevulde achtergrond. Placeholder:
   'Typ hier je notities…'.
+- A− en A+ in dezelfde horizontaal scrollbare balk wijzigen alleen de lettergrootte van de
+  bewerkbare notitie, direct in stappen van 2 pt. Beschikbaar is 12 t/m 28 pt; standaard 16 pt.
+  Op de grenzen is de betreffende knop uitgeschakeld. De voorkeur wordt lokaal onder
+  `notes_editor_font_size` in `SharedPreferences` bewaard, vóór de notitie geladen en blijft na
+  uitloggen of herstart behouden. Gewone en opgemaakte tekst, lijsttekst en bulletmarkeringen
+  schalen samen. AppBar, balk, statusmeldingen en de alleen-lezen versieweergave behouden hun
+  bestaande grootte. Dit wijzigt het Quill-document niet en veroorzaakt dus geen dirty-state,
+  autosave of API-aanroep; handmatig opslaan levert dezelfde markdown.
 - Onder water blijft de notitie **één platte markdown-string**; er wordt nooit
   Delta-JSON naar `/api/v1/notes` geschreven. De conversie zit in
   `lib/markdown_delta.dart` (`markdownToDelta()`/`deltaToMarkdown()`, zonder

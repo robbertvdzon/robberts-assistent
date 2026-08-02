@@ -188,8 +188,13 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   doorpraten.
 - **notities** — één auto-opslaande notitie. Google-login. De app is donker (zwarte
   achtergrond, witte tekst, ook op het inlogscherm) en de notitie is sinds SF-1801 echt op te
-  maken terwijl je typt: een smalle balk bovenin met precies vijf knoppen — vet, cursief,
-  onderstrepen, opsomming en 'opmaak wissen' — en wat je ziet is wat je krijgt. Onder water
+  maken terwijl je typt: een smalle balk bovenin met precies vijf opmaakknoppen — vet, cursief,
+  onderstrepen, opsomming en 'opmaak wissen' — en wat je ziet is wat je krijgt. Sinds SF-1809
+  bevat die balk ook A− en A+ om de bewerkbare notitietekst direct in stappen van 2 pt te schalen,
+  van 12 t/m 28 pt (standaard 16 pt); op een grens is de betreffende knop uitgeschakeld. De keuze
+  blijft lokaal bewaard na uitloggen of herstart en geldt ook voor opgemaakte tekst, lijsttekst en
+  bulletmarkeringen. Alleen de editorweergave schaalt mee; de rest van het scherm en de
+  alleen-lezen versieweergave niet. De balk kan op smalle schermen horizontaal scrollen. Onder water
   blijft de notitie één platte markdown-tekst (`**vet**`, `*cursief*`, `<u>onderstreept</u>`,
   `- ` voor bullets), zodat de assistent en de dagelijkse briefing er net als voorheen bij
   kunnen; alle overige tekst en opmaak (kopjes, tabellen, links, lege regels) blijft letterlijk

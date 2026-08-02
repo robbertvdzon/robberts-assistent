@@ -35,7 +35,7 @@ robberts-assistent/
 ├── robberts-assistent-backend/   ← Kotlin/Spring Boot/Spring Modulith backend
 ├── robberts_assistent/           ← Flutter app: briefings, chat, reminders en zoekopdrachten (web + APK)
 ├── groentetuin/                  ← Flutter app: moestuin-AI-chat (web op moestuin.vdzonsoftware.nl + APK)
-├── notities/                     ← Flutter app: één auto-opslaande notitie, rich text (APK)
+├── notities/                     ← Flutter app: auto-save, rich text + lokale lettergrootte (APK)
 ├── wind/                         ← Flutter/native PoC: "Hey Google" App Actions → wind-antwoord (APK)
 ├── deploy/                       ← kustomize-manifests (base + preview-overlay) + sealed secret
 ├── docs/
@@ -224,9 +224,14 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
   App-id blijft `nl.vdzon.groentetuin` (interne naam ≠ publieke host "moestuin").
 - **`notities/`** — één auto-opslaande notitie, Google-login. Alleen APK. Sinds SF-1801 een
   **donker thema** (zwart, witte tekst, ook op het inlogscherm) en een **WYSIWYG-editor**
-  (`flutter_quill`) met een vaste opmaakbalk van precies vijf knoppen: Vet, Cursief,
-  Onderstreept, Opsomming en Opmaak wissen. De notitie wordt nog steeds als **platte
-  markdown-tekst** opgeslagen via het ongewijzigde `PUT /api/v1/notes` — conversie in
+  (`flutter_quill`) met precies vijf vaste opmaakknoppen: Vet, Cursief, Onderstreept,
+  Opsomming en Opmaak wissen. Sinds SF-1809 staan in de horizontaal scrollbare balk ook A− en A+
+  (`Lettergrootte verkleinen`/`Lettergrootte vergroten`): alleen de bewerkbare notitietekst en
+  bulletmarkeringen schalen lokaal van 12 t/m 28 pt in stappen van 2 pt (standaard 16 pt). De via
+  `SharedPreferences` bewaarde voorkeur wordt vóór de notitie geladen en blijft na uitloggen of
+  herstart behouden; de wijziging raakt het Quill-document en de save-flow niet. De notitie wordt
+  nog steeds als **platte markdown-tekst** opgeslagen via het ongewijzigde `PUT /api/v1/notes` —
+  conversie in
   `lib/markdown_delta.dart` (`markdownToDelta()`/`deltaToMarkdown()`), mapping uitsluitend
   `**vet**`, `*cursief*`, `<u>onderstreept</u>` en `- ` voor bullets; al het andere (kopjes,
   tabellen, links, code, lege regels) blijft letterlijke tekst, zodat door de assistent
@@ -925,6 +930,26 @@ alleen leesverbruik; (3) faalt één `deleteVersion`, dan stopt de opruimrun (al
 zomertijdovergang versies van gisteren één keer per jaar als `vandaag HH:MM` gelabeld worden
 (cosmetisch; tijd en volgorde blijven correct); (5) de APK is in de sandbox niet te bouwen — de
 `notities-apk.yml`-workflow op `main` is de eerste echte bevestiging.
+
+Nieuw (SF-1809): **de lettergrootte van de bewerkbare notitie is lokaal instelbaar**. Alleen
+`notities/lib/notes_editor_screen.dart` en de bijbehorende widgettests zijn gewijzigd; backend,
+API-contract, `markdown_delta.dart`, dependencies en versie-/save-logica zijn ongemoeid. De
+zelfgebouwde balk bevat vóór undo/redo twee toegankelijke knoppen met zichtbare labels A− en A+ en
+de tooltips `Lettergrootte verkleinen` en `Lettergrootte vergroten`. De beschikbare waarden zijn
+vast 12, 14, 16, 18, 20, 22, 24, 26 en 28 pt; zonder geldige voorkeur is 16 pt de standaard en op
+de grenzen is de betreffende knop disabled. De hele balk zit in een horizontale
+`SingleChildScrollView`, zodat ook een 280-pixelbrede viewport niet overloopt. De voorkeur staat
+onder `notes_editor_font_size` in de al aanwezige `shared_preferences` en wordt vóór `getNotes()`
+gelezen. Een ontbrekende of niet-gehele/ongeldige tussenwaarde valt terug op 16 pt; waarden buiten
+het bereik worden op 12/28 begrensd. `QuillEditorConfig.customStyles` overschrijft uitsluitend de
+fontgrootte van Quills `paragraph`, `lists` en `leading`: gewone en vet/cursief/onderstreepte tekst,
+lijsttekst en bulletmarkering schalen daardoor samen, zonder Delta-attributen te wijzigen. Een
+druk op A−/A+ herbouwt alleen de weergave en schrijft de lokale voorkeur; dat markeert de notitie
+niet dirty, plant geen autosave en verandert bij handmatig opslaan geen byte van de markdown. De
+alleen-lezen versieweergave, AppBar, status en overige knoppen schalen bewust niet mee. Verificatie:
+gerichte editortests 21/21 groen, volledige `flutter test` 50/50 groen, `flutter analyze` zonder
+issues en `flutter build bundle --release` geslaagd; geen APK-/previewtest omdat de ARM64-sandbox
+geen Android SDK heeft en `notities/` APK-only is.
 
 ---
 
