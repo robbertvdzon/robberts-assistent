@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' show FlutterQuillLocalizations;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_client.dart';
@@ -11,6 +12,27 @@ void main() {
 /// De OAuth-web-client-ID komt via een build-time waarde (`--dart-define=GOOGLE_CLIENT_ID=...`).
 const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: '');
 
+/// Donker thema: zwarte achtergrond met witte, goed leesbare letters.
+final notitiesDarkTheme = ThemeData(
+  brightness: Brightness.dark,
+  useMaterial3: true,
+  scaffoldBackgroundColor: Colors.black,
+  colorScheme: const ColorScheme.dark(surface: Colors.black),
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Colors.black,
+    foregroundColor: Colors.white,
+    iconTheme: IconThemeData(color: Colors.white),
+  ),
+  textSelectionTheme: const TextSelectionThemeData(
+    cursorColor: Colors.white,
+    selectionColor: Color(0x66FFFFFF),
+    selectionHandleColor: Colors.white,
+  ),
+  inputDecorationTheme: const InputDecorationTheme(
+    hintStyle: TextStyle(color: Colors.white54),
+  ),
+);
+
 class NotitiesApp extends StatelessWidget {
   const NotitiesApp({super.key});
 
@@ -18,11 +40,10 @@ class NotitiesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Notities',
-      theme: ThemeData(
-        colorSchemeSeed: Colors.amber,
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.yellow,
-      ),
+      theme: notitiesDarkTheme,
+      // flutter_quill heeft zijn eigen localizations-delegate nodig.
+      localizationsDelegates: FlutterQuillLocalizations.localizationsDelegates,
+      supportedLocales: FlutterQuillLocalizations.supportedLocales,
       home: const RootScreen(),
     );
   }
@@ -98,17 +119,21 @@ class _RootScreenState extends State<RootScreen> {
       child: SizedBox(
         width: 420,
         child: Card(
+          color: const Color(0xFF1E1E1E),
           child: Padding(
             padding: const EdgeInsets.all(28),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.edit_note, size: 56, color: Colors.amber),
+                const Icon(Icons.edit_note, size: 56, color: Colors.white),
                 const SizedBox(height: 16),
-                const Text('Notities', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                const Text(
+                  'Notities',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
+                ),
                 const SizedBox(height: 4),
-                const Text('Log in met Google om verder te gaan.', style: TextStyle(color: Colors.black54)),
+                const Text('Log in met Google om verder te gaan.', style: TextStyle(color: Colors.white70)),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: loading ? null : _loginWithGoogle,
