@@ -48,7 +48,13 @@ bolletje én het woord **goed**, **let op** of **niet**.
   verwijderd en er is geen sneltoets-alternatief, versturen gaat uitsluitend via de send-knop. De
   omliggende `Row` staat op `CrossAxisAlignment.end`, zodat de foto- en send-knop onderaan
   uitgelijnd blijven als het veld groeit; newlines blijven behouden (`_sendTyped()` doet alleen
-  `trim()`).
+  `trim()`). Sinds SF-1767 accepteert hetzelfde veld ook een **geplakte afbeelding** uit het
+  klembord (`ContentInsertionConfiguration` met `image/png`/`image/jpeg`): de aangeboden bytes gaan
+  als `XFile.fromData(...)` door dezelfde `_attach(...)`-flow als camera/galerij, verschijnen in de
+  pending-strook en worden bij het versturen als `photos`-element meegestuurd. Bij ontbrekende/lege
+  data of een ander formaat gebeurt er niets, op één korte melding ("Geen afbeelding op het
+  klembord") na. Dit is een toetsenbordroute (Android/Gboard) — in de webversie blijft plakken
+  tekst-only — en er kwam geen dependency bij.
   Wordt de app gestart via Google Assistent/Gemini ("Hé Google, start Robberts assistent app"),
   dan selecteert de app deze tab en opent 'ie meteen een nieuw gesprek in **praatmodus** dat al
   probeert te luisteren (`AssistantScreen(startInVoiceMode: true, autoStartListening: true)`).
