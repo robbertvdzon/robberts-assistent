@@ -209,6 +209,20 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   geaccepteerd: bold/italic buiten underline in handmatig aangeleverde markdown wordt bij de
   eerste cyclus naar de canonieke nestvolgorde genormaliseerd (stabiel vanaf cyclus 2), en een
   geplakte embed verdwijnt stil bij het opslaan.
+- **Lokale editorlettergrootte (Flutter, `notities/`, SF-1809):**
+  `notes_editor_screen.dart` leest vóór `api.getNotes()` de bestaande `shared_preferences`-key
+  `notes_editor_font_size`. De toegestane gehele waarden zijn 12 t/m 28 in stappen van 2, met 16
+  als default; een ontbrekende, niet-gehele of ongeldige tussenwaarde valt terug op 16 en een
+  waarde buiten bereik wordt begrensd op 12/28. Twee `IconButton`s met zichtbare tekst A−/A+ en
+  tooltips `Lettergrootte verkleinen`/`Lettergrootte vergroten` schrijven de voorkeur zonder erop
+  te wachten (`unawaited(setInt(...))`) en zijn op hun grens disabled. De hele zelfgebouwde balk is
+  horizontaal scrollbaar. `QuillEditorConfig.customStyles` past alleen de fontgrootte van
+  `DefaultStyles.paragraph`, `lists` en `leading` aan; Quill voegt die gedeeltelijke overrides met
+  de overige defaults samen, waardoor inline vet/cursief/onderstreept en lijsttekst hun opmaak
+  behouden en de aparte bullet-leading even groot schaalt. Er worden geen Delta-attributen
+  gewijzigd: A−/A+ triggert dus geen `document.changes`, dirty-state, autosave of API-aanroep en
+  handmatig opslaan blijft byte-identieke markdown leveren. AppBar, balk, statusmeldingen en de
+  alleen-lezen versieweergave gebruiken hun bestaande grootte.
 - **Notitie-versiegeschiedenis (backend `notes`, SF-1808):** `NoteVersion(id, text, savedAt:
   Instant)` in de Firestore-subcollectie `notes/note/versions` (velden `text` + `savedAt`,
   auto-id; `InMemoryNotesRepository` gebruikt UUID's en `asReversed()` vóór het stabiele sorteren,

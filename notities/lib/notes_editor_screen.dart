@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'markdown_delta.dart';
@@ -36,8 +37,13 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   var _saving = false;
   String? _error;
   String _status = '';
+  late SharedPreferences _preferences;
+  var _fontSize = _defaultFontSize;
 
   static const _debounceDuration = Duration(seconds: 10);
+  static const _fontSizePreferenceKey = 'notes_editor_font_size';
+  static const _fontSizes = <int>[12, 14, 16, 18, 20, 22, 24, 26, 28];
+  static const _defaultFontSize = 16;
 
   @override
   void initState() {
@@ -52,9 +58,13 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
 
   Future<void> _load() async {
     try {
+      final preferences = await SharedPreferences.getInstance();
+      final fontSize = _readFontSize(preferences);
       final text = await widget.api.getNotes();
       if (mounted) {
         setState(() {
+          _preferences = preferences;
+          _fontSize = fontSize;
           // Eerst het document zetten, dán pas luisteren: het initiële laden
           // mag geen save triggeren.
           _controller.document = Document.fromDelta(markdownToDelta(text));
@@ -70,6 +80,36 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
         });
       }
     }
+  }
+
+  int _readFontSize(SharedPreferences preferences) {
+    final stored = preferences.get(_fontSizePreferenceKey);
+    if (stored is! int) return _defaultFontSize;
+    if (stored < _fontSizes.first) return _fontSizes.first;
+    if (stored > _fontSizes.last) return _fontSizes.last;
+    return _fontSizes.contains(stored) ? stored : _defaultFontSize;
+  }
+
+  void _changeFontSize(int step) {
+    final index = _fontSizes.indexOf(_fontSize);
+    final newIndex = (index + step).clamp(0, _fontSizes.length - 1);
+    if (newIndex == index) return;
+
+    setState(() => _fontSize = _fontSizes[newIndex]);
+    // Alleen een lokale weergavevoorkeur: het Quill-document en daarmee de
+    // dirty-/autosave-flow worden niet geraakt.
+    unawaited(_preferences.setInt(_fontSizePreferenceKey, _fontSize));
+  }
+
+  DefaultStyles _editorStyles(BuildContext context) {
+    final defaults = DefaultStyles.getInstance(context);
+    final fontSize = _fontSize.toDouble();
+    return DefaultStyles(
+      paragraph: defaults.paragraph!.copyWith(style: defaults.paragraph!.style.copyWith(fontSize: fontSize)),
+      lists: defaults.lists!.copyWith(style: defaults.lists!.style.copyWith(fontSize: fontSize)),
+      // Quill tekent de bulletmarkering met deze aparte stijl.
+      leading: defaults.leading!.copyWith(style: defaults.leading!.style.copyWith(fontSize: fontSize)),
+    );
   }
 
   /// `_controller.document` is een nieuw [Document]-object na het laden, dus de
@@ -132,13 +172,10 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     super.dispose();
   }
 
-  bool _isActive(Attribute attribute) =>
-      _controller.getSelectionStyle().attributes.containsKey(attribute.key);
+  bool _isActive(Attribute attribute) => _controller.getSelectionStyle().attributes.containsKey(attribute.key);
 
   void _toggle(Attribute attribute) {
-    _controller.formatSelection(
-      _isActive(attribute) ? Attribute.clone(attribute, null) : attribute,
-    );
+    _controller.formatSelection(_isActive(attribute) ? Attribute.clone(attribute, null) : attribute);
   }
 
   /// Haalt vet/cursief/onderstreept én de bullet-opmaak van de selectie af.
@@ -151,9 +188,9 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   /// Opent de versielijst; komt daar een tekst uit terug, dan wordt die in het
   /// bestaande document teruggezet.
   Future<void> _openVersions() async {
-    final restored = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => NoteVersionsScreen(api: widget.api)),
-    );
+    final restored = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute(builder: (_) => NoteVersionsScreen(api: widget.api)));
     if (restored != null && mounted) _restore(restored);
   }
 
@@ -188,30 +225,20 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
           IconButton(
             tooltip: 'Opslaan',
             icon: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.save),
             onPressed: _saving ? null : () => _save(force: true),
           ),
-          IconButton(
-            tooltip: 'Versies',
-            icon: const Icon(Icons.history),
-            onPressed: _openVersions,
-          ),
-          IconButton(
-            tooltip: 'Uitloggen',
-            icon: const Icon(Icons.logout),
-            onPressed: widget.onLoggedOut,
-          ),
+          IconButton(tooltip: 'Versies', icon: const Icon(Icons.history), onPressed: _openVersions),
+          IconButton(tooltip: 'Uitloggen', icon: const Icon(Icons.logout), onPressed: widget.onLoggedOut),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+          ? Center(
+              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            )
           : Column(
               children: [
                 _toolbar(),
@@ -221,10 +248,11 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
                     controller: _controller,
                     focusNode: _focusNode,
                     scrollController: _scrollController,
-                    config: const QuillEditorConfig(
+                    config: QuillEditorConfig(
                       placeholder: 'Typ hier je notities…',
-                      padding: EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       expands: true,
+                      customStyles: _editorStyles(context),
                     ),
                   ),
                 ),
@@ -233,58 +261,61 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     );
   }
 
-  /// Undo/redo links, daarna de vijf opmaakknoppen; bewust zelfgebouwd i.p.v.
-  /// `QuillSimpleToolbar`, zodat er geen andere knoppen kunnen opduiken.
+  /// Lettergrootte, undo/redo en de vijf opmaakknoppen; bewust zelfgebouwd
+  /// i.p.v. `QuillSimpleToolbar`, zodat er geen andere knoppen kunnen opduiken.
   Widget _toolbar() {
     final scheme = Theme.of(context).colorScheme;
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) => Row(
-        key: const ValueKey('opmaakbalk'),
-        children: [
-          IconButton(
-            tooltip: 'Ongedaan maken',
-            icon: const Icon(Icons.undo),
-            color: scheme.onSurface,
-            // Niets te doen => onPressed null => uitgegrijsd. Het initiële laden
-            // zit niet in de historie (het abonnement start pas daarna), dus
-            // direct na openen staan beide knoppen uit.
-            onPressed: _controller.hasUndo ? _controller.undo : null,
-          ),
-          IconButton(
-            tooltip: 'Opnieuw',
-            icon: const Icon(Icons.redo),
-            color: scheme.onSurface,
-            onPressed: _controller.hasRedo ? _controller.redo : null,
-          ),
-          _toolbarButton(tooltip: 'Vet', icon: Icons.format_bold, attribute: Attribute.bold),
-          _toolbarButton(tooltip: 'Cursief', icon: Icons.format_italic, attribute: Attribute.italic),
-          _toolbarButton(
-            tooltip: 'Onderstreept',
-            icon: Icons.format_underlined,
-            attribute: Attribute.underline,
-          ),
-          _toolbarButton(
-            tooltip: 'Opsomming',
-            icon: Icons.format_list_bulleted,
-            attribute: Attribute.ul,
-          ),
-          IconButton(
-            tooltip: 'Opmaak wissen',
-            icon: const Icon(Icons.format_clear),
-            color: Theme.of(context).colorScheme.onSurface,
-            onPressed: _clearFormatting,
-          ),
-        ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ListenableBuilder(
+        listenable: _controller,
+        builder: (context, _) => Row(
+          key: const ValueKey('opmaakbalk'),
+          children: [
+            IconButton(
+              tooltip: 'Lettergrootte verkleinen',
+              icon: const Text('A−'),
+              color: scheme.onSurface,
+              onPressed: _fontSize == _fontSizes.first ? null : () => _changeFontSize(-1),
+            ),
+            IconButton(
+              tooltip: 'Lettergrootte vergroten',
+              icon: const Text('A+'),
+              color: scheme.onSurface,
+              onPressed: _fontSize == _fontSizes.last ? null : () => _changeFontSize(1),
+            ),
+            IconButton(
+              tooltip: 'Ongedaan maken',
+              icon: const Icon(Icons.undo),
+              color: scheme.onSurface,
+              // Niets te doen => onPressed null => uitgegrijsd. Het initiële laden
+              // zit niet in de historie (het abonnement start pas daarna), dus
+              // direct na openen staan beide knoppen uit.
+              onPressed: _controller.hasUndo ? _controller.undo : null,
+            ),
+            IconButton(
+              tooltip: 'Opnieuw',
+              icon: const Icon(Icons.redo),
+              color: scheme.onSurface,
+              onPressed: _controller.hasRedo ? _controller.redo : null,
+            ),
+            _toolbarButton(tooltip: 'Vet', icon: Icons.format_bold, attribute: Attribute.bold),
+            _toolbarButton(tooltip: 'Cursief', icon: Icons.format_italic, attribute: Attribute.italic),
+            _toolbarButton(tooltip: 'Onderstreept', icon: Icons.format_underlined, attribute: Attribute.underline),
+            _toolbarButton(tooltip: 'Opsomming', icon: Icons.format_list_bulleted, attribute: Attribute.ul),
+            IconButton(
+              tooltip: 'Opmaak wissen',
+              icon: const Icon(Icons.format_clear),
+              color: Theme.of(context).colorScheme.onSurface,
+              onPressed: _clearFormatting,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _toolbarButton({
-    required String tooltip,
-    required IconData icon,
-    required Attribute attribute,
-  }) {
+  Widget _toolbarButton({required String tooltip, required IconData icon, required Attribute attribute}) {
     final active = _isActive(attribute);
     final scheme = Theme.of(context).colorScheme;
     return IconButton(
