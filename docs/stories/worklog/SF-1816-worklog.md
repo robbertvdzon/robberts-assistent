@@ -33,3 +33,18 @@ Vangnet / review:
   passend alternatief; de release-bundlecompile hierboven is wel groen.
 - Eigen diff-review: geen wijziging aan `markdown_delta.dart`, API/backend, undo/redo,
   versieherstel of save-logica; `git diff --check` schoon en geen conflictmarkers.
+
+Review (2026-08-02):
+- Volledige story-diff `main...HEAD` op commit `67c5d64902dacbf730840243dba3413fca7eaead`
+  beoordeeld op acceptatiecriteria, regressies, scope en testdekking; geen blocker of bug gevonden.
+- De drie aangepaste Quill-defaultstijlen (`paragraph`, `lists`, `leading`) worden in
+  `flutter_quill` 11.5.1 veldgewijs met de overige defaults samengevoegd. Inline vet/cursief/
+  onderstreept erft daardoor de paragraph-/listgrootte en de bulletmarkering gebruikt de apart
+  aangepaste leading-stijl, zonder documentattributen te wijzigen.
+- Gerichte reviewer-run: `flutter test test/notes_editor_screen_test.dart` vanuit `notities/`:
+  21/21 tests groen. Het revisiongebonden volledige developer-/harnessbewijs op dezelfde HEAD
+  meldt daarnaast `flutter test` 50/50 groen, `flutter analyze` groen en een geslaagde
+  `flutter build bundle --release`; dit is conform de reviewer-instructie geaccepteerd zonder het
+  volledige vangnet opnieuw te draaien.
+- `git diff --check main...HEAD` is schoon; de reviewer-run liet buiten dit worklog geen
+  wijzigingen achter.
