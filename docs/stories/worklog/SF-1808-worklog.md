@@ -134,3 +134,57 @@ Bevindingen (geen blockers):
   volgende nacht ruimt het alsnog op — acceptabel.
 
 Conclusie: akkoord.
+
+## Testronde (SF-1811, tester)
+
+Uitgevoerd op branch `ai/SF-1808` (HEAD `b52ca03`), preview `robberts-assistent-pr-49`
+(bevestigd via de GitHub-API: PR #49 head.ref = `ai/SF-1808`, head.sha = `b52ca03`).
+
+Vangnet:
+
+- `mvn -o test` in `robberts-assistent-backend/` → **405 tests, 0 failures, 0 errors,
+  BUILD SUCCESS**.
+- `flutter test` in `notities/` → **44 groen**; `flutter analyze` → **No issues found!**
+  (Flutter 3.44.7 werkte deze run gewoon in de sandbox.)
+
+Live E2E op de preview-API (in-memory opslag, `RA_PREVIEW_SKIP_GOOGLE_AUTH`):
+
+| Stap | Resultaat |
+|---|---|
+| `GET /api/v1/notes/versions` op een lege omgeving | `{"versions":[]}` (HTTP 200) |
+| `PUT /api/v1/notes` "testversie A" | 1 versie in het overzicht (AC3) |
+| tweede `PUT` met exact dezelfde tekst | nog steeds 1 versie — geen dubbel (AC3) |
+| `PUT` "testversie B met **vet**" | 2 versies, nieuwste eerst (AC4) |
+| `GET /api/v1/notes/versions/{id}` | juiste `id`/`savedAt`/`text` (AC4) |
+| `GET /api/v1/notes/versions/onbekend` | HTTP 404 "Versie niet gevonden" (AC4) |
+| A → B → A | 3 versies (aanname "dubbel-detectie t.o.v. laatste versie") |
+| cleanup | notitie teruggezet naar de oorspronkelijke (lege) tekst |
+
+Code-verificatie tegen de AC's die niet live afdwingbaar zijn:
+
+- AC2: `QuillController.document =` (flutter_quill 11.5.1) zet een nieuw `Document`, dus een
+  verse, lege historie → `hasUndo`/`hasRedo` zijn na het laden `false`; undo kan het initiële
+  laden niet terugdraaien. Ook gedekt door de widget-test "direct na het laden zijn Ongedaan
+  maken en Opnieuw uitgegrijsd".
+- AC5: `NoteVersionCleanupTest` dekt de pure functie (7-dagen-grens inclusief exact op de
+  grens, laatste-per-kalenderdag, Amsterdamse i.p.v. UTC-daggrens, lege lijst);
+  `NoteVersionCleanupSchedulerTest` bewijst de INFO-regel "Notitie-versies opgeruimd: 1
+  verwijderd" en dat een falende repository de job niet laat crashen.
+- AC8: widget-tests dekken undo/redo (aanwezigheid, disabled-state, werking) en de
+  terugzet-flow inclusief bevestiging/annuleren en undo-baarheid.
+- AC10: `deltaToMarkdown` blijft de enige save-route; `NotesTools`/`WeekTasksSectionProvider`
+  ongewijzigd in de diff.
+
+Bevinding (niet-blokkerend):
+
+- [klein] `formatVersionMoment` (`note_versions_screen.dart`) bepaalt vandaag/gisteren met
+  `todayDay.difference(day).inDays`. Op de dag ná de zomertijd-overgang (laatste zondag van
+  maart) is dat verschil 23 uur → `inDays == 0`, waardoor versies van gisteren die ene dag per
+  jaar als `vandaag HH:MM` worden gelabeld. Puur cosmetisch (tijd en volgorde blijven correct);
+  kleinste fix is vergelijken op kalenderdatum i.p.v. op `Duration`.
+- De eerder door de reviewer genoteerde punten (Versies-knop actief tijdens `_loading`/`_error`,
+  extra `latestVersions(1)`-query per save) zijn opnieuw bekeken en blijven niet-blokkerend.
+
+Geen screenshots: `notities/` is APK-only en heeft geen web-preview (conform tester-instructies).
+
+Conclusie: **tested**.
