@@ -1,0 +1,99 @@
+# SF-1823 - Worklog
+
+Story-context bij eerste pickup:
+Notities: editortekst themakleur, versiedetail rood, Terugzetten in SafeArea
+
+Alleen notities/ (frontend), geen backend/API/opslagformaat-wijziging en geen nieuwe dependency.
+
+1) notities/lib/notes_editor_screen.dart - _editorStyles(context) bouwt de DefaultStyles voor
+QuillEditorConfig.customStyles niet langer op een basis die Flutters error-fallback (rood
+0xD0FF0000, monospace) kan bevatten.
+
+2) notities/lib/note_versions_screen.dart - NoteVersionDetailScreen toont de versietekst en een
+label 'Oude versie van <datum tijd>' in een lichte roodtint (benoemde constante).
+
+3) notities/lib/note_versions_screen.dart - het onderste knopblok (Divider + Padding +
+FilledButton 'Terugzetten') in een SafeArea.
+
+Stappenplan:
+[x]: read issue and target docs
+[x]: implement requested changes
+[x]: run relevant tests
+[x]: update story-log with results
+
+## Wat is er gedaan en waarom
+
+### 1. Editortekst weer wit/leesbaar (`notities/lib/notes_editor_screen.dart`)
+
+**Oorzaak, bevestigd met een render-tree-test:** `_editorStyles()` bouwde de overschrijvingen op
+`DefaultStyles.getInstance(context)`. Die leest `DefaultTextStyle.of(context)`, en de `context`
+van de `State` zit *boven* de `Material` van het `Scaffold`. Daar staat in debug-builds Flutters
+error-fallbackstijl (`Color(0xD0FF0000)`, `monospace`). Die stijl werd zo als basis
+gekopieerd naar `paragraph`/`lists`/`leading` en daarmee de documentbrede tekststijl. Gemeten op
+de gerenderde `RenderParagraph`s vóór de fix: `color 0xD0FF0000`, `fontFamily monospace`; na de
+fix: `Colors.white`, `Roboto`.
+
+**Oplossing:** `_editorStyles()` gebruikt `DefaultStyles.getInstance` helemaal niet meer. Nieuwe
+helper `_baseTextStyle(context)` bouwt de basisstijl expliciet uit het thema
+(`textTheme.bodyMedium` voor fontFamily/-fallback/gewicht/letterSpacing, `colorScheme.onSurface`
+voor de kleur) en zet `fontSize`, `height: 1.15` en `decoration: TextDecoration.none` — dezelfde
+waarden die Quill zelf voor zijn basisstijl gebruikt. `paragraph`, `lists` en `leading` worden
+daarmee opgebouwd met dezelfde spacing-constanten als Quill (`HorizontalSpacing(0,0)`;
+lists: `VerticalSpacing(6,0)` / `VerticalSpacing(0,6)`). Omdat er geen enkele inherited
+tekststijl meer in meegaat, maakt het niet meer uit vanaf welke `BuildContext` de stijlen worden
+opgebouwd — een `Builder` was daardoor niet nodig. De overige Quill-stijlen (h1..h6, quote, code,
+placeholder) komen ongewijzigd uit Quill zelf; die worden intern, ónder de `Material`, met deze
+drie overschrijvingen samengevoegd en waren dus al correct.
+
+Ongewijzigd: A−/A+ (12–28 pt, stappen van 2, standaard 16), de voorkeur onder
+`notes_editor_font_size` in `shared_preferences`, het samen meeschalen van tekst, lijsttekst en
+bulletmarkering, en verder opmaakknoppen, undo/redo, autosave, statusregel en de Versies-actie.
+
+### 2. Oude versie in rood (`notities/lib/note_versions_screen.dart`)
+
+Nieuwe top-level constante `noteVersionColor = Color(0xFFE57373)` (`Colors.red.shade300`; als
+letterlijke `Color` zodat 'ie `const` kan zijn) — één plek om te wijzigen en direct testbaar.
+`NoteVersionDetailScreen` toont boven de tekst `Oude versie van <formatVersionMoment(...)>` in die
+kleur (semi-bold) en geeft de `SelectableText` met de versietekst dezelfde kleur. Versielijst,
+laad-/fout-/lege-toestanden en de bevestigingsdialoog zijn ongewijzigd.
+
+### 3. "Terugzetten" altijd zichtbaar
+
+Het onderste blok (`Divider` + `Padding` + `FilledButton.icon`) zit nu in een
+`SafeArea(top: false)`, zodat de knop bij edge-to-edge/gesture-navigatie (Android 15) niet meer
+deels achter de systeembalk valt. Alleen dit blok; AppBar en scrollende tekst behouden hun layout.
+De knop houdt de standaard `FilledButton`-kleuren van het thema (`colorScheme.primary`, een licht
+paars, op `onPrimary` donker) — ruim voldoende contrast op zwart, dus geen eigen kleuroverride.
+Het terugzetgedrag (dialoog → `Navigator.pop(_text)` → `replaceText` op het bestaande document)
+is niet aangeraakt.
+
+### Tests
+
+`notities/test/notes_editor_screen_test.dart`: `_app`/`_pumpLoaded` kregen een optionele
+`theme`-parameter (bestaande tests ongewijzigd). Drie nieuwe tests:
+- de `customStyles` van `paragraph`/`lists`/`leading` hebben binnen `notitiesDarkTheme` de
+  themakleur (`onSurface`, hier wit), niet `0xD0FF0000` en niet `monospace`; ook de getekende
+  bulletmarkering volgt die kleur;
+- een end-to-end variant die de `RenderParagraph`s ín de `QuillEditor` afloopt en controleert dat
+  de daadwerkelijk gerenderde tekststijl wit/niet-monospace/16 pt is (deze test faalde op de code
+  van vóór de fix — daarmee is de diagnose hierboven bewezen);
+- na A+ en tweemaal A− verandert alleen `fontSize` (18 resp. 14) en blijft de kleur de themakleur,
+  voor alle drie de onderdelen samen.
+
+`notities/test/note_versions_screen_test.dart`: fake `ApiClient` met `getNoteVersion` plus een
+helper die het detailscherm als eigen route pusht (zodat `Navigator.pop` een echte route heeft).
+Vier nieuwe widgettests: tekst + label in `noteVersionColor`, lege versie ('(lege notitie)') ook
+rood, het knopblok met 'Terugzetten' zit in een `SafeArea` met `top == false`, en de
+bevestigingsdialoog geeft na 'Ja, terugzetten' de tekst terug via `Navigator.pop`.
+
+### Verificatie
+
+- `notities/`: `flutter analyze` → "No issues found!"; `flutter test` → **57/57 groen**
+  (was 50 vóór deze story). `markdown_delta_test.dart` en `widget_test.dart` ongemoeid en groen.
+- Backend `mvn -o test` gedraaid ter controle dat het vangnet buiten `notities/` groen blijft
+  (geen backendwijziging in deze story).
+- Geen wijziging aan `api_client.dart`, `markdown_delta.dart`, het opslagformaat (platte markdown
+  via `PUT /api/v1/notes`), `pubspec.yaml` of `pubspec.lock`.
+- Een APK bouwen kan niet in deze sandbox (geen Android SDK, arm64), dus de `notities-apk.yml`-
+  workflow op `main` en een handmatige check op toestel zijn de laatste bevestiging — met name
+  voor punt 3, dat alleen op een toestel met gesture-navigatie echt zichtbaar is.

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill/quill_delta.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:notities/api_client.dart';
+import 'package:notities/main.dart' show notitiesDarkTheme;
 import 'package:notities/notes_editor_screen.dart';
 
 class _FakeApiClient extends ApiClient {
@@ -39,7 +41,8 @@ class _FakeApiClient extends ApiClient {
 
 /// De Quill-editor heeft zijn eigen localizations-delegate nodig, net als in
 /// `main.dart`.
-Widget _app(ApiClient api) => MaterialApp(
+Widget _app(ApiClient api, {ThemeData? theme}) => MaterialApp(
+  theme: theme,
   localizationsDelegates: FlutterQuillLocalizations.localizationsDelegates,
   supportedLocales: FlutterQuillLocalizations.supportedLocales,
   home: NotesEditorScreen(api: api, onLoggedOut: () {}),
@@ -52,9 +55,10 @@ Future<void> _pumpLoaded(
   ApiClient api, {
   Map<String, Object> preferences = const {},
   bool resetPreferences = true,
+  ThemeData? theme,
 }) async {
   if (resetPreferences) SharedPreferences.setMockInitialValues(preferences);
-  await tester.pumpWidget(_app(api));
+  await tester.pumpWidget(_app(api, theme: theme));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
 }
@@ -162,6 +166,74 @@ void main() {
     expect(enlargedStyles.lists!.style.fontSize, 18);
     expect(enlargedStyles.leading!.style.fontSize, 18);
     expect(tester.widget<Text>(find.text('•')).style!.fontSize, 18);
+  });
+
+  testWidgets('editortekst krijgt de themakleur, niet Flutters rode monospace error-fallback', (
+    WidgetTester tester,
+  ) async {
+    // Zoals de app het doet: het echte donkere thema eromheen.
+    await _pumpLoaded(tester, _FakeApiClient()..initialText = '- melk', theme: notitiesDarkTheme);
+
+    final expected = notitiesDarkTheme.colorScheme.onSurface;
+    // Op zwart levert het notities-thema feitelijk witte letters.
+    expect(expected, Colors.white);
+
+    final styles = _stylesOf(tester);
+    for (final style in [styles.paragraph!.style, styles.lists!.style, styles.leading!.style]) {
+      expect(style.color, expected);
+      expect(style.color, isNot(const Color(0xD0FF0000)));
+      expect(style.fontFamily, isNot('monospace'));
+      expect(style.fontSize, 16);
+    }
+    // Ook de daadwerkelijk getekende bulletmarkering volgt die stijl.
+    expect(tester.widget<Text>(find.text('•')).style!.color, expected);
+  });
+
+  testWidgets('de daadwerkelijk gerenderde editortekst is wit, niet rood/monospace', (WidgetTester tester) async {
+    final api = _FakeApiClient()..initialText = '- melk\ngewone regel met **vet**';
+
+    await _pumpLoaded(tester, api, theme: notitiesDarkTheme);
+
+    // Wat er op het scherm terechtkomt, niet alleen wat we meegeven: de
+    // error-fallback zat vóór deze story ín de gerenderde tekststijl.
+    final rendered = <TextStyle>[];
+    void walk(RenderObject object) {
+      if (object is RenderParagraph && object.text.style != null) rendered.add(object.text.style!);
+      object.visitChildren(walk);
+    }
+
+    walk(tester.renderObject(find.byType(QuillEditor)));
+
+    expect(rendered, isNotEmpty);
+    for (final style in rendered) {
+      expect(style.color, Colors.white);
+      expect(style.color, isNot(const Color(0xD0FF0000)));
+      expect(style.fontFamily, isNot('monospace'));
+      expect(style.fontSize, 16);
+    }
+  });
+
+  testWidgets('A+/A− wijzigt alleen de lettergrootte; de themakleur blijft staan', (WidgetTester tester) async {
+    await _pumpLoaded(tester, _FakeApiClient(), theme: notitiesDarkTheme);
+    final expected = notitiesDarkTheme.colorScheme.onSurface;
+
+    await tester.tap(find.byTooltip('Lettergrootte vergroten'));
+    await tester.pump();
+    var styles = _stylesOf(tester);
+    for (final style in [styles.paragraph!.style, styles.lists!.style, styles.leading!.style]) {
+      expect(style.fontSize, 18);
+      expect(style.color, expected);
+      expect(style.fontFamily, isNot('monospace'));
+    }
+
+    await tester.tap(find.byTooltip('Lettergrootte verkleinen'));
+    await tester.tap(find.byTooltip('Lettergrootte verkleinen'));
+    await tester.pump();
+    styles = _stylesOf(tester);
+    for (final style in [styles.paragraph!.style, styles.lists!.style, styles.leading!.style]) {
+      expect(style.fontSize, 14);
+      expect(style.color, expected);
+    }
   });
 
   testWidgets('A− en A+ wijzigen direct in stappen van 2 en zijn uitgeschakeld op de grenzen', (
