@@ -14,6 +14,10 @@ class _FakeApiClient extends ApiClient {
   var saveCallCount = 0;
   Object? saveError;
 
+  /// Versie-id => markdown-tekst; de lijst wordt hieruit afgeleid.
+  Map<String, String> versionTexts = {};
+  DateTime versionSavedAt = DateTime.now();
+
   @override
   Future<String> getNotes() async => initialText;
 
@@ -23,6 +27,14 @@ class _FakeApiClient extends ApiClient {
     if (saveError != null) throw saveError!;
     lastSavedText = text;
   }
+
+  @override
+  Future<List<NoteVersionSummary>> listNoteVersions() async => versionTexts.keys
+      .map((id) => NoteVersionSummary(id: id, savedAt: versionSavedAt))
+      .toList(growable: false);
+
+  @override
+  Future<String> getNoteVersion(String id) async => versionTexts[id]!;
 }
 
 /// De Quill-editor heeft zijn eigen localizations-delegate nodig, net als in
@@ -103,21 +115,29 @@ void main() {
     expect(_controllerOf(tester).document.toPlainText(), 'een vet woord\n');
   });
 
-  testWidgets('de opmaakbalk heeft precies de vijf afgesproken knoppen', (
+  testWidgets('de opmaakbalk heeft undo/redo plus de vijf afgesproken opmaakknoppen', (
     WidgetTester tester,
   ) async {
     await _pumpLoaded(tester, _FakeApiClient());
 
-    for (final tooltip in ['Vet', 'Cursief', 'Onderstreept', 'Opsomming', 'Opmaak wissen']) {
+    for (final tooltip in [
+      'Ongedaan maken',
+      'Opnieuw',
+      'Vet',
+      'Cursief',
+      'Onderstreept',
+      'Opsomming',
+      'Opmaak wissen',
+    ]) {
       expect(find.byTooltip(tooltip), findsOneWidget, reason: 'knop $tooltip ontbreekt');
     }
-    // Precies vijf opmaakknoppen; Opslaan/Uitloggen zitten in de AppBar, buiten de balk.
+    // Precies zeven knoppen; Opslaan/Versies/Uitloggen zitten in de AppBar, buiten de balk.
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('opmaakbalk')),
         matching: find.byType(IconButton),
       ),
-      findsNWidgets(5),
+      findsNWidgets(7),
     );
   });
 
@@ -201,4 +221,148 @@ void main() {
     expect(api.saveCallCount, 1);
     expect(api.lastSavedText, 'extra bestaande notitie');
   });
+
+  testWidgets('direct na het laden zijn Ongedaan maken en Opnieuw uitgegrijsd', (
+    WidgetTester tester,
+  ) async {
+    await _pumpLoaded(tester, _FakeApiClient());
+
+    expect(_onPressedOf(tester, 'Ongedaan maken'), isNull);
+    expect(_onPressedOf(tester, 'Opnieuw'), isNull);
+
+    // Undo indrukken kan niet, dus de geladen notitie kan er niet door leeglopen.
+    await tester.tap(find.byTooltip('Ongedaan maken'), warnIfMissed: false);
+    await tester.pump();
+    expect(_controllerOf(tester).document.toPlainText(), 'bestaande notitie\n');
+  });
+
+  testWidgets('Ongedaan maken draait een wijziging terug en Opnieuw zet hem weer terug', (
+    WidgetTester tester,
+  ) async {
+    final api = _FakeApiClient();
+    await _pumpLoaded(tester, api);
+
+    _controllerOf(tester).document.insert(0, 'extra ');
+    // Twee frames: de changes-stream levert asynchroon, pas dáárna volgt de
+    // setState die de opmaakbalk hertekent.
+    await tester.pump();
+    await tester.pump();
+    expect(_controllerOf(tester).document.toPlainText(), 'extra bestaande notitie\n');
+    expect(_onPressedOf(tester, 'Ongedaan maken'), isNotNull);
+
+    await tester.tap(find.byTooltip('Ongedaan maken'));
+    await tester.pump();
+    expect(_controllerOf(tester).document.toPlainText(), 'bestaande notitie\n');
+    expect(_onPressedOf(tester, 'Opnieuw'), isNotNull);
+
+    await tester.tap(find.byTooltip('Opnieuw'));
+    await tester.pump();
+    expect(_controllerOf(tester).document.toPlainText(), 'extra bestaande notitie\n');
+  });
+
+  testWidgets('Versies toont de bewaarde versies en een alleen-lezen weergave', (
+    WidgetTester tester,
+  ) async {
+    final api = _FakeApiClient()
+      ..versionTexts = {'v1': 'oude **inhoud**'}
+      ..versionSavedAt = DateTime.now();
+
+    await _pumpLoaded(tester, api);
+
+    await tester.tap(find.byTooltip('Versies'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('vandaag '), findsOneWidget);
+
+    await tester.tap(find.textContaining('vandaag '));
+    await tester.pumpAndSettle();
+    // Alleen-lezen: platte markdown als selecteerbare tekst, geen editor.
+    expect(find.text('oude **inhoud**'), findsOneWidget);
+    expect(find.byType(QuillEditor), findsNothing);
+  });
+
+  testWidgets('Terugzetten vraagt bevestiging; annuleren laat de editor ongemoeid', (
+    WidgetTester tester,
+  ) async {
+    final api = _FakeApiClient()..versionTexts = {'v1': 'oude inhoud'};
+
+    await _pumpLoaded(tester, api);
+    await tester.tap(find.byTooltip('Versies'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Terugzetten'));
+    await tester.pumpAndSettle();
+    expect(find.text('Versie terugzetten?'), findsOneWidget);
+
+    await tester.tap(find.text('Annuleren'));
+    await tester.pumpAndSettle();
+    // Nog steeds op de versie-weergave, editor onaangeroerd.
+    expect(find.text('Versie terugzetten?'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Terugzetten'), findsOneWidget);
+  });
+
+  testWidgets('Terugzetten vervangt na bevestiging de editorinhoud en is undo-baar', (
+    WidgetTester tester,
+  ) async {
+    final api = _FakeApiClient()
+      ..initialText = 'huidige notitie'
+      ..versionTexts = {'v1': 'oude inhoud'};
+
+    await _pumpLoaded(tester, api);
+    await tester.tap(find.byTooltip('Versies'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Terugzetten'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ja, terugzetten'));
+    await tester.pumpAndSettle();
+
+    // Terug in de editor, met de oude tekst erin.
+    expect(find.byType(QuillEditor), findsOneWidget);
+    expect(_controllerOf(tester).document.toPlainText(), 'oude inhoud\n');
+
+    // Het terugzetten is een gewone documentwijziging: undo draait het terug ...
+    expect(_onPressedOf(tester, 'Ongedaan maken'), isNotNull);
+    await tester.tap(find.byTooltip('Ongedaan maken'));
+    await tester.pump();
+    expect(_controllerOf(tester).document.toPlainText(), 'huidige notitie\n');
+
+    // ... en de normale debounce-autosave slaat het op.
+    await tester.tap(find.byTooltip('Opnieuw'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 11));
+    await tester.pump();
+    expect(api.lastSavedText, 'oude inhoud');
+  });
+
+  testWidgets('opmaak van een teruggezette versie blijft behouden', (WidgetTester tester) async {
+    final api = _FakeApiClient()
+      ..initialText = 'plat'
+      ..versionTexts = {'v1': '- melk\n- **eieren**'};
+
+    await _pumpLoaded(tester, api);
+    await tester.tap(find.byTooltip('Versies'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Terugzetten'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ja, terugzetten'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Opslaan'));
+    await tester.pump();
+    await tester.pump();
+    expect(api.lastSavedText, '- melk\n- **eieren**');
+  });
 }
+
+/// `find.byTooltip` levert de Tooltip-widget, niet de knop zelf.
+VoidCallback? _onPressedOf(WidgetTester tester, String tooltip) => tester
+    .widget<IconButton>(
+      find.ancestor(of: find.byTooltip(tooltip), matching: find.byType(IconButton)),
+    )
+    .onPressed;
