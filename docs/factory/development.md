@@ -14,6 +14,8 @@ Deze repo bevat vier Flutter/Android-apps en één Kotlin/Spring-Boot-backend:
 - **notities/** — één auto-opslaande notitie, Google-login. Alleen APK. Donker
   thema en een `flutter_quill`-WYSIWYG-editor (vet/cursief/onderstreept/opsomming),
   maar de notitie wordt als platte markdown-tekst opgeslagen (`lib/markdown_delta.dart`).
+  Sinds SF-1808 ook undo/redo in de opmaakbalk en een `Versies`-scherm
+  (`lib/note_versions_screen.dart`) om een eerdere versie te bekijken en terug te zetten.
 - **robberts-assistent-backend/** — Kotlin/Spring Boot/Spring Modulith backend
   voor alle apps. Onder meer de modules `auth`, `config`, `health`, `notes`,
   `summary`, `briefing`, `assistant` (+`ai/`), `reminders`, `watches`,
@@ -95,7 +97,7 @@ robberts-assistent-backend/
     applaunch/                          # gelogde app-starts (APP_LAUNCH-logregel + REST)
     auth/                               # Google-login, sessie-tokens
     briefing/                           # Upcoming/Health check + caches en push
-    notes/                              # notitie-CRUD
+    notes/                              # notitie-CRUD + versiegeschiedenis en nachtelijk opruimen
     summary/
     watches/                            # langdurige zoekopdrachten, poller en REST
 

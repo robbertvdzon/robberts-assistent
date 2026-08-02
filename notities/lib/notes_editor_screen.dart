@@ -5,6 +5,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 
 import 'api_client.dart';
 import 'markdown_delta.dart';
+import 'note_versions_screen.dart';
 import 'self_update_prompt.dart';
 
 /// Toont de ene notitie-string in een WYSIWYG-editor (Quill) met een compacte
@@ -147,6 +148,32 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     }
   }
 
+  /// Opent de versielijst; komt daar een tekst uit terug, dan wordt die in het
+  /// bestaande document teruggezet.
+  Future<void> _openVersions() async {
+    final restored = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => NoteVersionsScreen(api: widget.api)),
+    );
+    if (restored != null && mounted) _restore(restored);
+  }
+
+  /// Vervangt de inhoud als bewerking op het bestaande document (dus niet via
+  /// `_controller.document = …`), zodat de undo-historie én het
+  /// changes-abonnement intact blijven: het terugzetten is met de
+  /// Ongedaan maken-knop terug te draaien en de gewone debounce-autosave pikt
+  /// het op.
+  void _restore(String markdown) {
+    // De hele inhoud inclusief de afsluitende newline wordt vervangen; die
+    // newline draagt bij een bullet-regel de opmaak van de laatste regel, dus
+    // die mag niet blijven staan.
+    _controller.replaceText(
+      0,
+      _controller.document.length,
+      markdownToDelta(markdown),
+      const TextSelection.collapsed(offset: 0),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -168,6 +195,11 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
                   )
                 : const Icon(Icons.save),
             onPressed: _saving ? null : () => _save(force: true),
+          ),
+          IconButton(
+            tooltip: 'Versies',
+            icon: const Icon(Icons.history),
+            onPressed: _openVersions,
           ),
           IconButton(
             tooltip: 'Uitloggen',
@@ -201,14 +233,30 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     );
   }
 
-  /// Precies vijf knoppen; bewust zelfgebouwd i.p.v. `QuillSimpleToolbar`,
-  /// zodat er geen andere opmaakknoppen kunnen opduiken.
+  /// Undo/redo links, daarna de vijf opmaakknoppen; bewust zelfgebouwd i.p.v.
+  /// `QuillSimpleToolbar`, zodat er geen andere knoppen kunnen opduiken.
   Widget _toolbar() {
+    final scheme = Theme.of(context).colorScheme;
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, _) => Row(
         key: const ValueKey('opmaakbalk'),
         children: [
+          IconButton(
+            tooltip: 'Ongedaan maken',
+            icon: const Icon(Icons.undo),
+            color: scheme.onSurface,
+            // Niets te doen => onPressed null => uitgegrijsd. Het initiële laden
+            // zit niet in de historie (het abonnement start pas daarna), dus
+            // direct na openen staan beide knoppen uit.
+            onPressed: _controller.hasUndo ? _controller.undo : null,
+          ),
+          IconButton(
+            tooltip: 'Opnieuw',
+            icon: const Icon(Icons.redo),
+            color: scheme.onSurface,
+            onPressed: _controller.hasRedo ? _controller.redo : null,
+          ),
           _toolbarButton(tooltip: 'Vet', icon: Icons.format_bold, attribute: Attribute.bold),
           _toolbarButton(tooltip: 'Cursief', icon: Icons.format_italic, attribute: Attribute.italic),
           _toolbarButton(

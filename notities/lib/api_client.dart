@@ -66,6 +66,31 @@ class ApiClient {
     await _throwOnError(response);
   }
 
+  /// De bewaarde versies van de notitie, nieuwste eerst (zonder tekst).
+  Future<List<NoteVersionSummary>> listNoteVersions() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/v1/notes/versions'),
+      headers: authHeaders(),
+    );
+    await _throwOnError(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final versions = (body['versions'] as List<dynamic>? ?? []);
+    return versions
+        .map((e) => NoteVersionSummary.fromJson(e as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// De volledige markdown-tekst van één bewaarde versie.
+  Future<String> getNoteVersion(String id) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/v1/notes/versions/$id'),
+      headers: authHeaders(),
+    );
+    await _throwOnError(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return body['text']?.toString() ?? '';
+  }
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -74,6 +99,20 @@ class ApiClient {
     }
     throw Exception('HTTP ${response.statusCode}: ${response.body}');
   }
+}
+
+/// Eén regel uit het versie-overzicht: het ondoorzichtige id en het opslagmoment.
+class NoteVersionSummary {
+  const NoteVersionSummary({required this.id, required this.savedAt});
+
+  final String id;
+  final DateTime savedAt;
+
+  factory NoteVersionSummary.fromJson(Map<String, dynamic> json) => NoteVersionSummary(
+    id: json['id']?.toString() ?? '',
+    // De backend stuurt ISO-8601 in UTC; toLocal() gebeurt pas bij het tonen.
+    savedAt: DateTime.parse(json['savedAt'].toString()),
+  );
 }
 
 class UnauthorizedException implements Exception {
