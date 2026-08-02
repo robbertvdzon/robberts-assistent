@@ -132,3 +132,28 @@ Niet-blokkerende opmerkingen:
   `Padding` in de `SafeArea` zit. Puur cosmetisch.
 - [info] Punt 3 (systeembalk bij gesture-navigatie) is alleen op een echt toestel visueel te
   bevestigen; de widgettest dekt de aanwezigheid van de `SafeArea`.
+
+## Testronde (SF-1825)
+
+Uitgevoerd in `notities/` met de Flutter-SDK in de sandbox (Flutter 3.44.7 / Dart 3.12.2):
+
+- `flutter analyze` → **No issues found!** (AC1)
+- `flutter test` → **57/57 groen**, incl. de bestaande `markdown_delta_test.dart`,
+  `widget_test.dart`, `notes_editor_screen_test.dart`, `note_versions_screen_test.dart` en
+  de vier nieuwe kleur-/SafeArea-tests (AC1–AC6).
+- Visueel bewijs via een tijdelijke render-test buiten de repo (`/tmp`, PNG's in
+  `/work/screenshots`): `SF-1823-editor-tekst.png` toont witte editortekst (bullets +
+  gewone regel) op zwart, `SF-1823-versiedetail-rood.png` toont het rode label
+  `Oude versie van …` + de rode versietekst en de volledig zichtbare `Terugzetten`-knop
+  onderaan. (Testfonts renderen als Ahem-blokjes; kleur/layout zijn wél representatief.)
+- Codecontrole tegen de flutter_quill 11.5.1-bron: de gekozen spacings
+  (`HorizontalSpacing(0,0)`, lists `VerticalSpacing(6,0)`/`(0,6)`, rest zero) en
+  `height: 1.15` komen exact overeen met Quills eigen `DefaultStyles`, dus geen
+  layoutregressie; `QuillRawEditorState.didChangeDependencies` merget de custom styles
+  ónder de `Material`, dus overige bloktypes (placeholder/quote/code) blijven ongemoeid.
+- Scope (AC7/AC8): `git diff main...HEAD` raakt alleen `notities/lib/notes_editor_screen.dart`,
+  `notities/lib/note_versions_screen.dart`, twee testbestanden en dit worklog — geen backend,
+  geen `api_client.dart`/`markdown_delta.dart`, geen `pubspec.yaml`/`pubspec.lock`.
+
+Geen bevindingen. Niet automatisch verifieerbaar (zoals in de story voorzien): het echte
+gedrag achter de systeembalk bij gesture-navigatie op een fysiek Android-toestel.
