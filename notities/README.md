@@ -16,6 +16,14 @@ Flutter-app (APK-only) met één auto-opslaande notitie, gekoppeld aan
   vet/cursief/onderstreept én de bullet-opmaak van de selectie af). Actieve knoppen
   zijn te herkennen aan een accentkleur met gevulde achtergrond. Placeholder:
   'Typ hier je notities…'.
+- De tekststijl van de editor komt sinds SF-1823 expliciet uit het thema
+  (`textTheme.bodyMedium` + `colorScheme.onSurface`, dus wit op zwart) in plaats van
+  uit `DefaultStyles.getInstance(context)`. Die las `DefaultTextStyle.of(context)`, en
+  boven de `Material` van het `Scaffold` is dat `MaterialApp`s error-fallback (rood
+  `0xD0FF0000`, monospace) — daardoor stond de notitie rood in schrijfmachineletter.
+  `paragraph`, `lists` en `leading` gebruiken verder exact Quills eigen spacing en
+  `height: 1.15`, dus alleen de kleur/het lettertype veranderde; alle overige bloktypes
+  (kopjes, quote, code, placeholder) komen ongewijzigd uit Quill.
 - A− en A+ in dezelfde horizontaal scrollbare balk wijzigen alleen de lettergrootte van de
   bewerkbare notitie, direct in stappen van 2 pt. Beschikbaar is 12 t/m 28 pt; standaard 16 pt.
   Op de grenzen is de betreffende knop uitgeschakeld. De voorkeur wordt lokaal onder
@@ -47,7 +55,13 @@ Flutter-app (APK-only) met één auto-opslaande notitie, gekoppeld aan
   `ma 28 jul 09:05` — via de eigen helper `formatVersionMoment()`, dus zonder
   `intl` of een extra dependency. Tikken opent een alleen-lezen weergave van die
   oude tekst (selecteerbare platte markdown) met de knop `Terugzetten` en een
-  bevestigingsdialoog. Terugzetten vervangt de inhoud van de editor via een
+  bevestigingsdialoog. Die weergave staat sinds SF-1823 bewust in een lichte roodtint
+  (`noteVersionColor = Color(0xFFE57373)`, één benoemde constante in
+  `lib/note_versions_screen.dart`) met daarboven het rode label
+  `Oude versie van <datum tijd>` — zelfde momentnotatie als de lijst — zodat direct
+  duidelijk is dat dit niet de huidige notitie is. Het onderste knopblok zit in een
+  `SafeArea(top: false)`, zodat `Terugzetten` bij edge-to-edge/gesture-navigatie
+  (Android 15) niet deels achter de systeembalk valt. Terugzetten vervangt de inhoud van de editor via een
   bewerking op het bestaande document, dus het is met de undo-knop ongedaan te
   maken en wordt daarna gewoon door de autosave als nieuwe versie opgeslagen.
   De backend bewaart bij elke save een versie (tenzij de tekst identiek is aan de
