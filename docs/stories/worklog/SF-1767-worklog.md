@@ -52,3 +52,19 @@ Resultaat vangnet:
 - Niet automatisch te testen: het écht plakken via Gboard vereist een fysiek toestel —
   eindverificatie handmatig op Robberts telefoon (screenshot → kopiëren → in de chat plakken →
   versturen).
+
+Review (SF-1777, reviewer):
+- Volledige story-diff t.o.v. `main` beoordeeld: alleen `lib/assistant_screen.dart`,
+  `test/assistant_screen_test.dart` en deze worklog. Geen backend-, pubspec- of
+  `_showAttachSheet()`-wijziging — scope klopt.
+- Zelf geverifieerd in de sandbox: `flutter analyze` → "No issues found!" en `flutter test`
+  → 78 tests groen (incl. de bestaande SF-1732-asserties).
+- De `XFile.fromData`-bevinding van de developer nagelopen in
+  `cross_file-0.3.5+4/lib/src/types/io.dart`: `name` wordt daar inderdaad genegeerd
+  (`get name => _file.path.split(separator).last`) en `readAsBytes()` levert de meegegeven
+  bytes terug. `path` én `name` zetten is dus de juiste oplossing voor AC 2.
+- Acceptatiecriteria 1 t/m 6 en 8 gedekt; 7 gedeeltelijk (analyze/test lokaal groen, de
+  APK-build draait niet op een feature-branch).
+- Geen blockers of bugs gevonden; alleen kleine, niet-blokkerende observaties (unawaited
+  `_attach` zonder foutafhandeling — kan bij in-memory bytes niet falen; `content.mimeType`
+  gaat ongewijzigd als `contentType` mee terwijl de filter lowercased vergelijkt).
