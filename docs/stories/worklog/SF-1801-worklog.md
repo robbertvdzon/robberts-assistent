@@ -91,3 +91,32 @@ Done / rationale:
   al gebruikt. `.github/workflows/notities-apk.yml` blijft dus ongewijzigd.
 - `pubspec.lock` bevat naast flutter_quill enkele transitieve bumps (matcher, meta, test_api,
   material_color_utilities) die de lokale Flutter-SDK bij `pub get` afdwingt.
+
+## Review SF-1802 (reviewer, 2026-08-02)
+
+Zelf geverifieerd in `notities/`: `flutter test` → 30 tests groen, `flutter analyze` →
+"No issues found!". Scope klopt: alleen `notities/**` + dit worklog; geen backend,
+`api_client.dart` of workflow-wijziging. Donker thema, de vijf toolbarknoppen met de
+afgesproken tooltips, de placeholder, laden/opslaan via `markdownToDelta`/`deltaToMarkdown`
+en het autosave-/dispose-gedrag zijn conform de story.
+
+**Afgekeurd op de roundtrip-garantie van `markdown_delta.dart`.** Met een gerichte
+fuzz-/steekproefrun (20.000 willekeurige strings uit markdown-atomen + handmatige gevallen)
+blijkt `deltaToMarkdown(markdownToDelta(s)) == s` niet te gelden zodra er losse
+marker-tekens in de tekst staan — dat is precies het "gemangelde markdown in het gedeelde
+notitieveld"-risico uit de description:
+
+- `Bereken 2 * 3 en **let op** dit * dat` → `Bereken 2 * 3 en let op dit *dat`
+  (de `**`-markers verdwijnen: een losse `*` opent cursief en slikt het `**`-paar op).
+- `**Lijst: melk * brood * kaas**` → `**Lijst: melk ***** brood ***** kaas**`.
+- `******` → `` en `<u></u>` → `` (lege opmaak-span wordt stil weggegooid).
+- `a **b <u>c</u> d** e` → `a **b **<u>**c**</u>** d** e` (normalisatie naar underline-buiten;
+  wel stabiel bij een tweede cyclus).
+
+Alle gevallen zijn idempotent vanaf de tweede cyclus, dus er is geen onbegrensde corruptie,
+maar de eerste open+opslaan-cyclus wijzigt de opgeslagen tekst wél.
+
+Voorgestelde richting: in `_parseInline` een sluit-marker alleen accepteren als 'ie niet
+deel is van een langere `*`-run (dus geen enkele `*` matchen op een positie binnen `**`/`***`),
+en bij een lege inner-inhoud terugvallen op letterlijke tekst i.p.v. het segment weg te gooien.
+Plus regressietests op bovenstaande vier strings.
