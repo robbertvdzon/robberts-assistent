@@ -174,6 +174,43 @@ void main() {
       roundtrip('');
     });
 
+    test('losse sterretjes slikken een vet-paar niet op', () {
+      roundtrip('Bereken 2 * 3 en **let op** dit * dat');
+      roundtrip('**Lijst: melk * brood * kaas**');
+      roundtrip('2 * 3 * 4');
+      roundtrip('**vet** met een losse * erachter');
+    });
+
+    test('een marker zonder inhoud blijft letterlijke tekst', () {
+      roundtrip('******');
+      roundtrip('<u></u>');
+      roundtrip('****');
+      roundtrip('**');
+    });
+
+    test('opmaak over meerdere segmenten levert één markerpaar op', () {
+      roundtrip('**a *b* c**');
+      roundtrip('*a **b** c*');
+      roundtrip('a **b <u>c</u> d** e');
+      roundtrip('- **melk *volle* halfvol**');
+    });
+
+    test('herhaald opslaan verandert de tekst niet meer', () {
+      const bronnen = [
+        'Bereken 2 * 3 en **let op** dit * dat',
+        'a **b <u>c</u> d** e',
+        '******',
+        '# Kop\n\n- **melk**\n\ntot slot',
+      ];
+      for (final bron in bronnen) {
+        var tekst = bron;
+        for (var ronde = 0; ronde < 4; ronde++) {
+          tekst = deltaToMarkdown(markdownToDelta(tekst));
+          expect(tekst, bron, reason: 'ronde $ronde van "$bron"');
+        }
+      }
+    });
+
     test('afsluitende lege regel blijft behouden', () {
       roundtrip('regel\n');
     });

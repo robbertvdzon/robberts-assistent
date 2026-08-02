@@ -120,3 +120,57 @@ Voorgestelde richting: in `_parseInline` een sluit-marker alleen accepteren als 
 deel is van een langere `*`-run (dus geen enkele `*` matchen op een positie binnen `**`/`***`),
 en bij een lege inner-inhoud terugvallen op letterlijke tekst i.p.v. het segment weg te gooien.
 Plus regressietests op bovenstaande vier strings.
+
+## SF-1802 (development, ronde 2 — reviewbevindingen verwerkt)
+
+Alleen `notities/lib/markdown_delta.dart` + `notities/test/markdown_delta_test.dart` gewijzigd;
+geen andere app-, backend- of workflowwijziging.
+
+### [blocker] losse `*` slikte een `**`-paar op — opgelost
+`_parseInline` behandelt een `*`-reeks nu **atomair**. Twee nieuwe helpers: `_starRunLength()`
+(lengte van de ononderbroken `*`-reeks) en `_findStarRun()` (zoekt de eerstvolgende reeks met
+*exact* dezelfde lengte en slaat reeksen van een andere lengte in hun geheel over). Een opener
+van lengte 1/2/3 wordt dus alleen gesloten door een reeks van precies 1/2/3; een reeks van 4 of
+langer is nooit een marker en blijft letterlijke tekst. Vindt de parser geen sluiter, dan wordt
+de **hele** reeks letterlijk overgenomen (i.p.v. één teken), zodat een volgende `*` niet alsnog
+als opener wordt gelezen. De `indexOf('*'/'**'/'***')`-aanpak is daarmee verdwenen.
+
+- `Bereken 2 * 3 en **let op** dit * dat` → byte-identiek terug.
+- `**Lijst: melk * brood * kaas**` → byte-identiek terug.
+
+### [bug] lege opmaak-span verdween — opgelost
+`<u></u>` wordt alleen nog als underline gelezen bij niet-lege inhoud (`end > start`); anders
+blijft het letterlijke tekst. Een leeg vet/cursief-paar bestaat niet meer als marker omdat
+`****`/`******` één reeks van 4+ is en dus letterlijk blijft. `******` en `<u></u>` komen nu
+ongeschonden terug.
+
+### [suggestie] opgeblazen markup bij underline-in-bold — opgelost
+`deltaToMarkdown` wikkelde elk segment los in (`_Marks.wrap`), waardoor opmaak die zich over
+meerdere segmenten uitstrekt per segment opnieuw geopend/gesloten werd
+(`a **b <u>c</u> d** e` → `a **b **<u>**c**</u>** d** e`). `_renderSegments()` schrijft nu
+**genest**: het pakt per positie het buitenste nog niet actieve kenmerk (vaste volgorde
+underline → bold → italic, nieuwe enum `_Mark`), verzamelt alle aaneengesloten segmenten met dat
+kenmerk en zet daar één markerpaar omheen. `a **b <u>c</u> d** e`, `**a *b* c**` en
+`*a **b** c*` roundtrippen daardoor byte-identiek. `_Marks.wrap` is vervangen door
+`has()`/`firstMissing()`/`with_()`.
+
+### Tests
+Vier nieuwe testgroepen in `test/markdown_delta_test.dart`: losse sterretjes naast `**`-paren,
+markers zonder inhoud (`******`, `<u></u>`, `****`, `**`), opmaak over meerdere segmenten, en
+een expliciete stabiliteitstest die vier bronstrings 4 cycli achter elkaar roundtript.
+
+### Verificatie
+- `notities/`: `flutter test` → **34 tests groen**, `flutter analyze` → "No issues found!".
+- Tijdelijke fuzzrun (2× 30.000 willekeurige strings uit markdown-atomen, daarna weer verwijderd):
+  **7 mismatches** (was: hele klassen fouten), allemaal idempotent vanaf cyclus 2.
+- Backend `mvn -o test` als regressiecheck gedraaid (geen backendwijziging).
+
+### Bewust niet opgelost (binnen de story-aanname)
+De resterende 7 fuzz-mismatches zijn allemaal dezelfde, in de story expliciet geaccepteerde
+normalisatie: staat in de brontekst bold/italic *buiten* underline (`**<u>x</u>**`), dan schrijft
+de editor 'm in de vaste nestvolgorde terug als `<u>**x**</u>`. Semantisch identiek en stabiel.
+In 3 van de 30.000 gevallen valt die hernestte marker direct naast een *letterlijk* sterretje
+(bv. `**<u>*</u>**` → `<u>*****</u>`), waardoor dat sterretje bij een volgende lees-beurt anders
+geïnterpreteerd wordt. Zonder escapen — dat de story uitdrukkelijk verbiedt — is dat niet op te
+lossen; de gewone app-flow schrijft altijd de canonieke vorm weg, dus dit treft alleen
+handmatig aangeleverde markdown met deze combinatie.

@@ -27,11 +27,15 @@ const _bulletPrefix = '- ';
 const _listAttributeKey = 'list';
 const _bulletAttributeValue = 'bullet';
 
-const _boldMarker = '**';
-const _italicMarker = '*';
-const _boldItalicMarker = '***';
 const _underlineOpen = '<u>';
 const _underlineClose = '</u>';
+
+/// De drie ondersteunde inline-kenmerken, in de vaste nestvolgorde waarin ze
+/// worden weggeschreven (underline buitenom, dan bold, dan italic).
+enum _Mark { underline, bold, italic }
+
+const _markOpen = {_Mark.underline: _underlineOpen, _Mark.bold: '**', _Mark.italic: '*'};
+const _markClose = {_Mark.underline: _underlineClose, _Mark.bold: '**', _Mark.italic: '*'};
 
 /// Zet een markdown-string om naar een Quill-`Delta`.
 ///
@@ -51,6 +55,8 @@ Delta markdownToDelta(String markdown) {
       if (segment.text.isEmpty) continue;
       delta.insert(segment.text, segment.marks.toAttributes());
     }
+    // Let op: `_parseInline` gooit nooit tekens weg — een marker zonder inhoud
+    // (bv. `<u></u>` of `******`) blijft letterlijke tekst.
     delta.insert('\n', blockAttributes);
   }
   return delta;
@@ -92,8 +98,36 @@ String deltaToMarkdown(Delta delta) {
 String _renderLine(_Line line) {
   final buffer = StringBuffer();
   if (line.bullet) buffer.write(_bulletPrefix);
-  for (final segment in _mergeAdjacent(line.segments)) {
-    buffer.write(segment.marks.wrap(segment.text));
+  buffer.write(_renderSegments(_mergeAdjacent(line.segments), const _Marks()));
+  return buffer.toString();
+}
+
+/// Schrijft de segmenten van één regel genest weg, in een vaste volgorde:
+/// underline buitenom, dan bold, dan italic (`<u>***tekst***</u>`).
+///
+/// Nesten (in plaats van elk segment los omwikkelen) is nodig omdat opmaak zich
+/// over meerdere segmenten kan uitstrekken: `**a *b* c**` moet één bold-paar
+/// opleveren en niet `**a *****b***** c**`.
+String _renderSegments(List<_Segment> segments, _Marks active) {
+  final buffer = StringBuffer();
+  var i = 0;
+  while (i < segments.length) {
+    final mark = segments[i].marks.firstMissing(active);
+    if (mark == null) {
+      buffer.write(segments[i].text);
+      i++;
+      continue;
+    }
+    // Alle aaneengesloten segmenten met dezelfde buitenste opmaak vallen binnen
+    // hetzelfde markerpaar.
+    var end = i;
+    while (end < segments.length && segments[end].marks.has(mark)) {
+      end++;
+    }
+    buffer.write(_markOpen[mark]);
+    buffer.write(_renderSegments(segments.sublist(i, end), active.with_(mark)));
+    buffer.write(_markClose[mark]);
+    i = end;
   }
   return buffer.toString();
 }
@@ -127,56 +161,79 @@ List<_Segment> _parseInline(String text, _Marks marks) {
   var i = 0;
   while (i < text.length) {
     if (!marks.underline && text.startsWith(_underlineOpen, i)) {
-      final end = text.indexOf(_underlineClose, i + _underlineOpen.length);
-      if (end != -1) {
+      final start = i + _underlineOpen.length;
+      final end = text.indexOf(_underlineClose, start);
+      // Een leeg `<u></u>` is geen opmaak maar letterlijke tekst: anders zouden
+      // die tekens bij het opslaan verdwijnen.
+      if (end > start) {
         flush();
         segments.addAll(
-          _parseInline(text.substring(i + _underlineOpen.length, end), marks.copyWith(underline: true)),
+          _parseInline(text.substring(start, end), marks.copyWith(underline: true)),
         );
         i = end + _underlineClose.length;
         continue;
       }
     }
     if (text[i] == '*') {
-      var run = 0;
-      while (i + run < text.length && text[i + run] == '*') {
-        run++;
-      }
+      final run = _starRunLength(text, i);
       // Volgorde van schrijven is vast (underline buiten, dan bold, dan
-      // italic), dus `***` is altijd vet + cursief.
-      if (run >= 3 && !marks.bold && !marks.italic) {
-        final end = text.indexOf(_boldItalicMarker, i + 3);
+      // italic), dus `***` is altijd vet + cursief. Een langere run (`****`)
+      // hoort bij geen enkele marker en blijft letterlijke tekst.
+      final opened = switch (run) {
+        3 when !marks.bold && !marks.italic => marks.copyWith(bold: true, italic: true),
+        2 when !marks.bold => marks.copyWith(bold: true),
+        1 when !marks.italic => marks.copyWith(italic: true),
+        _ => null,
+      };
+      if (opened != null) {
+        // De sluiter moet een `*`-run van exact dezelfde lengte zijn: een losse
+        // `*` mag geen halve `**` opslokken (en andersom).
+        final end = _findStarRun(text, i + run, run);
         if (end != -1) {
           flush();
-          segments.addAll(
-            _parseInline(text.substring(i + 3, end), marks.copyWith(bold: true, italic: true)),
-          );
-          i = end + 3;
-          continue;
-        }
-      } else if (run == 2 && !marks.bold) {
-        final end = text.indexOf(_boldMarker, i + 2);
-        if (end != -1) {
-          flush();
-          segments.addAll(_parseInline(text.substring(i + 2, end), marks.copyWith(bold: true)));
-          i = end + 2;
-          continue;
-        }
-      } else if (run == 1 && !marks.italic) {
-        final end = text.indexOf(_italicMarker, i + 1);
-        if (end != -1) {
-          flush();
-          segments.addAll(_parseInline(text.substring(i + 1, end), marks.copyWith(italic: true)));
-          i = end + 1;
+          segments.addAll(_parseInline(text.substring(i + run, end), opened));
+          i = end + run;
           continue;
         }
       }
+      // Geen (geldige) marker: de hele run letterlijk overnemen, zodat een
+      // volgende `*` niet alsnog als opener wordt gelezen.
+      buffer.write(text.substring(i, i + run));
+      i += run;
+      continue;
     }
     buffer.write(text[i]);
     i++;
   }
   flush();
   return segments;
+}
+
+/// De lengte van de ononderbroken `*`-reeks die op [start] begint.
+int _starRunLength(String text, int start) {
+  var length = 0;
+  while (start + length < text.length && text[start + length] == '*') {
+    length++;
+  }
+  return length;
+}
+
+/// Zoekt vanaf [from] de eerstvolgende `*`-reeks met exact lengte [length].
+///
+/// Reeksen van een andere lengte worden in hun geheel overgeslagen, zodat een
+/// enkele `*` nooit een teken uit een `**`-paar afsnoept.
+int _findStarRun(String text, int from, int length) {
+  var i = from;
+  while (i < text.length) {
+    if (text[i] != '*') {
+      i++;
+      continue;
+    }
+    final run = _starRunLength(text, i);
+    if (run == length) return i;
+    i += run;
+  }
+  return -1;
 }
 
 /// Eén regel uit het document: de inline-stukken plus of het een bullet is.
@@ -226,15 +283,26 @@ class _Marks {
     };
   }
 
-  /// Schrijft de markers in een vaste, deterministische nestvolgorde:
-  /// underline buitenom, dan bold, dan italic (`<u>***tekst***</u>`).
-  String wrap(String text) {
-    var result = text;
-    if (italic) result = '$_italicMarker$result$_italicMarker';
-    if (bold) result = '$_boldMarker$result$_boldMarker';
-    if (underline) result = '$_underlineOpen$result$_underlineClose';
-    return result;
+  bool has(_Mark mark) => switch (mark) {
+    _Mark.underline => underline,
+    _Mark.bold => bold,
+    _Mark.italic => italic,
+  };
+
+  /// Het buitenste kenmerk dat dit segment wél heeft en [active] nog niet, in
+  /// de vaste nestvolgorde; `null` als er niets meer te openen valt.
+  _Mark? firstMissing(_Marks active) {
+    for (final mark in _Mark.values) {
+      if (has(mark) && !active.has(mark)) return mark;
+    }
+    return null;
   }
+
+  _Marks with_(_Mark mark) => switch (mark) {
+    _Mark.underline => copyWith(underline: true),
+    _Mark.bold => copyWith(bold: true),
+    _Mark.italic => copyWith(italic: true),
+  };
 
   @override
   bool operator ==(Object other) =>
