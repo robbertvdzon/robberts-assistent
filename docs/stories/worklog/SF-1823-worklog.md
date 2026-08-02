@@ -97,3 +97,38 @@ bevestigingsdialoog geeft na 'Ja, terugzetten' de tekst terug via `Navigator.pop
 - Een APK bouwen kan niet in deze sandbox (geen Android SDK, arm64), dus de `notities-apk.yml`-
   workflow op `main` en een handmatige check op toestel zijn de laatste bevestiging — met name
   voor punt 3, dat alleen op een toestel met gesture-navigatie echt zichtbaar is.
+
+## Review (SF-1824, reviewer)
+
+Volledige story-diff t.o.v. `main` beoordeeld (`notities/lib/notes_editor_screen.dart`,
+`notities/lib/note_versions_screen.dart` + beide testbestanden).
+
+Zelf geverifieerd in deze sandbox (flutter 3.44 is hier wél aanwezig):
+`flutter analyze` → "No issues found!", `flutter test` → **57/57 groen**.
+
+Diagnose tegengelezen in de packagebronnen:
+- `_errorTextStyle` (`Color(0xD0FF0000)`, `monospace`) staat in
+  `flutter/lib/src/material/app.dart` en is de `DefaultTextStyle` van `MaterialApp` — dus
+  **niet debug-only**; dat verklaart het symptoom ook in de release-APK.
+- `DefaultStyles.getInstance(context)` (flutter_quill 11.5.1) bouwt zijn `baseStyle` inderdaad
+  uit `DefaultTextStyle.of(context)`.
+- De nieuwe `paragraph`/`lists`/`leading` gebruiken exact dezelfde spacing als Quills eigen
+  defaults (`HorizontalSpacing(0,0)`, lists `VerticalSpacing(6,0)`/`VerticalSpacing(0,6)`, rest
+  `VerticalSpacing.zero`) en dezelfde `height: 1.15` / `decoration: none` — geen layoutregressie.
+- `QuillRawEditorState.didChangeDependencies` doet `DefaultStyles.getInstance(context).merge(
+  customStyles)` ónder de `Material`, dus h1..h6/quote/code/placeholder blijven correct.
+
+Alle acceptatiecriteria 1 t/m 8 afgevinkt; geen scope-overschrijding (geen wijziging aan
+`api_client.dart`, `markdown_delta.dart`, opslagformaat, `pubspec.*` of de backend).
+
+Niet-blokkerende opmerkingen:
+- [info] Het detailscherm toont het versiemoment nu twee keer (AppBar-titel + het nieuwe rode
+  label). Dat is expliciet zo gevraagd in de story.
+- [suggestie] `SafeArea(top: false)` laat `left`/`right` op `true`; in landschap met een notch
+  krijgt het knopblok daardoor ook horizontale inset. Onschadelijk, eventueel `left: false,
+  right: false` als het exact het oude gedrag moet houden.
+- [suggestie] De `Column(mainAxisSize: .min)` binnen de `SafeArea` kan een `Column`-niveau
+  minder als `Divider` en `Padding` direct in de buitenste `Column` blijven en alleen de
+  `Padding` in de `SafeArea` zit. Puur cosmetisch.
+- [info] Punt 3 (systeembalk bij gesture-navigatie) is alleen op een echt toestel visueel te
+  bevestigen; de widgettest dekt de aanwezigheid van de `SafeArea`.
