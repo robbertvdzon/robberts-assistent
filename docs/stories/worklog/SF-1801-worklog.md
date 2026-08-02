@@ -211,3 +211,51 @@ handmatig aangeleverde markdown met deze combinatie.
 - [suggestie] Een geplakte afbeelding/embed verdwijnt stil bij het opslaan (klopt voor
   platte-tekst-opslag, maar er is geen melding aan de gebruiker). Geen actie nodig binnen deze
   story.
+
+## Test SF-1803 (tester, 2026-08-02)
+
+Getest op branch `ai/SF-1801`. `notities/` is APK-only (geen web-preview), dus geen
+preview-URL-verificatie; in plaats daarvan zijn de tests lokaal gedraaid en is de UI
+gerenderd naar screenshots.
+
+### Uitgevoerd
+- `flutter pub get` + `flutter analyze` in `notities/`: **No issues found** (AC9).
+- `flutter test` in `notities/`: **34/34 groen**, 0 failures/errors (AC5–AC9). Dekt o.a. de
+  vijf toolbar-knoppen, selectie+Vet → `**tekst**`, Opmaak wissen → kale tekst, Opsomming →
+  `- melk`, Opslaan-knop met status 'Opgeslagen', mislukte save met 'Opslaan mislukt: …'
+  zonder inhoudsverlies, autosave-debounce (9s niets, na 11s wél) en direct opslaan bij
+  `paused`.
+- Onafhankelijke roundtrip-check (eigen script buiten de repo, `dart run` op
+  `markdown_delta.dart`): 25 extra gevallen, **allemaal byte-identiek** — o.a. `# Kop`,
+  tabellen, links, code, inspringing, `* `/genummerde lijsten, meerdere lege regels, lege
+  string, tekst zonder afsluitende newline, niet-afgesloten markers (`**niet afgesloten`,
+  `<u>niet dicht`), `<u></u>`, `******`, `3 * 4 * 5`, `-geen bullet`, `  - ingesprongen`.
+  Bevestigt AC5 en de eis dat door de assistent toegevoegde tekst ongeschonden blijft.
+- Visuele verificatie via gerenderde screenshots (widget-render naar PNG,
+  `/work/screenshots/`):
+  - `SF-1801-loginscherm-donker.png`: zwarte achtergrond, donkere kaart, wit icoon + witte
+    titel, lichtgrijze uitleg, leesbare knop (AC1/AC2).
+  - `SF-1801-editor-donker-opmaak.png`: zwarte editor met witte tekst, precies **vijf**
+    toolbar-knoppen waarvan de actieve (vet, opsomming) zichtbaar afwijkend (accentkleur +
+    gevulde achtergrond) worden getoond; bullets, cursief en onderstreept renderen als echte
+    opmaak en `# Kop blijft plat` blijft platte tekst (AC3/AC4).
+    Let op: `flutter test` gebruikt testfonts, dus letters zijn blokjes — kleuren, layout en
+    opmaakattributen zijn wél representatief.
+- Scope-controle: diff raakt alleen `notities/` + het worklog; **geen** wijziging aan de
+  backend, `notities/lib/api_client.dart` of `.github/workflows/notities-apk.yml` (AC10/AC11).
+- Dependency-controle voor de APK-build: `flutter_quill ^11.5.1` voegt drie Android-native
+  transitieve plugins toe (`quill_native_bridge_android`, `url_launcher_android`,
+  `flutter_keyboard_visibility_temp_fork`). Hun `minSdk` (24) is gelijk aan de
+  `flutter.minSdkVersion` (24) die de app al gebruikt, hun `jvmTarget 17` past bij de JDK 17
+  uit `notities-apk.yml`; er is geen extra platform-configuratie of CI-stap nodig.
+
+### Bevindingen
+- Geen bugs gevonden; alle acceptatiecriteria houden stand.
+- [info, niet-blokkerend] `flutter build apk --release` is in deze sandbox **niet** uitvoerbaar
+  ("No Android SDK found"), dus AC10 is niet zelf gebouwd maar afgeleid uit de
+  plugin-/SDK-eisen hierboven. De APK-workflow draait pas op push naar `main` en is daarmee
+  de eerste echte bevestiging.
+- [info] `notities/pubspec.lock` legt nu `dart >=3.12.0` / `flutter >=3.44.0` vast, terwijl
+  `pubspec.yaml` nog `sdk: ^3.9.0` declareert. Met `channel: stable` in de workflow (hier
+  Flutter 3.44.7 / Dart 3.12.2) is dat prima; een oudere Flutter zou wél op de lockfile
+  stuklopen.
