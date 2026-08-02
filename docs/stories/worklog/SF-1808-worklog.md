@@ -106,3 +106,31 @@ Done / rationale:
   twee `pump()`s nodig voordat de undo-knop enabled is — vastgelegd in de tests.
 - De APK zelf is in deze sandbox niet te bouwen (geen Android SDK); de
   `notities-apk.yml`-workflow op `main` is de eerste echte bevestiging.
+
+## Review (SF-1810, reviewer)
+
+Volledige story-diff `main...HEAD` beoordeeld (backend `notes` + `notities/`), alle 10
+acceptatiecriteria nagelopen. Zelf geverifieerd in deze sandbox:
+
+- `mvn -o test -Dtest='Notes*Test,NoteVersion*Test,ModulithArchitectureTest'` →
+  alle notes-/versietests én `ModulithArchitectureTest` groen (0 failures/errors), incl.
+  de bootende `NotesControllerTest` (bevestigt dat `NotesService`/`NoteVersionCleanupScheduler`
+  met hun Kotlin-defaultparameter `now` gewoon door Spring gewired worden).
+- `flutter test` in `notities/` → **44 groen**; `flutter analyze` → **No issues found!**
+
+Bevindingen (geen blockers):
+
+- [suggestie] `notes_editor_screen.dart`: de AppBar-actie `Versies` is ook actief zolang
+  `_loading` waar is of `_load()` gefaald is (`_error != null`). Zet je in dat laatste geval
+  een versie terug, dan wordt de tekst wél in het document gezet, maar is er geen
+  `document.changes`-abonnement (dat wordt alleen in de succes-tak van `_load()` gezet), dus
+  de autosave pikt het niet op en de body toont nog steeds de foutmelding. Kleinste fix:
+  `onPressed: (_loading || _error != null) ? null : _openVersions`.
+- [info] `NotesService.update` doet per save een extra `latestVersions(1)`-query op Firestore
+  (dus elke 10 seconden autosave). Functioneel correct en bewust zo in de story; alleen een
+  aandachtspunt voor Firestore-leesverbruik.
+- [info] `NoteVersionCleanupScheduler` heeft de hele run in één `runCatching`; faalt één
+  `deleteVersion`, dan stopt de run en volgt alleen de WARN-regel (geen INFO-telling). De
+  volgende nacht ruimt het alsnog op — acceptabel.
+
+Conclusie: akkoord.
