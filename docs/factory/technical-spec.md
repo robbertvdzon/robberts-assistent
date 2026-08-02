@@ -148,6 +148,28 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   De widget-test leest `minLines`/`maxLines`/`keyboardType`/`textInputAction`/`onSubmitted` af via
   `tester.widget<TextField>(...)` in plaats van via een pixel-/hoogtemeting, omdat de gerenderde
   hoogte van het thema afhangt.
+- **Afbeelding plakken in het chat-invoerveld (Flutter):** hetzelfde `TextField` heeft sinds SF-1767
+  een `ContentInsertionConfiguration` met `allowedMimeTypes: _pasteableMimeTypes` (top-level
+  constante `['image/png', 'image/jpeg']`, gedeeld met de callback) en `onContentInserted:
+  _onContentInserted`. Die callback zet de `KeyboardInsertedContent` om naar
+  `XFile.fromData(bytes, path: …, name: …, mimeType: content.mimeType)` en voedt 'm aan de bestaande
+  `_attach(List<XFile>)`-flow — bewust geen tweede bijlagenroute, zodat `_pending`,
+  `_pendingPreview()` en `_send(...)` ongewijzigd blijven en het API-contract (multipart `photos` op
+  `POST /api/v1/assistant/chat`) niet wijzigt. De bestandsnaam (`geplakt-<epoch-ms>.png`/`.jpg`,
+  afgeleid van de mimetype) gaat zowel als `name` als als `path` mee: `cross_file`'s
+  io-implementatie negeert `name` en leidt de naam uit `path` af, dus met alleen `name` zou de naam
+  op Android leeg zijn. `onContentInserted` is synchroon terwijl `_attach` async is — het Future
+  loopt bewust door via `unawaited(...)`. Ontbrekende/lege `data` of een andere mimetype: geen
+  bijlage, geen exception, één `SnackBar` via `ScaffoldMessenger.maybeOf` +
+  `hideCurrentSnackBar()`. Geen nieuwe dependency (`cross_file` is al transitief aanwezig via
+  `image_picker`) en geen klembord-package, dus geen "Plakken uit klembord"-actie in
+  `_showAttachSheet()`; `ContentInsertionConfiguration` is een IME-route, dus web/desktop
+  (Ctrl+V-afbeelding) valt hier buiten. Geplakte bytes worden niet gecomprimeerd (camera/galerij
+  gebruiken wél `imageQuality: 70`). De widget-tests roepen
+  `contentInsertionConfiguration!.onContentInserted(...)` rechtstreeks aan met geldige
+  1×1-PNG-bytes (ongeldige bytes laten `Image.memory` in de pending-strook falen); écht plakken via
+  Gboard is alleen op een fysiek toestel te verifiëren. Restpunt (niet-blokkerend): `contentType`
+  krijgt `content.mimeType` ongewijzigd mee terwijl de filter lowercased vergelijkt.
 - **Doorluister-lus praatmodus (Flutter):** `robberts_assistent/lib/assistant_screen.dart` draait in
   `_Mode.voice` de lus luisteren → versturen → uitspreken → opnieuw luisteren. Het uitspreken is
   afwachtbaar (`awaitSpeakCompletion(true)`), de spraakherkenning wordt expliciet gestopt vóór het

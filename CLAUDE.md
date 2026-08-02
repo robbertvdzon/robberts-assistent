@@ -190,7 +190,11 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
   als `groentetuin`). Het chat-invoerveld is sinds SF-1732 multiline: het start op één regel, groeit
   mee tot vijf regels en scrollt daarna intern; Enter voegt een nieuwe regel toe (versturen gaat
   uitsluitend via de send-knop rechts) en foto- en send-knop blijven onderaan uitgelijnd terwijl het
-  veld groeit. In `conversations_screen.dart`: de eerste 10 (niet-gearchiveerde) gesprekken
+  veld groeit. Sinds SF-1767 kan in dat veld ook een **afbeelding uit het klembord** worden geplakt
+(Android/Gboard, via `ContentInsertionConfiguration` met `image/png`/`image/jpeg`): die komt als
+gewone bijlage in de pending-strook — zelfde `_attach(...)`-route als camera/galerij — en gaat mee
+bij het versturen; zonder bruikbare afbeelding op het klembord verschijnt alleen een korte melding.
+In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de eerste 10 (niet-gearchiveerde) gesprekken
   direct zichtbaar, oudere onder een uitklapbare "Ouder"-sectie; swipe-links (`flutter_slidable`)
   toont Archiveren/Verwijderen (verwijderen met bevestigingsdialoog); een AppBar-toggle laat
   gearchiveerde gesprekken alsnog zien. Plus Koppelingen-, Nachtchecks- en **Geheugen**-schermen
@@ -760,6 +764,43 @@ vanzelf behouden), de `_busy`-afhandeling, de `_pending`-bijlagenflow, de volled
 pixel-/hoogtemeting, want de gerenderde hoogte hangt van het thema af) en toont via het bestaande
 `_FakeApiClient`-patroon aan dat tekst met newlines na een tik op de send-knop ongewijzigd — alleen
 ge-`trim()`d — als `message` bij `assistantChat(...)` aankomt. Geen bevindingen uit review/testronde.
+
+Nieuw (SF-1767): **afbeelding uit het klembord plakken in de assistent-chat**. Alleen frontend,
+alleen `robberts_assistent/lib/assistant_screen.dart`: het chat-`TextField` in `_chatControls()`
+kreeg een `contentInsertionConfiguration` (`ContentInsertionConfiguration`) met
+`allowedMimeTypes: _pasteableMimeTypes` (nieuwe top-level constante `['image/png', 'image/jpeg']`,
+gedeeld met de callback) en `onContentInserted: _onContentInserted`. Die nieuwe callback zet de
+aangeboden `KeyboardInsertedContent` om naar een `XFile.fromData(bytes, path: …, name: …,
+mimeType: content.mimeType)` en voedt 'm aan de bestaande `_attach(List<XFile>)`-flow — dus géén
+tweede bijlagenroute: `_pending`, de pending-strook (`_pendingPreview()`) en `_send(...)` blijven
+ongewijzigd, en een geplakte afbeelding gaat precies als een galerijfoto mee in het multipart-veld
+`photos` van `POST /api/v1/assistant/chat`. De bestandsnaam wordt client-side gegenereerd als
+`geplakt-<epoch-ms>.png`/`.jpg` (afgeleid van de mimetype) en gaat zowel als `name` als als `path`
+mee, want `cross_file`'s io-implementatie negeert `name` en leidt de naam uit `path` af — met alleen
+`name` zou de bestandsnaam op Android leeg zijn. Ontbrekende/lege `data` of een mimetype buiten
+PNG/JPEG levert geen bijlage en geen exception, alleen één `SnackBar` ("Geen afbeelding op het
+klembord", voorafgegaan door `hideCurrentSnackBar()` zodat ze niet stapelen, via
+`ScaffoldMessenger.maybeOf`). Omdat `onContentInserted` synchroon is en `_attach` async, loopt het
+Future bewust door via `unawaited(...)` (`dart:async` toegevoegd). Ongewijzigd: alle
+SF-1732-eigenschappen van het veld (`minLines: 1`, `maxLines: 5`, `keyboardType`,
+`textInputAction`, geen `onSubmitted`, `enabled: !_busy`) en de `CrossAxisAlignment.end` van de
+omliggende `Row`, `_showAttachSheet()` (blijft 'Foto maken' + 'Uit galerij kiezen'), de praatmodus,
+`pubspec.yaml`/`pubspec.lock` (geen nieuwe dependency — `cross_file` is al transitief aanwezig via
+`image_picker`) en de hele backend. Drie nieuwe widget-tests in
+`robberts_assistent/test/assistant_screen_test.dart` roepen
+`contentInsertionConfiguration!.onContentInserted(...)` rechtstreeks aan met geldige 1×1-PNG-bytes
+(willekeurige bytes laten `Image.memory` in de pending-strook falen) en tonen via het bestaande
+`_FakeApiClient`-patroon (`lastPhotos`) aan dat de bijlage bij het verzenden meegaat, ook zonder
+ingetypte tekst. Bewuste beperkingen: **alleen de Android-toetsenbordroute** (Gboard 'plakken');
+`ContentInsertionConfiguration` wordt door Flutter-web/desktop niet aangeroepen, dus in de webversie
+blijft plakken tekst-only (geen foutmelding, bestaand gedrag), en Ctrl+V-afbeeldingplakken zou een
+extra klembord-package vergen. Geen compressie/verkleining van geplakte bytes (camera/galerij
+gebruiken wél `imageQuality: 70`). Bekend, niet-blokkerend aandachtspunt uit review/testronde:
+`contentType` krijgt `content.mimeType` ongewijzigd mee terwijl de filter op de lowercase-variant
+vergelijkt, dus een IME die `IMAGE/PNG` stuurt levert die hoofdlettervariant als multipart-
+`Content-Type` — onschadelijk, de backend leest de bytes. Het écht plakken is niet automatisch te
+testen (vereist een fysiek toestel met Gboard); eindverificatie handmatig op Robberts telefoon
+(screenshot → kopiëren → in de chat plakken → versturen).
 
 ---
 

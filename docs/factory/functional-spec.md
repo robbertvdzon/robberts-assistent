@@ -146,7 +146,14 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   de tekst binnen het veld. Enter maakt een nieuwe regel in plaats van te versturen — versturen gaat
   uitsluitend via de verzendknop rechts — en de foto- en verzendknop blijven onderaan staan terwijl
   het veld groeit. Meerregelige tekst wordt met behoud van de regeleindes verstuurd; alleen
-  spaties aan het begin en eind vallen weg. In **praatmodus** is het gesprek
+  spaties aan het begin en eind vallen weg. Sinds SF-1767 kan in dat veld ook een **afbeelding uit
+  het klembord** worden geplakt — meestal een screenshot, via de plak-knop van het
+  Android-toetsenbord (Gboard). De afbeelding verschijnt als gewone bijlage bij het bericht, precies
+  als een foto uit de galerij, en gaat mee zodra Robbert verstuurt; de omweg via de galerij is dus
+  niet meer nodig. Tekst plakken blijft ongewijzigd. Staat er geen bruikbare afbeelding op het
+  klembord (geen data of een ander formaat dan PNG/JPEG), dan komt er geen bijlage bij en verschijnt
+  hooguit één korte melding onderin. In de webversie blijft plakken beperkt tot tekst.
+  In **praatmodus** is het gesprek
   sinds SF-1711 doorlopend: na een voorgelezen antwoord luistert de app automatisch weer, zonder dat
   Robbert de microfoon opnieuw hoeft aan te tikken. Dat stopt zodra hij zelf op de stop-/mic-knop
   tikt, naar chatmodus wisselt of het scherm verlaat, bij een spraak- of chat-fout (de bestaande
