@@ -211,7 +211,12 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   undo/redo, de opmaakbalk, A−/A+ en het versiescherm werken ongewijzigd, maar per gekozen
   document; de lettergrootte-keuze geldt app-breed. Robberts bestaande notitie gaat automatisch
   mee als document 'todo', inclusief de bewaarde versies. Google-login. De app is donker (zwarte
-  achtergrond, witte tekst, ook op het inlogscherm) en de notitie is sinds SF-1801 echt op te
+  achtergrond, witte tekst, ook op het inlogscherm); sinds SF-1899 heeft alleen het tekstvlak van
+  de editor een eigen, iets lichtere donkergrijze achtergrond, zodat duidelijk te zien is waar de
+  balk bovenin en de knoppenbalk ophouden en de notitie begint. Die kleur vult het hele vlak onder
+  de knoppenbalk tot de onderkant van het scherm, ook als de notitie leeg of kort is; de tekst
+  blijft wit en goed leesbaar, en de balk bovenin, de knoppenbalk, de documentenlijst, de
+  versiegeschiedenis en het inlogscherm blijven zwart. De notitie is sinds SF-1801 echt op te
   maken terwijl je typt: een smalle balk bovenin met precies vijf opmaakknoppen — vet, cursief,
   onderstrepen, opsomming en 'opmaak wissen' — en wat je ziet is wat je krijgt. Sinds SF-1809
   bevat die balk ook A− en A+ om de bewerkbare notitietekst direct in stappen van 2 pt te schalen,

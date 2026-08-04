@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:notities/api_client.dart';
-import 'package:notities/main.dart' show notitiesDarkTheme;
+import 'package:notities/main.dart' show notitiesDarkTheme, notitiesEditorBackground;
 import 'package:notities/notes_editor_screen.dart';
 
 import 'fake_api_client.dart';
@@ -183,6 +183,31 @@ void main() {
       expect(style.fontFamily, isNot('monospace'));
       expect(style.fontSize, 16);
     }
+  });
+
+  testWidgets('het editorvlak heeft een donkergrijze, niet-zwarte achtergrond tot onderaan het scherm', (
+    WidgetTester tester,
+  ) async {
+    // Leeg document: juist dan moet het hele vlak onder de opmaakbalk gekleurd
+    // zijn, niet alleen achter de tekstregels.
+    await _pumpLoaded(tester, FakeApiClient()..initialText = '', theme: notitiesDarkTheme);
+
+    final background = find.byKey(const ValueKey('editorachtergrond'));
+    expect(background, findsOneWidget);
+    expect(tester.widget<ColoredBox>(background).color, notitiesEditorBackground);
+    expect(notitiesEditorBackground, isNot(Colors.black));
+    // De achtergrond zit rondom de editor, dus die valt er volledig binnen.
+    expect(find.descendant(of: background, matching: find.byType(QuillEditor)), findsOneWidget);
+
+    // Het gekleurde vlak loopt door tot de onderkant van het scherm.
+    final box = tester.getRect(background);
+    expect(box.bottom, tester.getRect(find.byType(Scaffold)).bottom);
+    expect(box.height, greaterThan(0));
+
+    // AppBar en opmaakbalk blijven zwart.
+    expect(notitiesDarkTheme.appBarTheme.backgroundColor, Colors.black);
+    expect(notitiesDarkTheme.scaffoldBackgroundColor, Colors.black);
+    expect(box.top, greaterThanOrEqualTo(tester.getRect(find.byKey(const ValueKey('opmaakbalk'))).bottom));
   });
 
   testWidgets('A+/A− wijzigt alleen de lettergrootte; de themakleur blijft staan', (WidgetTester tester) async {

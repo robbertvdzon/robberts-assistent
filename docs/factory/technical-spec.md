@@ -223,6 +223,25 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   gewijzigd: A−/A+ triggert dus geen `document.changes`, dirty-state, autosave of API-aanroep en
   handmatig opslaan blijft byte-identieke markdown leveren. AppBar, balk, statusmeldingen en de
   alleen-lezen versieweergave gebruiken hun bestaande grootte.
+- **Editor-achtergrond als losse constante (Flutter, `notities/`, SF-1899):** `lib/main.dart` heeft
+  naast `notitiesDarkTheme` één top-level constante `const notitiesEditorBackground =
+  Color(0xFF262626)`. Die staat bewust **buiten** het thema: `scaffoldBackgroundColor`,
+  `ColorScheme.dark(surface: Colors.black)`, `appBarTheme`, `textSelectionTheme` en
+  `inputDecorationTheme` blijven ongewijzigd zwart, zodat alleen het editorvlak van kleur
+  verandert en de documentenlijst, de versiegeschiedenis en het inlogscherm meeliften op het
+  ongewijzigde thema. In `notes_editor_screen.dart`'s `build()` zit de `QuillEditor` in een
+  `ColoredBox(key: ValueKey('editorachtergrond'), color: notitiesEditorBackground, …)` **binnen**
+  het `Expanded` — die combinatie met `expands: true` is wat het hele resterende vlak onder de
+  `Divider` kleurt, ook bij een leeg document; een kleur ín de editor (bv. op de scrollende
+  inhoud) zou alleen achter de tekstregels vallen. De kleur komt via `import 'main.dart' show
+  notitiesEditorBackground;`, dus geen kleurliteral in het scherm — let op de daardoor ontstane
+  importcyclus (`main.dart` importeert het scherm), in Dart toegestaan en `flutter analyze`-schoon,
+  maar een los `lib/theme.dart` zou 'm vermijden. De `QuillEditorConfig` en de
+  `_baseTextStyle(context)`/`_editorStyles(context)`-constructie uit SF-1823 zijn ongewijzigd;
+  tekstkleur (`colorScheme.onSurface`), cursor en selectie (`0x66FFFFFF`) zijn op `#262626`
+  gecontroleerd en niet bijgesteld, evenmin als Quills gedempte placeholder. Testhaak: de
+  widgettest zoekt de `ColoredBox` via `ValueKey('editorachtergrond')` en vergelijkt zijn rect met
+  die van het `Scaffold` en de opmaakbalk.
 - **Editorstijl los van de inherited `DefaultTextStyle` (Flutter, `notities/`, SF-1823):**
   `_editorStyles(context)` in `notes_editor_screen.dart` bouwt de `DefaultStyles` voor
   `QuillEditorConfig.customStyles` niet meer op `DefaultStyles.getInstance(context)`. Die leest

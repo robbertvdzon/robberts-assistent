@@ -33,6 +33,15 @@ final notitiesDarkTheme = ThemeData(
   ),
 );
 
+/// Achtergrond van het bewerkbare tekstvlak in de editor: iets lichter dan het
+/// zwart van de AppBar en de opmaakbalk, zodat zichtbaar is waar de menu's
+/// ophouden en de notitie begint.
+///
+/// Bewust een losse constante en géén onderdeel van [notitiesDarkTheme]: het
+/// thema (scaffold, surface, AppBar) blijft zwart, zodat de overige schermen
+/// — documentenlijst, versiegeschiedenis en inloggen — ongewijzigd blijven.
+const notitiesEditorBackground = Color(0xFF262626);
+
 class NotitiesApp extends StatelessWidget {
   const NotitiesApp({super.key});
 
