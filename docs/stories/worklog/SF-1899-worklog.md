@@ -70,3 +70,24 @@ Verificatie:
 - [suggestie] `notes_editor_screen.dart` importeert `main.dart` terwijl `main.dart`
   dat scherm importeert — in Dart toegestaan en analyze is schoon, maar een los
   `lib/theme.dart` zou de cyclus vermijden. Niet blokkerend.
+
+## Test (SF-1901)
+
+- `notities/`: `flutter analyze` → "No issues found!"; `flutter test` → **73/73 groen**
+  (Flutter 3.44.7, incl. de nieuwe test "het editorvlak heeft een donkergrijze,
+  niet-zwarte achtergrond tot onderaan het scherm").
+- Visueel bewijs via een scratch-widget-screenshot (notities/ is APK-only, dus geen
+  preview-URL): `/work/screenshots/SF-1901-editor-leeg-document.png` en
+  `SF-1901-editor-met-tekst.png`. Beide tonen een zwarte AppBar + zwarte opmaakbalk
+  en daaronder een duidelijk lichter donkergrijs vlak (#262626) dat tot de onderkant
+  van het scherm doorloopt — óók bij een leeg document (AC1, AC2, AC4).
+- Tekst in het screenshot met inhoud is wit (vet/cursief/bullets zichtbaar), geen rode
+  monospace error-fallback; `_baseTextStyle`/`_editorStyles` (SF-1823) ongewijzigd (AC5).
+- AC3: `grep` op `notes_editor_screen.dart` toont geen kleurliteral voor de achtergrond;
+  de kleur komt uit de enige constante `notitiesEditorBackground` in `main.dart`.
+- AC4: diff t.o.v. `main` raakt alleen `main.dart` (nieuwe constante, thema ongemoeid),
+  `notes_editor_screen.dart`, de test en dit worklog — documentenlijst,
+  versiegeschiedenis en inlogscherm zijn niet aangeraakt.
+- AC8: `.github/workflows/notities-apk.yml` is niet gewijzigd en er is geen nieuwe
+  dependency; een APK bouwen kan niet in de sandbox (geen Android SDK).
+- Geen bevindingen.
