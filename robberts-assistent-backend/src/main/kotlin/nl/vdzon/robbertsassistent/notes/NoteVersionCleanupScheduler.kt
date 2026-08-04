@@ -15,17 +15,24 @@ import java.time.Instant
  */
 @Component
 class NoteVersionCleanupScheduler(
+    private val notesService: NotesService,
     private val repository: NotesRepository,
     private val now: () -> Instant = Instant::now,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /** Loopt over álle notitiedocumenten en past de regel per document toe. */
     @Scheduled(cron = "0 30 3 * * *", zone = "Europe/Amsterdam")
     fun cleanup() {
         runCatching {
-            val ids = NoteVersionCleanup.idsToDelete(repository.allVersions(), now())
-            ids.forEach { repository.deleteVersion(it) }
-            logger.info("Notitie-versies opgeruimd: {} verwijderd", ids.size)
+            val moment = now()
+            var deleted = 0
+            notesService.documents().forEach { document ->
+                val ids = NoteVersionCleanup.idsToDelete(repository.allVersions(document.id), moment)
+                ids.forEach { repository.deleteVersion(document.id, it) }
+                deleted += ids.size
+            }
+            logger.info("Notitie-versies opgeruimd: {} verwijderd", deleted)
         }.onFailure { logger.warn("Opruimen van notitie-versies mislukt: {}", it.message) }
     }
 }

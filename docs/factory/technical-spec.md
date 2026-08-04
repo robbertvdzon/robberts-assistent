@@ -281,6 +281,65 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   omdat de taak dagelijks draait. Geen migratie nodig: bestaande installaties hebben simpelweg nog
   geen versies. `NotesTools`, `WeekTasksSectionProvider` en `GET`/`PUT /api/v1/notes` zijn
   ongewijzigd.
+- **Meerdere notitiedocumenten (backend `notes`, SF-1891):** `NoteDocument(id, title, order, text)`
+  in `notes/NoteDocument.kt`, samen met `DEFAULT_DOCUMENT_ID = "note"`,
+  `DEFAULT_DOCUMENT_TITLE = "todo"`, `MAX_TITLE_LENGTH = 60` en de module-eigen fouttypes
+  `NoteDocumentNotFoundException`/`NoteTitleInvalidException`/`NoteDocumentConflictException`. Het
+  standaarddocument hangt bewust aan het **id**, niet aan de titel, zodat het blijft werken als
+  'todo' later hernoemd wordt. `NotesRepository` kreeg `documents()`, `createDocument`,
+  `renameDocument`, `deleteDocument` (incl. versies), `updateOrder` en `createDefaultDocument`;
+  `current()`/`update(text)` werden `document(id)`/`updateText(id, text)` en alle versie-methodes
+  kregen een `documentId`. `InMemoryNotesRepository` heeft een optionele `legacyText`-parameter,
+  zodat "bestaande tekst blijft behouden" zonder Firestore te testen is. Firestore-indeling:
+  `notes/<docId>` met `title`/`order`/`text`, versies ongewijzigd in `notes/<docId>/versions`. De
+  lijst-query gebruikt `orderBy("title")` — Firestore laat documenten zónder dat veld automatisch
+  weg, precies de eis dat een document zonder notitievelden nooit in de lijst belandt, en dat
+  zonder samengestelde index; sorteren op `order` gebeurt daarna in geheugen (een handvol
+  documenten). Schrijven gaat met `SetOptions.merge()`, zodat de migratie de bestaande tekst nooit
+  overschrijft en de subcollectie `versions` intact blijft. De migratie zit in
+  `NotesService.ensureDocuments()` (`@Synchronized`) en wordt door élke documenten-toegang
+  aangeroepen — dus ook via de oude endpoints, de briefing en de AI-tools; ze is idempotent (zijn
+  er al documenten mét titel, dan gebeurt er niets). `NotesService` blijft web-vrij en gooit de
+  module-eigen excepties; `NotesController` vertaalt ze met `@ExceptionHandler` naar 404/400/409 en
+  geeft daar bewust een `ResponseEntity` terug i.p.v. opnieuw te gooien. Hernoemen heeft een eigen
+  pad `PUT /api/v1/notes/documents/{id}/title` naast `PUT .../{id}` voor tekst (één endpoint met
+  twee betekenissen is niet eenduidig), en `PUT .../documents/order` staat als letterlijk pad vóór
+  `/{id}` — ids zijn `note` of Firestore-auto-ids, dus er kan geen document met id `order` ontstaan.
+  `GET`/`PUT /api/v1/notes` en `GET /api/v1/notes/versions(/{id})` werken op het standaarddocument
+  en vallen terug op het eerste document in de volgorde als dat verwijderd is, zodat
+  `briefing/WeekTasksSectionProvider` (ongewijzigd) nooit op een 404 stukloopt. Er is geen
+  Firestore-migratiescript: de migratie is lazily, idempotent en hergebruikt het bestaande document
+  plus de bestaande subcollectie. Bekend en bewust: `deleteDocument` hernummert `order` niet (gaten
+  blijven staan, alleen `PUT /documents/order` densificeert naar 0..n-1), en `ensureDocuments()`
+  kost per toegang een volledige collectie-query — kandidaat-fixes zijn een `@Volatile`-vlag voor
+  de migratiecheck en `updateText` het bijgewerkte document laten teruggeven.
+- **Notitiedocumenten in de chat (backend `assistant/ai`, SF-1891):** `NotesTools` kreeg
+  `listNoteDocuments`, `getNoteDocument`, `updateNoteDocument` en `createNoteDocument` in de
+  bestaande stijl (Nederlandse `@Tool`-beschrijvingen, `@ToolParam` per argument, korte Nederlandse
+  zin als returnwaarde, nooit een exception naar buiten — de module-excepties van `notes` worden
+  opgevangen). Naam-matching is hoofdletter-ongevoelig met eerst een exacte titel en anders
+  `startsWith`; precies één match is nodig, 0 of meerdere leveren een foutzin met de beschikbare
+  titels. Optionele naam-argumenten zijn `@ToolParam(required = false)` op een **nullable** `String?`
+  in plaats van het oudere repo-patroon `String = ""`, omdat Spring AI Kotlin-defaults niet toepast.
+  `SYSTEM_PROMPT` in `AiConfig.kt` noemt de meerdere notitiedocumenten.
+- **Documentkeuze + beheerscherm (Flutter, `notities/`, SF-1891):** `lib/api_client.dart` kreeg het
+  model `NoteDocument(id, title, order)` en methodes voor alle documenten-endpoints in hetzelfde
+  `authHeaders()`/`_throwOnError`-patroon; `listNoteVersions`/`getNoteVersion` werken per document
+  en de oude `getNotes`/`saveNotes` zijn uit de app verwijderd (de endpoints blijven bestaan voor de
+  briefing, de AI-tools en oudere APK's). `_throwOnError` gooit nu een
+  `ApiException(statusCode, message)` met de Nederlandse `{"error": …}`-melding van de backend,
+  zodat het beheerscherm bijvoorbeeld "Er bestaat al een document met die titel" kan tonen i.p.v.
+  een ruwe HTTP-body. In `notes_editor_screen.dart` staat een `DropdownButton`
+  (`ValueKey('documentkeuze')`); `_load()` haalt eerst de lijst op (dat triggert backend-side de
+  migratie), kiest het id uit `shared_preferences` (`notes_editor_document_id`) of anders het eerste
+  document. `_save()` geeft `bool` terug en `_switchDocument` wisselt alleen bij succes, zodat een
+  mislukte save geen tekst kost. `note_documents_screen.dart` gebruikt
+  `ReorderableListView.builder` met `onReorderItem` (sinds Flutter 3.41; die callback corrigeert
+  `newIndex` al — CI en sandbox draaien `channel: stable` en `pubspec.lock` eist al
+  `flutter >=3.44.0`). De titeldialoog is een eigen `StatefulWidget`, want een lokale
+  `TextEditingController` die ná `showDialog` ge-`dispose`d wordt laat de sluit-animatie crashen op
+  "A TextEditingController was used after being disposed". De fake-API-client voor de widget-tests
+  staat gedeeld in `test/fake_api_client.dart`.
 - **Undo/redo + versies terugzetten (Flutter, `notities/`, SF-1808):** de undo/redo-knoppen leunen
   volledig op de historie die `QuillController` zelf bijhoudt (`undo()`/`redo()`,
   `hasUndo`/`hasRedo`); er is geen eigen historie-stack en geen sneltoets. Terugzetten van een oude

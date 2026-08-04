@@ -91,6 +91,138 @@ class NotesControllerTest {
 
         assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
     }
+
+    // --- Documenten (SF-1892) ---
+
+    private fun json(body: String) = HttpEntity(
+        body,
+        HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON },
+    )
+
+    private fun send(method: HttpMethod, path: String, body: String? = null) =
+        restTemplate.exchange(path, method, body?.let { json(it) }, String::class.java)
+
+    private fun documentenBody() = restTemplate.getForEntity("/api/v1/notes/documents", String::class.java)
+
+    private fun idVoorTitel(title: String): String? {
+        val body = documentenBody().body.orEmpty()
+        return Regex("""\{"id":"(.*?)","title":"(.*?)","order":(\d+)\}""").findAll(body)
+            .firstOrNull { it.groupValues[2] == title }
+            ?.groupValues?.get(1)
+    }
+
+    @Test
+    fun `documenten-endpoint levert het gemigreerde todo-document en blijft er bij één`() {
+        val eerst = documentenBody()
+        assertEquals(HttpStatus.OK, eerst.statusCode)
+        val body = eerst.body.orEmpty()
+        assertTrue(body.startsWith("""{"documents":["""), "onverwachte body: $body")
+        assertTrue(body.contains(""""id":"note","title":"todo""""), "onverwachte body: $body")
+
+        val nogEens = documentenBody().body.orEmpty()
+        assertEquals(1, Regex(""""title":"todo"""").findAll(nogEens).count(), "body: $nogEens")
+    }
+
+    @Test
+    fun `aanmaken, hernoemen, herordenen en verwijderen van documenten werkt`() {
+        val titel = "recepten-${System.nanoTime()}"
+        val aangemaakt = send(HttpMethod.POST, "/api/v1/notes/documents", """{"title":"$titel"}""")
+        assertEquals(HttpStatus.OK, aangemaakt.statusCode)
+        val id = assertNotNull(idVoorTitel(titel), "document niet in de lijst: ${documentenBody().body}")
+
+        // Tekst opslaan levert een versie op, en die hoort alleen bij dit document.
+        assertEquals(
+            HttpStatus.OK,
+            send(HttpMethod.PUT, "/api/v1/notes/documents/$id", """{"text":"pannenkoeken"}""").statusCode,
+        )
+        val document = restTemplate.getForEntity("/api/v1/notes/documents/$id", String::class.java)
+        assertTrue(document.body.orEmpty().contains("pannenkoeken"), "body: ${document.body}")
+        val versies = restTemplate.getForEntity(
+            "/api/v1/notes/documents/$id/versions",
+            String::class.java,
+        )
+        val versieIds = Regex("\"id\":\"(.*?)\"").findAll(versies.body.orEmpty())
+            .map { it.groupValues[1] }.toList()
+        assertEquals(1, versieIds.size, "body: ${versies.body}")
+        val versie = restTemplate.getForEntity(
+            "/api/v1/notes/documents/$id/versions/${versieIds.single()}",
+            String::class.java,
+        )
+        assertTrue(versie.body.orEmpty().contains("pannenkoeken"), "body: ${versie.body}")
+        // Diezelfde versie hoort niet bij het standaarddocument.
+        assertEquals(
+            HttpStatus.NOT_FOUND,
+            restTemplate.getForEntity(
+                "/api/v1/notes/documents/note/versions/${versieIds.single()}",
+                String::class.java,
+            ).statusCode,
+        )
+
+        // Hernoemen.
+        val nieuweTitel = "kookboek-${System.nanoTime()}"
+        assertEquals(
+            HttpStatus.OK,
+            send(HttpMethod.PUT, "/api/v1/notes/documents/$id/title", """{"title":"$nieuweTitel"}""").statusCode,
+        )
+        assertEquals(id, idVoorTitel(nieuweTitel))
+
+        // Herordenen: dit document vooraan, de rest erachter met dichte posities.
+        val herordend = send(HttpMethod.PUT, "/api/v1/notes/documents/order", """{"ids":["$id"]}""")
+        assertEquals(HttpStatus.OK, herordend.statusCode)
+        val orders = Regex("\"order\":(\\d+)").findAll(herordend.body.orEmpty())
+            .map { it.groupValues[1].toInt() }.toList()
+        assertEquals(orders.indices.toList(), orders, "body: ${herordend.body}")
+        assertTrue(herordend.body.orEmpty().startsWith("""{"documents":[{"id":"$id""""))
+
+        // Verwijderen.
+        assertEquals(HttpStatus.OK, send(HttpMethod.DELETE, "/api/v1/notes/documents/$id").statusCode)
+        assertEquals(null, idVoorTitel(nieuweTitel))
+    }
+
+    @Test
+    fun `foutgevallen leveren 404, 400 en 409 op`() {
+        assertEquals(
+            HttpStatus.NOT_FOUND,
+            restTemplate.getForEntity("/api/v1/notes/documents/bestaat-niet", String::class.java).statusCode,
+        )
+        assertEquals(
+            HttpStatus.NOT_FOUND,
+            send(HttpMethod.PUT, "/api/v1/notes/documents/bestaat-niet", """{"text":"x"}""").statusCode,
+        )
+        assertEquals(
+            HttpStatus.NOT_FOUND,
+            send(HttpMethod.PUT, "/api/v1/notes/documents/order", """{"ids":["bestaat-niet"]}""").statusCode,
+        )
+        assertEquals(
+            HttpStatus.BAD_REQUEST,
+            send(HttpMethod.POST, "/api/v1/notes/documents", """{"title":"   "}""").statusCode,
+        )
+
+        val titel = "dubbel-${System.nanoTime()}"
+        assertEquals(
+            HttpStatus.OK,
+            send(HttpMethod.POST, "/api/v1/notes/documents", """{"title":"$titel"}""").statusCode,
+        )
+        assertEquals(
+            HttpStatus.CONFLICT,
+            send(HttpMethod.POST, "/api/v1/notes/documents", """{"title":"${titel.uppercase()}"}""").statusCode,
+        )
+        send(HttpMethod.DELETE, "/api/v1/notes/documents/${idVoorTitel(titel)}")
+    }
+
+    @Test
+    fun `de oude notes-endpoints werken op het todo-document`() {
+        val uniek = "SF-1892 todo ${System.nanoTime()}"
+        assertEquals(HttpStatus.OK, put(uniek).statusCode)
+
+        val viaDocument = restTemplate.getForEntity("/api/v1/notes/documents/note", String::class.java)
+        assertEquals(HttpStatus.OK, viaDocument.statusCode)
+        assertTrue(viaDocument.body.orEmpty().contains(uniek), "body: ${viaDocument.body}")
+        assertTrue(viaDocument.body.orEmpty().contains(""""title":"todo""""), "body: ${viaDocument.body}")
+
+        val viaOud = restTemplate.getForEntity("/api/v1/notes", String::class.java)
+        assertTrue(viaOud.body.orEmpty().contains(uniek), "body: ${viaOud.body}")
+    }
 }
 
 /**

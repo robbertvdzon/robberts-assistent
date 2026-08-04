@@ -49,9 +49,13 @@ const noteVersionColor = Color(0xFFE57373);
 /// regel opent een alleen-lezen weergave met een `Terugzetten`-knop; die geeft
 /// de gekozen tekst terug aan de editor via `Navigator.pop`.
 class NoteVersionsScreen extends StatefulWidget {
-  const NoteVersionsScreen({super.key, required this.api});
+  const NoteVersionsScreen({super.key, required this.api, required this.documentId});
 
   final ApiClient api;
+
+  /// De versies horen bij precies dit document; versies van een ander
+  /// document komen hier nooit in beeld.
+  final String documentId;
 
   @override
   State<NoteVersionsScreen> createState() => _NoteVersionsScreenState();
@@ -70,7 +74,7 @@ class _NoteVersionsScreenState extends State<NoteVersionsScreen> {
 
   Future<void> _load() async {
     try {
-      final versions = await widget.api.listNoteVersions();
+      final versions = await widget.api.listNoteVersions(widget.documentId);
       if (mounted) {
         setState(() {
           _versions = versions;
@@ -92,6 +96,7 @@ class _NoteVersionsScreenState extends State<NoteVersionsScreen> {
       MaterialPageRoute(
         builder: (_) => NoteVersionDetailScreen(
           api: widget.api,
+          documentId: widget.documentId,
           version: version,
         ),
       ),
@@ -130,9 +135,15 @@ class _NoteVersionsScreenState extends State<NoteVersionsScreen> {
 /// Alleen-lezen weergave van één oude versie: platte markdown als
 /// selecteerbare tekst, geen bewerkbare editor.
 class NoteVersionDetailScreen extends StatefulWidget {
-  const NoteVersionDetailScreen({super.key, required this.api, required this.version});
+  const NoteVersionDetailScreen({
+    super.key,
+    required this.api,
+    required this.documentId,
+    required this.version,
+  });
 
   final ApiClient api;
+  final String documentId;
   final NoteVersionSummary version;
 
   @override
@@ -152,7 +163,7 @@ class _NoteVersionDetailScreenState extends State<NoteVersionDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final text = await widget.api.getNoteVersion(widget.version.id);
+      final text = await widget.api.getNoteVersion(widget.documentId, widget.version.id);
       if (mounted) {
         setState(() {
           _text = text;

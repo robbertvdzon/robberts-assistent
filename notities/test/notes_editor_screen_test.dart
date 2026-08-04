@@ -9,35 +9,7 @@ import 'package:notities/api_client.dart';
 import 'package:notities/main.dart' show notitiesDarkTheme;
 import 'package:notities/notes_editor_screen.dart';
 
-class _FakeApiClient extends ApiClient {
-  _FakeApiClient({this.saveError});
-
-  String initialText = 'bestaande notitie';
-  String? lastSavedText;
-  var saveCallCount = 0;
-  Object? saveError;
-
-  /// Versie-id => markdown-tekst; de lijst wordt hieruit afgeleid.
-  Map<String, String> versionTexts = {};
-  DateTime versionSavedAt = DateTime.now();
-
-  @override
-  Future<String> getNotes() async => initialText;
-
-  @override
-  Future<void> saveNotes(String text) async {
-    saveCallCount++;
-    if (saveError != null) throw saveError!;
-    lastSavedText = text;
-  }
-
-  @override
-  Future<List<NoteVersionSummary>> listNoteVersions() async =>
-      versionTexts.keys.map((id) => NoteVersionSummary(id: id, savedAt: versionSavedAt)).toList(growable: false);
-
-  @override
-  Future<String> getNoteVersion(String id) async => versionTexts[id]!;
-}
+import 'fake_api_client.dart';
 
 /// De Quill-editor heeft zijn eigen localizations-delegate nodig, net als in
 /// `main.dart`.
@@ -81,7 +53,7 @@ void main() {
   testWidgets('save-knop slaat de huidige tekst meteen op, zonder te wachten op de debounce', (
     WidgetTester tester,
   ) async {
-    final api = _FakeApiClient();
+    final api = FakeApiClient();
 
     await _pumpLoaded(tester, api);
 
@@ -98,7 +70,7 @@ void main() {
   });
 
   testWidgets('save-knop toont een foutmelding als opslaan mislukt', (WidgetTester tester) async {
-    final api = _FakeApiClient(saveError: Exception('netwerkfout'));
+    final api = FakeApiClient(saveError: Exception('netwerkfout'));
 
     await _pumpLoaded(tester, api);
 
@@ -117,7 +89,7 @@ void main() {
   });
 
   testWidgets('de bestaande notitie wordt als opgemaakte tekst geladen', (WidgetTester tester) async {
-    final api = _FakeApiClient()..initialText = 'een **vet** woord';
+    final api = FakeApiClient()..initialText = 'een **vet** woord';
 
     await _pumpLoaded(tester, api);
 
@@ -126,7 +98,7 @@ void main() {
   });
 
   testWidgets('de opmaakbalk heeft lettergrootte, undo/redo en de vijf opmaakknoppen', (WidgetTester tester) async {
-    await _pumpLoaded(tester, _FakeApiClient());
+    await _pumpLoaded(tester, FakeApiClient());
 
     for (final tooltip in [
       'Lettergrootte verkleinen',
@@ -149,7 +121,7 @@ void main() {
   });
 
   testWidgets('lettergrootte schaalt gewone tekst, opmaak, lijsttekst en bulletmarkering', (WidgetTester tester) async {
-    final api = _FakeApiClient()..initialText = '- gewoon **vet** *cursief* <u>onderstreept</u>';
+    final api = FakeApiClient()..initialText = '- gewoon **vet** *cursief* <u>onderstreept</u>';
 
     await _pumpLoaded(tester, api);
 
@@ -172,7 +144,7 @@ void main() {
     WidgetTester tester,
   ) async {
     // Zoals de app het doet: het echte donkere thema eromheen.
-    await _pumpLoaded(tester, _FakeApiClient()..initialText = '- melk', theme: notitiesDarkTheme);
+    await _pumpLoaded(tester, FakeApiClient()..initialText = '- melk', theme: notitiesDarkTheme);
 
     final expected = notitiesDarkTheme.colorScheme.onSurface;
     // Op zwart levert het notities-thema feitelijk witte letters.
@@ -190,7 +162,7 @@ void main() {
   });
 
   testWidgets('de daadwerkelijk gerenderde editortekst is wit, niet rood/monospace', (WidgetTester tester) async {
-    final api = _FakeApiClient()..initialText = '- melk\ngewone regel met **vet**';
+    final api = FakeApiClient()..initialText = '- melk\ngewone regel met **vet**';
 
     await _pumpLoaded(tester, api, theme: notitiesDarkTheme);
 
@@ -214,7 +186,7 @@ void main() {
   });
 
   testWidgets('A+/A− wijzigt alleen de lettergrootte; de themakleur blijft staan', (WidgetTester tester) async {
-    await _pumpLoaded(tester, _FakeApiClient(), theme: notitiesDarkTheme);
+    await _pumpLoaded(tester, FakeApiClient(), theme: notitiesDarkTheme);
     final expected = notitiesDarkTheme.colorScheme.onSurface;
 
     await tester.tap(find.byTooltip('Lettergrootte vergroten'));
@@ -239,7 +211,7 @@ void main() {
   testWidgets('A− en A+ wijzigen direct in stappen van 2 en zijn uitgeschakeld op de grenzen', (
     WidgetTester tester,
   ) async {
-    await _pumpLoaded(tester, _FakeApiClient());
+    await _pumpLoaded(tester, FakeApiClient());
 
     await tester.tap(find.byTooltip('Lettergrootte verkleinen'));
     await tester.pump();
@@ -264,31 +236,31 @@ void main() {
   testWidgets('bewaarde grootte wordt hersteld en ontbrekende of ongeldige waarden vallen terug', (
     WidgetTester tester,
   ) async {
-    await _pumpLoaded(tester, _FakeApiClient(), preferences: {'notes_editor_font_size': 22});
+    await _pumpLoaded(tester, FakeApiClient(), preferences: {'notes_editor_font_size': 22});
     expect(_stylesOf(tester).paragraph!.style.fontSize, 22);
 
     await tester.pumpWidget(const SizedBox());
-    await _pumpLoaded(tester, _FakeApiClient(), preferences: {'notes_editor_font_size': 15});
+    await _pumpLoaded(tester, FakeApiClient(), preferences: {'notes_editor_font_size': 15});
     expect(_stylesOf(tester).paragraph!.style.fontSize, 16);
 
     await tester.pumpWidget(const SizedBox());
-    await _pumpLoaded(tester, _FakeApiClient(), preferences: {'notes_editor_font_size': 100});
+    await _pumpLoaded(tester, FakeApiClient(), preferences: {'notes_editor_font_size': 100});
     expect(_stylesOf(tester).paragraph!.style.fontSize, 28);
 
     await tester.pumpWidget(const SizedBox());
-    await _pumpLoaded(tester, _FakeApiClient(), preferences: {'notes_editor_font_size': -10});
+    await _pumpLoaded(tester, FakeApiClient(), preferences: {'notes_editor_font_size': -10});
     expect(_stylesOf(tester).paragraph!.style.fontSize, 12);
   });
 
   testWidgets('gewijzigde grootte blijft bewaard bij een nieuw opgebouwd notitiescherm', (WidgetTester tester) async {
-    await _pumpLoaded(tester, _FakeApiClient());
+    await _pumpLoaded(tester, FakeApiClient());
 
     await tester.tap(find.byTooltip('Lettergrootte vergroten'));
     await tester.pump();
     expect((await SharedPreferences.getInstance()).getInt('notes_editor_font_size'), 18);
 
     await tester.pumpWidget(const SizedBox());
-    await _pumpLoaded(tester, _FakeApiClient(), resetPreferences: false);
+    await _pumpLoaded(tester, FakeApiClient(), resetPreferences: false);
     expect(_stylesOf(tester).paragraph!.style.fontSize, 18);
   });
 
@@ -296,7 +268,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final markdown = '- gewoon\n- **vet** en *cursief* en <u>onderstreept</u>';
-    final api = _FakeApiClient()..initialText = markdown;
+    final api = FakeApiClient()..initialText = markdown;
     await _pumpLoaded(tester, api);
     final deltaBefore = _controllerOf(tester).document.toDelta().toJson();
 
@@ -321,7 +293,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _pumpLoaded(tester, _FakeApiClient());
+    await _pumpLoaded(tester, FakeApiClient());
 
     expect(tester.takeException(), isNull);
     expect(find.byTooltip('Lettergrootte verkleinen'), findsOneWidget);
@@ -331,7 +303,7 @@ void main() {
   testWidgets('selectie + Vet levert **tekst** bij het opslaan; Opmaak wissen haalt het weer weg', (
     WidgetTester tester,
   ) async {
-    final api = _FakeApiClient()..initialText = 'notitie';
+    final api = FakeApiClient()..initialText = 'notitie';
 
     await _pumpLoaded(tester, api);
 
@@ -357,7 +329,7 @@ void main() {
   });
 
   testWidgets('Opsomming maakt van de regel een bullet in de opgeslagen tekst', (WidgetTester tester) async {
-    final api = _FakeApiClient()..initialText = 'melk';
+    final api = FakeApiClient()..initialText = 'melk';
 
     await _pumpLoaded(tester, api);
 
@@ -373,7 +345,7 @@ void main() {
   });
 
   testWidgets('autosave slaat pas na de debounce van 10 seconden op', (WidgetTester tester) async {
-    final api = _FakeApiClient();
+    final api = FakeApiClient();
 
     await _pumpLoaded(tester, api);
 
@@ -390,7 +362,7 @@ void main() {
   });
 
   testWidgets('een wijziging wordt meteen opgeslagen als de app naar de achtergrond gaat', (WidgetTester tester) async {
-    final api = _FakeApiClient();
+    final api = FakeApiClient();
 
     await _pumpLoaded(tester, api);
 
@@ -406,7 +378,7 @@ void main() {
   });
 
   testWidgets('direct na het laden zijn Ongedaan maken en Opnieuw uitgegrijsd', (WidgetTester tester) async {
-    await _pumpLoaded(tester, _FakeApiClient());
+    await _pumpLoaded(tester, FakeApiClient());
 
     expect(_onPressedOf(tester, 'Ongedaan maken'), isNull);
     expect(_onPressedOf(tester, 'Opnieuw'), isNull);
@@ -418,7 +390,7 @@ void main() {
   });
 
   testWidgets('Ongedaan maken draait een wijziging terug en Opnieuw zet hem weer terug', (WidgetTester tester) async {
-    final api = _FakeApiClient();
+    final api = FakeApiClient();
     await _pumpLoaded(tester, api);
 
     _controllerOf(tester).document.insert(0, 'extra ');
@@ -440,7 +412,7 @@ void main() {
   });
 
   testWidgets('Versies toont de bewaarde versies en een alleen-lezen weergave', (WidgetTester tester) async {
-    final api = _FakeApiClient()
+    final api = FakeApiClient()
       ..versionTexts = {'v1': 'oude **inhoud**'}
       ..versionSavedAt = DateTime.now();
 
@@ -458,7 +430,7 @@ void main() {
   });
 
   testWidgets('Terugzetten vraagt bevestiging; annuleren laat de editor ongemoeid', (WidgetTester tester) async {
-    final api = _FakeApiClient()..versionTexts = {'v1': 'oude inhoud'};
+    final api = FakeApiClient()..versionTexts = {'v1': 'oude inhoud'};
 
     await _pumpLoaded(tester, api);
     await tester.tap(find.byTooltip('Versies'));
@@ -478,7 +450,7 @@ void main() {
   });
 
   testWidgets('Terugzetten vervangt na bevestiging de editorinhoud en is undo-baar', (WidgetTester tester) async {
-    final api = _FakeApiClient()
+    final api = FakeApiClient()
       ..initialText = 'huidige notitie'
       ..versionTexts = {'v1': 'oude inhoud'};
 
@@ -512,7 +484,7 @@ void main() {
   });
 
   testWidgets('opmaak van een teruggezette versie blijft behouden', (WidgetTester tester) async {
-    final api = _FakeApiClient()
+    final api = FakeApiClient()
       ..initialText = 'plat'
       ..versionTexts = {'v1': '- melk\n- **eieren**'};
 
@@ -531,6 +503,144 @@ void main() {
     await tester.pump();
     expect(api.lastSavedText, '- melk\n- **eieren**');
   });
+
+  testWidgets('de dropdown toont alle documenten in de ingestelde volgorde', (WidgetTester tester) async {
+    await _pumpLoaded(tester, _multiDocumentApi());
+
+    // Dicht: het geselecteerde document staat in de AppBar.
+    expect(find.byKey(const ValueKey('documentkeuze')), findsOneWidget);
+    expect(find.text('todo'), findsOneWidget);
+
+    // De keuzelijst staat in de volgorde die de backend teruggaf.
+    final dropdown = tester.widget<DropdownButton<String>>(find.byKey(const ValueKey('documentkeuze')));
+    expect(dropdown.items!.map((item) => item.value), ['note', 'recepten', 'klussen']);
+
+    // Open: alle titels zijn aantikbaar.
+    await tester.tap(find.byKey(const ValueKey('documentkeuze')));
+    await tester.pumpAndSettle();
+    for (final title in ['todo', 'recepten', 'klussen']) {
+      expect(find.text(title), findsWidgets, reason: 'titel $title ontbreekt in de dropdown');
+    }
+  });
+
+  testWidgets('wisselen van document slaat eerst op en laadt daarna de andere tekst', (WidgetTester tester) async {
+    final api = _multiDocumentApi();
+
+    await _pumpLoaded(tester, api);
+    _controllerOf(tester).document.insert(0, 'extra ');
+    await tester.pump();
+
+    await _chooseDocument(tester, 'recepten');
+
+    // Eerst het openstaande werk van 'todo' opgeslagen ...
+    expect(api.saveCallCount, 1);
+    expect(api.lastSavedDocumentId, 'note');
+    expect(api.lastSavedText, 'extra bestaande notitie');
+    // ... en daarna pas de andere tekst geladen.
+    expect(_controllerOf(tester).document.toPlainText(), 'pannenkoeken\n');
+
+    // Opslaan gaat vanaf nu naar het gekozen document.
+    _controllerOf(tester).document.insert(0, 'meer ');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Opslaan'));
+    await tester.pump();
+    await tester.pump();
+    expect(api.lastSavedDocumentId, 'recepten');
+    expect(api.lastSavedText, 'meer pannenkoeken');
+  });
+
+  testWidgets('bij een mislukte save wordt er niet gewisseld en blijft de tekst staan', (WidgetTester tester) async {
+    final api = _multiDocumentApi()..saveError = Exception('netwerkfout');
+
+    await _pumpLoaded(tester, api);
+    _controllerOf(tester).document.insert(0, 'extra ');
+    await tester.pump();
+
+    await _chooseDocument(tester, 'recepten');
+
+    expect(find.textContaining('Opslaan mislukt'), findsOneWidget);
+    expect(_controllerOf(tester).document.toPlainText(), 'extra bestaande notitie\n');
+    expect(find.text('todo'), findsOneWidget);
+    expect(find.text('recepten'), findsNothing);
+
+    // Voorkomt een onopgevangen fout tijdens de teardown (best-effort save in dispose).
+    api.saveError = null;
+  });
+
+  testWidgets('na herstart opent de app het laatst gekozen document', (WidgetTester tester) async {
+    final api = _multiDocumentApi();
+
+    await _pumpLoaded(tester, api);
+    await _chooseDocument(tester, 'klussen');
+    expect((await SharedPreferences.getInstance()).getString('notes_editor_document_id'), 'klussen');
+
+    await tester.pumpWidget(const SizedBox());
+    await _pumpLoaded(tester, _multiDocumentApi(), resetPreferences: false);
+    expect(find.text('klussen'), findsOneWidget);
+    expect(_controllerOf(tester).document.toPlainText(), 'schuur verven\n');
+  });
+
+  testWidgets('een niet meer bestaand bewaard document valt terug op het eerste', (WidgetTester tester) async {
+    await _pumpLoaded(
+      tester,
+      _multiDocumentApi(),
+      preferences: {'notes_editor_document_id': 'verwijderd'},
+    );
+
+    expect(find.text('todo'), findsOneWidget);
+    expect(_controllerOf(tester).document.toPlainText(), 'bestaande notitie\n');
+  });
+
+  testWidgets('Versies werkt op het gekozen document', (WidgetTester tester) async {
+    final api = _multiDocumentApi()..versionTexts = {'v1': 'oude inhoud'};
+
+    await _pumpLoaded(tester, api);
+    await _chooseDocument(tester, 'recepten');
+
+    await tester.tap(find.byTooltip('Versies'));
+    await tester.pumpAndSettle();
+    expect(api.lastVersionsDocumentId, 'recepten');
+  });
+
+  testWidgets('na het beheerscherm schakelt de editor naar het eerste document als het huidige weg is', (
+    WidgetTester tester,
+  ) async {
+    final api = _multiDocumentApi();
+
+    await _pumpLoaded(tester, api);
+    await _chooseDocument(tester, 'recepten');
+    expect(_controllerOf(tester).document.toPlainText(), 'pannenkoeken\n');
+
+    await tester.tap(find.byTooltip('Documenten beheren'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Verwijderen').at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ja, verwijderen'));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('todo'), findsOneWidget);
+    expect(_controllerOf(tester).document.toPlainText(), 'bestaande notitie\n');
+  });
+}
+
+/// Drie documenten met eigen tekst; 'todo' is het standaarddocument.
+FakeApiClient _multiDocumentApi() => FakeApiClient()
+  ..documents = const [
+    NoteDocument(id: 'note', title: 'todo', order: 0),
+    NoteDocument(id: 'recepten', title: 'recepten', order: 1),
+    NoteDocument(id: 'klussen', title: 'klussen', order: 2),
+  ]
+  ..texts = {'note': 'bestaande notitie', 'recepten': 'pannenkoeken', 'klussen': 'schuur verven'};
+
+/// Opent de AppBar-dropdown en kiest het document met deze titel.
+Future<void> _chooseDocument(WidgetTester tester, String title) async {
+  await tester.tap(find.byKey(const ValueKey('documentkeuze')));
+  await tester.pumpAndSettle();
+  // De titel staat zowel in de knop als in het menu; het menu-item is de laatste.
+  await tester.tap(find.text(title).last);
+  await tester.pumpAndSettle();
 }
 
 /// `find.byTooltip` levert de Tooltip-widget, niet de knop zelf.

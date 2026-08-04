@@ -11,11 +11,14 @@ Deze repo bevat vier Flutter/Android-apps en één Kotlin/Spring-Boot-backend:
   Draait als APK én als web-app op OpenShift.
 - **groentetuin/** — moestuin-AI-chat (tekst + foto's → vision-antwoord), Google-
   login. Draait als APK én als web-app (`moestuin.vdzonsoftware.nl`).
-- **notities/** — één auto-opslaande notitie, Google-login. Alleen APK. Donker
+- **notities/** — meerdere auto-opslaande notitiedocumenten, Google-login. Alleen APK. Donker
   thema en een `flutter_quill`-WYSIWYG-editor (vet/cursief/onderstreept/opsomming),
   maar de notitie wordt als platte markdown-tekst opgeslagen (`lib/markdown_delta.dart`).
   Sinds SF-1808 ook undo/redo in de opmaakbalk en een `Versies`-scherm
   (`lib/note_versions_screen.dart`) om een eerdere versie te bekijken en terug te zetten.
+  Sinds SF-1891 een documentkeuze in de AppBar en een beheerscherm
+  (`lib/note_documents_screen.dart`) voor toevoegen/hernoemen/verwijderen/herordenen; de
+  bestaande notitie migreert backend-side automatisch naar het document 'todo'.
 - **robberts-assistent-backend/** — Kotlin/Spring Boot/Spring Modulith backend
   voor alle apps. Onder meer de modules `auth`, `config`, `health`, `notes`,
   `summary`, `briefing`, `assistant` (+`ai/`), `reminders`, `watches`,
@@ -97,7 +100,8 @@ robberts-assistent-backend/
     applaunch/                          # gelogde app-starts (APP_LAUNCH-logregel + REST)
     auth/                               # Google-login, sessie-tokens
     briefing/                           # Upcoming/Health check + caches en push
-    notes/                              # notitie-CRUD + versiegeschiedenis en nachtelijk opruimen
+    notes/                              # notitiedocumenten-CRUD + versiegeschiedenis per document
+                                         # en nachtelijk opruimen over alle documenten
     summary/
     watches/                            # langdurige zoekopdrachten, poller en REST
 
