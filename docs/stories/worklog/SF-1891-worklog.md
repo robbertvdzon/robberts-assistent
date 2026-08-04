@@ -235,3 +235,56 @@ De acceptatiecriteria 1 t/m 13 zijn gedekt door code + tests; 14 (`notities-apk.
   `updateText(...)` nogmaals `notesService.document(id)` aanroept voor de titel. Bij een
   10-seconden-autosave is dat onnodig leesverbruik; de titel is al bekend uit de bestaande
   ophaalactie.
+
+## SF-1894 — Story-brede test (tester)
+
+Getest op commit `a2b8864` (= `head.sha` van PR #52), preview
+`robberts-assistent-pr-52`.
+
+### Uitgevoerde runs
+
+- `mvn -o test` in `robberts-assistent-backend/`: **433 tests, 0 failures, 0 errors, 0 skipped**,
+  exit 0 (incl. `ModulithArchitectureTest`, `NotesServiceTest`, `NotesControllerTest`,
+  `NotesToolsTest`, `NoteVersionCleanupSchedulerTest`). → AC12
+- `flutter analyze` in `notities/`: "No issues found!". `flutter test`: **72/72 groen**
+  (incl. de nieuwe dropdown- en beheerscherm-tests). → AC13
+- Live E2E tegen de preview-proxy (zonder auth-header, `RA_PREVIEW_SKIP_GOOGLE_AUTH`).
+
+### E2E-bewijs per acceptatiecriterium
+
+| AC | Bewijs |
+|---|---|
+| 1 | `GET /documents` levert twee keer achter elkaar precies één `{id:note,title:todo,order:0}`; `PUT /api/v1/notes` schrijft naar dat document en `GET /documents/note` geeft dezelfde tekst terug. |
+| 2 | Aanmaken (`recepten` order 1, `boodschappen` order 2, leeg + onderaan), hernoemen (`"  Boodschappen NL  "` → getrimd), herordenen met deelselectie (alleen `boodschappen` genoemd → 0, rest schuift door met behoud van onderlinge volgorde) en met volledige lijst; verwijderen incl. versies. |
+| 3 | 3× `PUT` op `recepten` (recept-1, recept-1, recept-2) → 2 versies (identieke tekst geeft geen dubbel); `todo` en `boodschappen` blijven ongemoeid (1 resp. 0 versies). |
+| 4 | 404 onbekend document / onbekend versie-id / onbekend id in `PUT /order` / `DELETE` onbekend; 400 lege titel + titel > 60 tekens; 409 dubbele titel bij aanmaken én hernoemen; 409 op `DELETE` van het laatste document, dat daarna nog bestaat. |
+| 5 | `GET`/`PUT /api/v1/notes` en `GET /api/v1/notes/versions` leveren exact hetzelfde als de `documents/note`-varianten; `GET /api/v1/briefing` blijft 200. |
+| 6 | `NoteVersionCleanupScheduler` loopt over `notesService.documents()`, telt over alle documenten op en logt één INFO-regel; hele run in één `runCatching` (code + `NoteVersionCleanupSchedulerTest`). |
+| 7 | Codecontrole `NotesTools` (5 tools, exacte match vóór prefix-match, 0/meerdere matches → Nederlandse zin met beschikbare titels, alle module-excepties opgevangen) + `NotesToolsTest`; `SYSTEM_PROMPT` noemt de meerdere documenten. Niet E2E via de preview-chat testbaar (`RA_MOCK_AI` roept geen tools aan). |
+| 8–11 | Codecontrole + widget-tests + screenshots (zie hieronder). |
+| 14 | Niet te bevestigen vóór merge (geen Android SDK in de sandbox), conform de story-aannames. |
+
+### Screenshots (`/work/screenshots`)
+
+- `SF-1894-editor-dropdown.png` — editor met documentkeuze in de AppBar, beheerknop en witte
+  tekst op zwart (geen rode monospace).
+- `SF-1894-beheerscherm.png` — drie documenten met sleep-handle, hernoem- en verwijderknop.
+
+Gemaakt via `flutter test` met een scratch-widgettest (testfonts, dus letters zijn Ahem-blokjes;
+kleur/layout/opbouw zijn wél bewijs). `notities/` is APK-only en heeft geen preview-URL.
+
+### Bevinding (niet-blokkerend)
+
+- [observatie] AC2 zegt dat de lijst "altijd" dichte posities 0..n-1 heeft, maar `deleteDocument`
+  hernummert niet. Reproductie: docs met order 0/1/2, `DELETE` van order 1 → de lijst blijft
+  `[0, 2]`. `PUT /documents/order` hernummert wél dicht (0..n-1) en `createDocument` gebruikt
+  `max(order)+1`, dus er ontstaan geen dubbele posities en de sorteervolgorde blijft correct. De
+  app toont `order` niet en werkt op lijstvolgorde, dus er is geen zichtbaar effect; puur een
+  literale afwijking van de AC-tekst.
+
+### Testdata-opruiming
+
+Alle tijdens de test aangemaakte documenten (`recepten`, `boodschappen`/`Boodschappen NL`, `tmpA`,
+`tmpB`) zijn verwijderd en de tekst van `todo` is teruggezet op leeg. Eindstand:
+één document `{id:note,title:todo,order:0}` met lege tekst. (De preview draait in-memory; er is
+tijdens de run één pod-rollover geweest, waardoor de eerdere versie-records al waren verdwenen.)
