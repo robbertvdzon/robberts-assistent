@@ -85,3 +85,50 @@ Done / rationale:
   functioneel correct, wel wat extra Firestore-leesverbruik (net als de bestaande
   `latestVersions(1)`-check per save).
 - De app-kant (`notities/`) is bewust ongewijzigd; die staat in subtaak SF-1893.
+
+## SF-1892 — Review (reviewer)
+
+**Uitkomst: akkoord.** Geen blockers; wel vier punten om mee te nemen (geen daarvan blokkeert
+SF-1893/SF-1894).
+
+### Geverifieerd
+
+- Volledige suite zelf gedraaid op deze checkout: **433 tests, 0 failures, 0 errors**, inclusief
+  `ModulithArchitectureTest`. `NotesControllerTest` is een `@SpringBootTest` en bewijst daarmee ook
+  dat `NoteVersionCleanupScheduler(notesService, repository, now = …)` met zijn Kotlin-default-
+  parameter gewoon wiret.
+- Scope: alleen backend geraakt (`notes`, `assistant/ai/NotesTools.kt` + `SYSTEM_PROMPT`).
+  `briefing/WeekTasksSectionProvider.kt` is ongewijzigd en leest via `current()` het
+  standaarddocument — conform de story. `notities/` is niet aangeraakt (SF-1893).
+- Acceptatiecriteria 1 t/m 7 en 12 nagelopen tegen de code: migratie (lazy, `@Synchronized`,
+  idempotent, `SetOptions.merge()` zodat tekst én de subcollectie `versions` blijven staan),
+  CRUD + herordenen, versies strikt per document, 404/400/409, ongewijzigde oude endpoints,
+  cleanup over alle documenten met één INFO-regel, en de vier nieuwe AI-tools met
+  exact-vóór-`startsWith`-matching en Nederlandse foutzinnen i.p.v. excepties.
+- `@ExceptionHandler`-methodes geven een `ResponseEntity` terug (niet opnieuw gooien) — correct.
+- `@ToolParam(required = false)` op een **nullable** `String?` is hier veiliger dan het bestaande
+  repo-patroon (`String = ""`), omdat Spring AI Kotlin-defaults niet toepast; goede keuze.
+
+### Bevindingen (niet blokkerend)
+
+- [suggestie] `order` is alleen dicht (0..n-1) ná `PUT /documents/order`. Na een `DELETE` blijft er
+  een gat staan (bv. 0, 2), terwijl acceptatiecriterium 2 "altijd dichte posities 0..n-1" zegt. De
+  scope-tekst eist densificatie alleen bij het order-endpoint en de lijst blijft correct gesorteerd,
+  dus functioneel onschadelijk voor de app-dropdown. Kleinste fix: na `deleteDocument` één keer
+  `reorder(emptyList())` aanroepen.
+- [suggestie] Firestore-leesverbruik per autosave. `ensureDocuments()` doet een volledige
+  collectie-query bij élke toegang, en `NotesController.updateDocument` roept eerst
+  `notesService.updateText(id, …)` (query + doc-read) en daarna nóg eens `notesService.document(id)`
+  (query + doc-read) aan alleen voor de titel. Eén autosave-PUT kost zo ±4 leesacties i.p.v. 1.
+  Twee goedkope fixes: (a) een `@Volatile`-vlag die onthoudt dat de migratie al gedaan is, (b)
+  `updateText` het bijgewerkte `NoteDocument` laten teruggeven zodat de tweede read wegvalt.
+- [suggestie] `NotesControllerAuthTest` dekt de negen nieuwe `/documents`-endpoints niet. Alle negen
+  roepen `authService.requireAuthorization(...)` aan (per endpoint nagelezen), dus de gate zit er,
+  maar er is geen test die regressie daarop vangt.
+- [info] `NotesTools` gebruikt Nederlandse private identifiers (`antwoord`, `zoekDocument`,
+  `titels`, `ToolFout`), terwijl de rest van de repo Nederlandse commentaar/teksten combineert met
+  Engelse code-identifiers (`describe`, `parseNotify` in `WatchTools`). Puur stijl.
+- [info] `FirestoreNotesRepository` heeft (net als vóór deze story) geen emulator-/mocktest; de
+  indeling `notes/<docId>` + subcollectie is alleen via code-review geverifieerd. De echte
+  migratiebevestiging (bestaande tekst + versies aan 'todo') komt pas op de PR-preview/prod — punt
+  voor de story-brede test SF-1894.
