@@ -5,6 +5,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
+import 'main.dart' show notitiesEditorBackground;
 import 'markdown_delta.dart';
 import 'note_documents_screen.dart';
 import 'note_versions_screen.dart';
@@ -378,16 +379,24 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
               children: [
                 _toolbar(),
                 const Divider(height: 1),
+                // Het hele resterende vlak onder de opmaakbalk krijgt de
+                // donkergrijze editor-achtergrond, ook bij een leeg of kort
+                // document — vandaar de ColoredBox rondom (en niet in) de
+                // editor.
                 Expanded(
-                  child: QuillEditor(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    scrollController: _scrollController,
-                    config: QuillEditorConfig(
-                      placeholder: 'Typ hier je notities…',
-                      padding: const EdgeInsets.all(16),
-                      expands: true,
-                      customStyles: _editorStyles(context),
+                  child: ColoredBox(
+                    key: const ValueKey('editorachtergrond'),
+                    color: notitiesEditorBackground,
+                    child: QuillEditor(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      scrollController: _scrollController,
+                      config: QuillEditorConfig(
+                        placeholder: 'Typ hier je notities…',
+                        padding: const EdgeInsets.all(16),
+                        expands: true,
+                        customStyles: _editorStyles(context),
+                      ),
                     ),
                   ),
                 ),
