@@ -51,3 +51,22 @@ Verificatie:
 - Een APK bouwen kan niet in de sandbox (geen Android SDK), dus criterium 8 wordt
   bevestigd door de bestaande `notities-apk.yml`-workflow op `main`; de visuele
   bevestiging op een fysiek toestel blijft de laatste stap.
+
+## Review (SF-1900)
+
+- Volledige story-diff t.o.v. `main` beoordeeld (`git diff main...HEAD`): alleen
+  `notities/lib/main.dart`, `notities/lib/notes_editor_screen.dart`,
+  `notities/test/notes_editor_screen_test.dart` en dit worklog. Geen backend-,
+  API-, opslagformaat- of dependencywijziging; `notitiesDarkTheme` ongemoeid.
+- Acceptatiecriteria 1–7 nagelopen en akkoord: één genoemde constante
+  (`notitiesEditorBackground = Color(0xFF262626)`, binnen het toegestane bereik),
+  geen kleurliteral in het editorscherm, `ColoredBox` binnen het `Expanded` met
+  `expands: true` dus het hele vlak onder de `Divider` is gekleurd, en
+  `_baseTextStyle`/`_editorStyles` (SF-1823) ongewijzigd zodat de tekst wit blijft.
+- Zelf geverifieerd in `notities/`: `flutter analyze` → "No issues found!",
+  `flutter test` → **73 groen** (bevestigt de developer-claim, was 72).
+- Criterium 8 (APK) blijft de bevestiging via `notities-apk.yml` op `main`;
+  visuele check op toestel blijft de laatste handmatige stap.
+- [suggestie] `notes_editor_screen.dart` importeert `main.dart` terwijl `main.dart`
+  dat scherm importeert — in Dart toegestaan en analyze is schoon, maar een los
+  `lib/theme.dart` zou de cyclus vermijden. Niet blokkerend.
