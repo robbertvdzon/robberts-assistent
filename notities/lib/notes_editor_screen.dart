@@ -6,11 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'markdown_delta.dart';
+import 'note_documents_screen.dart';
 import 'note_versions_screen.dart';
 import 'self_update_prompt.dart';
 
-/// Toont de ene notitie-string in een WYSIWYG-editor (Quill) met een compacte
-/// opmaakbalk. Slaat vanzelf op:
+/// Toont het gekozen notitiedocument in een WYSIWYG-editor (Quill) met een
+/// compacte opmaakbalk; bovenin kiest een dropdown welk document je bewerkt.
+/// Slaat vanzelf op:
 /// - 10 seconden na de laatste wijziging (debounce), of
 /// - meteen zodra de app naar de achtergrond gaat of gesloten wordt.
 ///
@@ -39,9 +41,12 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   String _status = '';
   late SharedPreferences _preferences;
   var _fontSize = _defaultFontSize;
+  List<NoteDocument> _documents = const [];
+  String? _documentId;
 
   static const _debounceDuration = Duration(seconds: 10);
   static const _fontSizePreferenceKey = 'notes_editor_font_size';
+  static const _documentPreferenceKey = 'notes_editor_document_id';
   static const _fontSizes = <int>[12, 14, 16, 18, 20, 22, 24, 26, 28];
   static const _defaultFontSize = 16;
 
@@ -60,17 +65,25 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     try {
       final preferences = await SharedPreferences.getInstance();
       final fontSize = _readFontSize(preferences);
-      final text = await widget.api.getNotes();
+      // Deze aanroep triggert backend-side ook de migratie naar 'todo', dus er
+      // is altijd minstens één document.
+      final documents = await widget.api.listNoteDocuments();
+      if (documents.isEmpty) throw Exception('Geen notitiedocumenten gevonden.');
+      final documentId = _preferredDocumentId(preferences, documents);
+      final text = await widget.api.getNoteDocumentText(documentId);
       if (mounted) {
         setState(() {
           _preferences = preferences;
           _fontSize = fontSize;
+          _documents = documents;
+          _documentId = documentId;
           // Eerst het document zetten, dán pas luisteren: het initiële laden
           // mag geen save triggeren.
           _controller.document = Document.fromDelta(markdownToDelta(text));
           _listenForChanges();
           _loading = false;
         });
+        unawaited(preferences.setString(_documentPreferenceKey, documentId));
       }
     } catch (e) {
       if (mounted) {
@@ -79,6 +92,73 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
           _loading = false;
         });
       }
+    }
+  }
+
+  /// Het laatst gekozen document, of — als dat niet meer bestaat — het eerste
+  /// document in de ingestelde volgorde.
+  String _preferredDocumentId(SharedPreferences preferences, List<NoteDocument> documents) {
+    final stored = preferences.getString(_documentPreferenceKey);
+    if (stored != null && documents.any((document) => document.id == stored)) return stored;
+    return documents.first.id;
+  }
+
+  /// Wisselt van document. Openstaand werk van het huidige document wordt
+  /// eerst opgeslagen; mislukt dat, dan wordt er niet gewisseld (de bestaande
+  /// foutmelding blijft staan) zodat er geen tekst verloren gaat.
+  Future<void> _switchDocument(String id) async {
+    if (id == _documentId || _loading) return;
+    if (!await _save()) return;
+    await _openDocument(id);
+  }
+
+  /// Laadt de tekst van [id] in de editor en onthoudt de keuze lokaal.
+  Future<void> _openDocument(String id) async {
+    _debounce?.cancel();
+    setState(() {
+      _loading = true;
+      _status = '';
+    });
+    try {
+      final text = await widget.api.getNoteDocumentText(id);
+      if (!mounted) return;
+      setState(() {
+        _documentId = id;
+        _dirty = false;
+        _controller.document = Document.fromDelta(markdownToDelta(text));
+        _listenForChanges();
+        _loading = false;
+      });
+      unawaited(_preferences.setString(_documentPreferenceKey, id));
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _status = 'Laden mislukt: $e';
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  /// Opent het beheerscherm en herlaadt daarna de documentenlijst; is het
+  /// huidige document verwijderd, dan schakelt de editor naar het eerste.
+  Future<void> _openDocuments() async {
+    // Openstaand werk eerst veiligstellen, zolang het document nog bestaat.
+    await _save();
+    if (!mounted) return;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => NoteDocumentsScreen(api: widget.api)));
+    if (!mounted) return;
+    try {
+      final documents = await widget.api.listNoteDocuments();
+      if (!mounted || documents.isEmpty) return;
+      setState(() => _documents = documents);
+      if (!documents.any((document) => document.id == _documentId)) {
+        await _openDocument(documents.first.id);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _status = 'Laden mislukt: $e');
     }
   }
 
@@ -168,20 +248,27 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
 
   /// [force] slaat op ongeacht [_dirty], zodat de "Opslaan"-knop ook werkt
   /// als er niets is gewijzigd sinds de laatste (auto-)save.
-  Future<void> _save({bool force = false}) async {
-    if (!_dirty && !force) return;
+  ///
+  /// Levert `false` op als het opslaan mislukte; het wisselen van document
+  /// leunt daarop.
+  Future<bool> _save({bool force = false}) async {
+    final documentId = _documentId;
+    if (documentId == null) return true;
+    if (!_dirty && !force) return true;
     _debounce?.cancel();
     _dirty = false;
     if (mounted) setState(() => _saving = true);
     final text = _currentMarkdown();
     try {
-      await widget.api.saveNotes(text);
+      await widget.api.saveNoteDocument(documentId, text);
       if (mounted) setState(() => _status = 'Opgeslagen');
+      return true;
     } catch (e) {
       // Niet-opgeslagen wijzigingen blijven gewoon in de editor staan; de
       // volgende debounce-tik of app-pauze probeert opnieuw.
       _dirty = true;
       if (mounted) setState(() => _status = 'Opslaan mislukt: $e');
+      return false;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -199,10 +286,11 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     WidgetsBinding.instance.removeObserver(this);
     _debounce?.cancel();
     _documentChanges?.cancel();
-    if (_dirty) {
+    final documentId = _documentId;
+    if (_dirty && documentId != null) {
       // Best-effort: geen await mogelijk in dispose(), dus de tekst wordt
       // opgehaald vóórdat de controller wordt vrijgegeven.
-      widget.api.saveNotes(_currentMarkdown());
+      widget.api.saveNoteDocument(documentId, _currentMarkdown());
     }
     _controller.dispose();
     _focusNode.dispose();
@@ -226,9 +314,13 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   /// Opent de versielijst; komt daar een tekst uit terug, dan wordt die in het
   /// bestaande document teruggezet.
   Future<void> _openVersions() async {
-    final restored = await Navigator.of(
-      context,
-    ).push<String>(MaterialPageRoute(builder: (_) => NoteVersionsScreen(api: widget.api)));
+    final documentId = _documentId;
+    if (documentId == null) return;
+    final restored = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => NoteVersionsScreen(api: widget.api, documentId: documentId),
+      ),
+    );
     if (restored != null && mounted) _restore(restored);
   }
 
@@ -253,8 +345,13 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notities'),
+        title: _documentDropdown(),
         actions: [
+          IconButton(
+            tooltip: 'Documenten beheren',
+            icon: const Icon(Icons.folder_open),
+            onPressed: _openDocuments,
+          ),
           if (_status.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -296,6 +393,37 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
                 ),
               ],
             ),
+    );
+  }
+
+  /// De documentkeuze in de AppBar; zolang de lijst nog niet geladen is (of
+  /// het laden mislukte) staat er gewoon de app-titel.
+  Widget _documentDropdown() {
+    if (_documents.isEmpty || _documentId == null) return const Text('Notities');
+    final theme = Theme.of(context);
+    final style = theme.appBarTheme.titleTextStyle ?? theme.textTheme.titleLarge;
+    return DropdownButton<String>(
+      key: const ValueKey('documentkeuze'),
+      value: _documentId,
+      isExpanded: true,
+      underline: const SizedBox.shrink(),
+      style: style,
+      dropdownColor: theme.colorScheme.surface,
+      iconEnabledColor: style?.color,
+      // Tijdens laden/opslaan niet wisselen: eerst de lopende save afronden.
+      onChanged: (_loading || _saving)
+          ? null
+          : (id) {
+              if (id != null) unawaited(_switchDocument(id));
+            },
+      items: _documents
+          .map(
+            (document) => DropdownMenuItem<String>(
+              value: document.id,
+              child: Text(document.title, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(growable: false),
     );
   }
 

@@ -13,7 +13,7 @@ class _FakeApiClient extends ApiClient {
   final String text;
 
   @override
-  Future<String> getNoteVersion(String id) async => text;
+  Future<String> getNoteVersion(String documentId, String versionId) async => text;
 }
 
 /// Houdt vast welke versie getoond wordt en wat het scherm bij het sluiten
@@ -39,7 +39,11 @@ Future<_DetailHarness> _pumpDetail(WidgetTester tester, String text, {DateTime? 
             onPressed: () async {
               harness.restored = await Navigator.of(context).push<String>(
                 MaterialPageRoute(
-                  builder: (_) => NoteVersionDetailScreen(api: _FakeApiClient(text), version: harness.version),
+                  builder: (_) => NoteVersionDetailScreen(
+                    api: _FakeApiClient(text),
+                    documentId: 'note',
+                    version: harness.version,
+                  ),
                 ),
               );
             },

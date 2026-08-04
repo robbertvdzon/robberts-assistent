@@ -132,3 +132,72 @@ SF-1893/SF-1894).
   indeling `notes/<docId>` + subcollectie is alleen via code-review geverifieerd. De echte
   migratiebevestiging (bestaande tekst + versies aan 'todo') komt pas op de PR-preview/prod — punt
   voor de story-brede test SF-1894.
+
+## SF-1893 — App notities/: documentdropdown en documentbeheer (developer)
+
+Stappenplan:
+[x]: read issue and target docs
+[x]: implement requested changes
+[x]: write and run tests (flutter test + flutter analyze, backend-vangnet)
+[x]: update story-log with results
+
+### Wat en waarom
+
+- **`lib/api_client.dart`**: nieuw model `NoteDocument(id, title, order)` en methodes voor alle
+  documenten-endpoints (`listNoteDocuments`, `createNoteDocument`, `reorderNoteDocuments`,
+  `renameNoteDocument`, `deleteNoteDocument`, `getNoteDocumentText`, `saveNoteDocument`), in
+  hetzelfde `authHeaders()`/`_throwOnError`-patroon. `listNoteVersions`/`getNoteVersion` werken nu
+  per document (`/documents/{id}/versions(/{versionId})`). De oude `getNotes`/`saveNotes` zijn
+  verwijderd: de app werkt volledig per document (de backend-endpoints blijven bestaan voor de
+  briefing/AI-tools en oudere APK's). `_throwOnError` gooit voortaan een `ApiException(statusCode,
+  message)` met de Nederlandse `{"error": …}`-melding van de backend, zodat het beheerscherm
+  bijvoorbeeld "Er bestaat al een document met die titel" kan tonen i.p.v. een ruwe HTTP-body.
+- **`lib/notes_editor_screen.dart`**: in de AppBar een `DropdownButton`
+  (`ValueKey('documentkeuze')`) met de documenten in backendvolgorde, plus een knop
+  "Documenten beheren". `_load()` haalt eerst de lijst op (dat triggert backend-side de migratie
+  naar 'todo'), kiest het id uit `shared_preferences` (`notes_editor_document_id`) of anders het
+  eerste document, en laadt daarvan de tekst. `_save()` geeft nu `bool` terug; `_switchDocument`
+  slaat eerst het openstaande werk op en wisselt **alleen bij succes** — bij een mislukte save
+  blijft de tekst plus de bestaande foutmelding staan (geen tekstverlies). Autosave, undo/redo,
+  opmaakbalk, A−/A+ en `dispose`-best-effort-save werken ongewijzigd, maar per document; de
+  lettergrootte blijft app-breed onder `notes_editor_font_size`.
+- **`lib/note_documents_screen.dart`** (nieuw): beheerscherm met toevoegen (AppBar-knop +
+  titeldialoog), hernoemen, verwijderen met bevestigingsdialoog en slepen via
+  `ReorderableListView.builder`. Bij precies één document is de verwijderknop uitgeschakeld
+  (de backend geeft daar 409 op). Fouten komen als `SnackBar` terug met de backend-melding. De
+  titeldialoog is een eigen `StatefulWidget` zodat de `TextEditingController` precies zolang leeft
+  als het dialoog (met een lokale controller + `dispose()` ná `showDialog` crasht de sluit-animatie
+  op "A TextEditingController was used after being disposed").
+- **`lib/note_versions_screen.dart`**: `NoteVersionsScreen`/`NoteVersionDetailScreen` krijgen een
+  verplichte `documentId` en gebruiken de per-document-endpoints; terugzetten blijft via
+  `controller.replaceText(...)` op het bestaande document (undo-historie intact).
+- Bij terugkomst uit het beheerscherm herlaadt de editor de lijst; is het huidige document
+  verwijderd, dan schakelt hij naar het eerste. Vóór het openen van dat scherm wordt openstaand
+  werk nog opgeslagen, zolang het document zeker bestaat.
+
+### Verificatie
+
+- `flutter analyze` in `notities/`: **No issues found!**
+- `flutter test` in `notities/`: **72 tests groen** (was 57).
+  Nieuw: `test/note_documents_screen_test.dart` (8) — tonen op volgorde, toevoegen, lege titel,
+  backend-fout als melding, hernoemen, verwijderen-met-bevestiging (incl. annuleren),
+  verwijderen uitgeschakeld bij één document, slepen (nieuwe volgorde + dichte posities).
+  In `test/notes_editor_screen_test.dart` zeven nieuwe tests: dropdown-volgorde, wisselen slaat
+  eerst op en laadt de andere tekst, mislukte save wisselt niet, laatst gekozen document na
+  herstart, terugval op het eerste document, Versies op het gekozen document, en terugkomst uit
+  het beheerscherm na het verwijderen van het huidige document. De fake-API-client staat nu
+  gedeeld in `test/fake_api_client.dart`.
+- Backend-vangnet ongewijzigd groen: `rm -rf target && mvn -o test` → **433 tests, 0 failures,
+  0 errors**.
+
+### Bekende aandachtspunten
+
+- `ReorderableListView` gebruikt `onReorderItem` (sinds Flutter 3.41 vervangt dat het
+  gedeprecieerde `onReorder`; die callback corrigeert `newIndex` al). CI draait `channel: stable`
+  net als de sandbox (3.44.7) en `pubspec.lock` eist al `flutter >=3.44.0`, dus dat is veilig.
+- Slepen en de dropdown zijn op een fysiek toestel de laatste handmatige verificatie; een APK
+  bouwen kan niet in de sandbox (geen Android SDK), dus `notities-apk.yml` op `main` is de eerste
+  echte bevestiging.
+- Faalt de eerste `listNoteDocuments()` (bv. netwerk), dan toont de editor de bestaande
+  foutmelding en blijft de AppBar-titel gewoon "Notities"; de beheerknop is dan nog wel actief en
+  toont zijn eigen foutmelding.
