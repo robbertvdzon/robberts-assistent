@@ -10,14 +10,26 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
 
 ## Skills (backend)
 
-- **Notities** — één auto-opslaande notitie-string; lezen/overschrijven via REST en via de
-  agent (`NotesTools`). Sinds SF-1808 bewaart de backend bovendien **elke opgeslagen versie**:
+- **Notities** — sinds SF-1891 **meerdere notitiedocumenten** (elk met een titel, een eigen
+  positie in de volgorde en een eigen tekst) in plaats van één notitie-string; lezen/overschrijven
+  via REST en via de agent (`NotesTools`). De agent kan de documenten opsommen, een document op
+  naam lezen of overschrijven en een nieuw document aanmaken; noemt hij geen naam, dan werkt hij
+  op het standaarddocument. Een onbekende of ambigue naam levert een Nederlandse melding met de
+  beschikbare titels op. Documenten aanmaken (leeg, onderaan), hernoemen, verwijderen (inclusief
+  de versies van dát document) en herordenen kan via REST; een lege of te lange titel wordt
+  geweigerd, een dubbele titel ook, en het laatste overgebleven document is niet te verwijderen —
+  er zijn dus nooit nul documenten. Bestaande installaties migreren automatisch en eenmalig: de
+  huidige notitie wordt het document **'todo'**, met behoud van de tekst én de bewaarde versies.
+  De oude notitie-endpoints blijven ongewijzigd werken op dat 'todo'-document, zodat onder meer
+  de weektaken-sectie in de dagelijkse briefing er net als voorheen bij kan.
+  Sinds SF-1808 bewaart de backend bovendien **elke opgeslagen versie** (per document):
   bij elke save (ook die via de agent) komt er een versie-record bij, tenzij de tekst identiek is
   aan de vorige versie — zo levert de autosave elke 10 seconden geen stapel dubbels op. Het
   versie-overzicht (nieuwste eerst, maximaal 200, zonder tekst) en de tekst van één versie zijn
   op te vragen; een onbekende versie geeft "niet gevonden". Elke nacht om 03:30 ruimt de backend
-  op: van de laatste 7 dagen blijft alles bewaard, van alles daarvóór blijft per kalenderdag
-  alleen de laatste versie over. De notitie zelf en het opslagformaat (platte markdown) blijven
+  op — sinds SF-1891 in álle documenten: van de laatste 7 dagen blijft alles bewaard, van alles
+  daarvóór blijft per kalenderdag alleen de laatste versie over. Versies van het ene document
+  komen nooit bij een ander document terecht. Het opslagformaat (platte markdown) blijft
   ongewijzigd.
 - **Wind / kite-check** — de agent haalt actuele wind + voorspelling bij IJmuiden op
   (windfinder + Open-Meteo, `WindTools`) en beantwoordt kite-vragen.
@@ -50,7 +62,8 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   koppelingsfout degradeert stil naar een neutrale melding zonder de briefing te laten crashen;
   bij een ophaalmoment morgen verschijnt ook "Zet vanavond de \<bak(ken)\> buiten" in de
   18:00-push), een AI-samenvatting "wat moet ik
-  komende week echt doen?" (op basis van reminders + de notitie), een moestuin-placeholder, en een
+  komende week echt doen?" (op basis van reminders + het standaard-notitiedocument 'todo'), een
+  moestuin-placeholder, en een
   systeem-checkrapport (zonnepanelen en backups: dummy-data; OpenShift-gezondheid, robotmaaier en
   Software Factory: live via de bestaande koppelingen). Een AI-aanroep bepaalt per check of er
   "aandacht nodig" is (geen hardcoded drempel); is dat zo, dan verschijnt er ook een korte
@@ -186,7 +199,18 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   Google-login.
 - **groentetuin (moestuin)** — login → moestuin-chat: foto's maken/kiezen + vraag → AI-antwoord,
   doorpraten.
-- **notities** — één auto-opslaande notitie. Google-login. De app is donker (zwarte
+- **notities** — sinds SF-1891 **meerdere auto-opslaande notitiedocumenten** (bijvoorbeeld 'todo'
+  en 'recepten') in plaats van één notitie. Bovenin staat een keuzelijst met alle documenten in de
+  zelf ingestelde volgorde; kiezen laadt de tekst van dat document, en openstaand werk van het
+  vorige document wordt daarvóór opgeslagen — mislukt dat, dan wisselt de app niet en blijft de
+  tekst staan. Na een herstart opent de app op het laatst gekozen document, of op het eerste als
+  dat niet meer bestaat. Naast de keuzelijst opent een knop het beheerscherm: documenten
+  toevoegen, hernoemen, verwijderen (met bevestiging) en slepen om de volgorde te wijzigen; bij
+  precies één document is verwijderen niet beschikbaar. Bij terugkomst herlaadt de editor de lijst
+  en schakelt hij naar het eerste document als het huidige verwijderd is. Automatisch opslaan,
+  undo/redo, de opmaakbalk, A−/A+ en het versiescherm werken ongewijzigd, maar per gekozen
+  document; de lettergrootte-keuze geldt app-breed. Robberts bestaande notitie gaat automatisch
+  mee als document 'todo', inclusief de bewaarde versies. Google-login. De app is donker (zwarte
   achtergrond, witte tekst, ook op het inlogscherm) en de notitie is sinds SF-1801 echt op te
   maken terwijl je typt: een smalle balk bovenin met precies vijf opmaakknoppen — vet, cursief,
   onderstrepen, opsomming en 'opmaak wissen' — en wat je ziet is wat je krijgt. Sinds SF-1809
