@@ -241,7 +241,13 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
   blijft app-breed. Google-login, alleen APK. Sinds SF-1801 een
   **donker thema** (zwart, witte tekst, ook op het inlogscherm) en een **WYSIWYG-editor**
   (`flutter_quill`) met precies vijf vaste opmaakknoppen: Vet, Cursief, Onderstreept,
-  Opsomming en Opmaak wissen. Sinds SF-1809 staan in de horizontaal scrollbare balk ook A− en A+
+  Opsomming en Opmaak wissen. Sinds SF-1899 heeft het bewerkbare tekstvlak een eigen,
+  iets lichtere donkergrijze achtergrond (`notitiesEditorBackground = Color(0xFF262626)`,
+  top-level constante in `lib/main.dart`, bewust buiten `notitiesDarkTheme`): een
+  `ColoredBox` binnen het `Expanded` rond de `QuillEditor` (`expands: true`) vult het hele
+  vlak onder de opmaakbalk/`Divider`, ook bij een leeg document, zodat zichtbaar is waar de
+  menu's ophouden en de notitie begint — AppBar, opmaakbalk, documentenlijst,
+  versiegeschiedenis en inlogscherm blijven zwart. Sinds SF-1809 staan in de horizontaal scrollbare balk ook A− en A+
   (`Lettergrootte verkleinen`/`Lettergrootte vergroten`): alleen de bewerkbare notitietekst en
   bulletmarkeringen schalen lokaal van 12 t/m 28 pt in stappen van 2 pt (standaard 16 pt). De via
   `SharedPreferences` bewaarde voorkeur wordt vóór de notitie geladen en blijft na uitloggen of
@@ -1079,6 +1085,44 @@ verwijderd wordt; (6) `ReorderableListView` gebruikt `onReorderItem` (Flutter �
 de `channel: stable` in CI en de `flutter >=3.44.0` uit `pubspec.lock`; (7) een APK bouwen kan niet
 in de sandbox, dus `notities-apk.yml` op `main` en het slepen/de dropdown op een fysiek toestel zijn
 de laatste bevestiging.
+
+Nieuw (SF-1899): **donkergrijze achtergrond voor het tekstvlak van de notities-editor**. Alleen
+`notities/` en puur presentatie: geen backend-, API-, opslagformaat-, save-/autosave- of
+dependencywijziging, en `notities/lib/api_client.dart`, `lib/markdown_delta.dart`,
+`lib/note_documents_screen.dart` en `lib/note_versions_screen.dart` zijn niet aangeraakt.
+Aanleiding: met het donkere thema uit SF-1801 waren de AppBar, de opmaakbalk en het tekstvlak
+allemaal zwart en liepen ze visueel in elkaar over. (1) `lib/main.dart` kreeg naast het
+ongewijzigde `notitiesDarkTheme` één top-level constante `const notitiesEditorBackground =
+Color(0xFF262626)`, bewust **buiten** het thema (`scaffoldBackgroundColor`,
+`ColorScheme.dark(surface: Colors.black)`, `appBarTheme`, `textSelectionTheme`,
+`inputDecorationTheme` blijven zoals ze waren), zodat AppBar, opmaakbalk, documentenlijst,
+versiegeschiedenis en inlogscherm zwart blijven. (2) In `lib/notes_editor_screen.dart`, `build()`,
+is het `Expanded` met de `QuillEditor` gewikkeld in een `ColoredBox(key:
+ValueKey('editorachtergrond'), color: notitiesEditorBackground, …)`; omdat die box binnen het
+`Expanded` zit en de editor `expands: true` gebruikt, vult de kleur het hele vlak onder de
+`Divider` tot de onderkant van het scherm — ook bij een leeg of kort document, dus niet alleen
+achter de tekstregels. De kleur komt via een import (`import 'main.dart' show
+notitiesEditorBackground;`) binnen, er staat geen kleurliteral in het editorscherm.
+`QuillEditorConfig` (placeholder `'Typ hier je notities…'`, `padding: EdgeInsets.all(16)`,
+`expands: true`, `customStyles`) is verder ongewijzigd, net als de bewuste
+`_baseTextStyle(context)`/`_editorStyles(context)`-constructie uit SF-1823 (basisstijl expliciet
+uit het thema, géén `DefaultStyles.getInstance(context)`), zodat de tekst wit blijft en de rode
+monospace error-fallback niet terugkomt. (3) Leesbaarheid gecontroleerd zonder iets bij te stellen:
+tekst wit (`colorScheme.onSurface`), cursor wit en selectie `0x66FFFFFF` uit `textSelectionTheme`
+zijn ruim leesbaar op `#262626`; Quills grijze placeholder komt op ±`#6E6E6E` uit (±3:1) en is
+bewust gedempt gelaten. De laad-, fout- en inlogtoestanden houden de zwarte scaffold-achtergrond.
+Nieuwe widgettest in `notities/test/notes_editor_screen_test.dart` toont bij een leeg document aan
+dat de `ColoredBox` met `notitiesEditorBackground` boven de `QuillEditor` in de boom zit, dat de
+kleur niet zwart is, dat het vlak onder de opmaakbalk begint en tot de onderkant van het
+`Scaffold` loopt, en dat AppBar/scaffold in het thema zwart blijven. Verificatie: in `notities/`
+`flutter analyze` → "No issues found!", `flutter test` → **73 groen** (was 72),
+`flutter build bundle --release` geslaagd; backend als vangnet `mvn -o test` → 433 groen.
+Bekende, niet-blokkerende aandachtspunten: (1) `notes_editor_screen.dart` importeert `main.dart`
+terwijl `main.dart` dat scherm importeert — in Dart toegestaan en `flutter analyze` is schoon,
+maar een los `lib/theme.dart` zou die cyclus vermijden; (2) een APK bouwen kan niet in de sandbox
+(geen Android SDK), dus de `notities-apk.yml`-workflow op `main` en de visuele check op een fysiek
+toestel blijven de laatste bevestiging — in de factory is dat afgedekt met
+scratch-widget-screenshots van een leeg en een gevuld document.
 
 ---
 
