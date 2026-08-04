@@ -201,3 +201,37 @@ Stappenplan:
 - Faalt de eerste `listNoteDocuments()` (bv. netwerk), dan toont de editor de bestaande
   foutmelding en blijft de AppBar-titel gewoon "Notities"; de beheerknop is dan nog wel actief en
   toont zijn eigen foutmelding.
+
+## Review (SF-1893, reviewer)
+
+Beoordeeld is de **volledige story-diff** t.o.v. `main` (`git diff main...HEAD`), dus zowel de
+backend van SF-1892 als de app-kant van SF-1893.
+
+### Zelf geverifieerd (revisiegebonden)
+
+- `flutter analyze` in `notities/`: **No issues found!**
+- `flutter test` in `notities/`: **72/72 groen**.
+- `mvn -o test` in `robberts-assistent-backend/`: **433 tests, 0 failures, 0 errors**
+  (incl. `ModulithArchitectureTest`, `NotesControllerTest`, `NotesServiceTest`, `NotesToolsTest`,
+  `NoteVersionCleanupSchedulerTest`).
+
+De acceptatiecriteria 1 t/m 13 zijn gedekt door code + tests; 14 (`notities-apk.yml`) kan pas op
+`main` bevestigd worden, zoals in de story-aannames vastgelegd.
+
+### Bevindingen (geen blockers)
+
+- [suggestie] `notes_editor_screen.dart`: `_preferences` is `late` en wordt alleen in het
+  succespad van `_load()` gezet, en `_error` wordt daarna nooit meer gewist. Faalt de eerste
+  `listNoteDocuments()` en herstelt de gebruiker via het beheerscherm, dan blijft het scherm in de
+  foutweergave hangen en loopt `_openDocument()` op een `LateInitializationError` (wel opgevangen,
+  maar gepresenteerd als "Laden mislukt"). Kleinste fix: `_error = null` in het succespad van
+  `_openDocument()` en `_preferences` niet-`late` maken.
+- [suggestie] `_openDocuments()` negeert de returnwaarde van `_save()`. Mislukt die save en
+  verwijdert de gebruiker vervolgens het openstaande document in het beheerscherm, dan is het
+  niet-opgeslagen werk weg. `_switchDocument()` doet dit wél goed (`if (!await _save()) return;`).
+- [suggestie] `NotesService.ensureDocuments()` doet per aanroep een volledige Firestore-query
+  inclusief de `text` van álle documenten. Eén autosave (`PUT /notes/documents/{id}`) triggert dat
+  nu twee keer plus twee losse document-gets, omdat `NotesController.updateDocument` na
+  `updateText(...)` nogmaals `notesService.document(id)` aanroept voor de titel. Bij een
+  10-seconden-autosave is dat onnodig leesverbruik; de titel is al bekend uit de bestaande
+  ophaalactie.
