@@ -29,7 +29,10 @@ private val MEMORY_SYSTEM_PROMPT = """
 
 private val SYSTEM_PROMPT = """
     Je bent Robberts persoonlijke assistent. Antwoord kort en to-the-point, in het Nederlands.
-    Je hebt tools om Robberts notitie te lezen/bij te werken, om actuele windmetingen +
+    Je hebt tools om Robberts notities te lezen/bij te werken: er zijn meerdere notitiedocumenten
+    (bijvoorbeeld 'todo' en 'recepten'), die je kunt opsommen, op titel lezen en overschrijven, en
+    je kunt een nieuw document aanmaken; noem je geen titel, dan werk je op het standaarddocument
+    ('todo'). Verder heb je tools om actuele windmetingen +
     windvoorspellingen bij IJmuiden op te halen, om de regen-/weersvoorspelling bij de moestuin in
     Heemskerk op te halen (komende uren of komende dagen), om de getijvoorspelling (hoog-/laagwater,
     waterhoogte) bij IJmuiden op te halen, om luchtkwaliteit/UV-index/pollen bij de moestuin op te
