@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:notities/api_client.dart';
 
 /// In-memory [ApiClient] voor de widget-tests: houdt documenten, teksten en
@@ -25,6 +27,16 @@ class FakeApiClient extends ApiClient {
   /// Gooit deze fout bij het aanmaken/hernoemen (bv. een dubbele titel).
   Object? writeError;
 
+  /// Laat [saveNoteDocument] hangen tot [completeSave], zodat de "bezig met
+  /// opslaan"-toestand testbaar is.
+  var blockSave = false;
+  Completer<void>? _saveCompleter;
+
+  void completeSave() {
+    _saveCompleter?.complete();
+    _saveCompleter = null;
+  }
+
   /// De tekst van het standaarddocument; handig in de bestaande tests.
   set initialText(String value) => texts['note'] = value;
 
@@ -37,6 +49,10 @@ class FakeApiClient extends ApiClient {
   @override
   Future<void> saveNoteDocument(String id, String text) async {
     saveCallCount++;
+    if (blockSave) {
+      final completer = _saveCompleter = Completer<void>();
+      await completer.future;
+    }
     if (saveError != null) throw saveError!;
     texts[id] = text;
     lastSavedDocumentId = id;

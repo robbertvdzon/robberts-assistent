@@ -224,8 +224,8 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
   App-id blijft `nl.vdzon.groentetuin` (interne naam ≠ publieke host "moestuin").
 - **`notities/`** — sinds SF-1891 **meerdere auto-opslaande notitiedocumenten** (bijv. 'todo' en
   'recepten') in plaats van één notitie: bovenin de editor een `DropdownButton`
-  (`ValueKey('documentkeuze')`) met de documenten in backendvolgorde en ernaast een knop
-  "Documenten beheren" naar het nieuwe `lib/note_documents_screen.dart` (toevoegen met titel,
+  (`ValueKey('documentkeuze')`) met de documenten in backendvolgorde en (sinds SF-1978 via het
+  overflow-menu, zie hieronder) "Documenten beheren" naar `lib/note_documents_screen.dart` (toevoegen met titel,
   hernoemen, verwijderen met bevestigingsdialoog en slepen via `ReorderableListView.builder`;
   bij precies één document is verwijderen uitgeschakeld, want de backend geeft daar 409 op).
   Wisselen van document slaat eerst het openstaande werk op (`_save()` geeft `bool` terug) en
@@ -259,12 +259,12 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
   `**vet**`, `*cursief*`, `<u>onderstreept</u>` en `- ` voor bullets; al het andere (kopjes,
   tabellen, links, code, lege regels) blijft letterlijke tekst, zodat door de assistent
   toegevoegde tekst ongeschonden blijft. Autosave (10s debounce, direct bij `paused`/`inactive`
-  en best-effort bij `dispose`), de handmatige Opslaan-knop, de statusregel en Uitloggen zijn
-  ongewijzigd. Sinds SF-1808 staan links in diezelfde opmaakbalk een **Ongedaan maken**
+  en best-effort bij `dispose`), de handmatige Opslaan-actie en Uitloggen zijn
+  ongewijzigd; de losse statusregel is sinds SF-1978 vervallen. Sinds SF-1808 staan links in diezelfde opmaakbalk een **Ongedaan maken**
   (`Icons.undo`) en **Opnieuw** (`Icons.redo`)-knop op Quills eigen undo-historie
   (`controller.hasUndo`/`hasRedo` → uitgegrijsd als er niets te doen valt; direct na het laden dus
-  beide uit, undo maakt de notitie nooit leeg), en opent de AppBar-actie **Versies**
-  (`Icons.history`) een eigen route (`lib/note_versions_screen.dart`) met de eerdere versies uit
+  beide uit, undo maakt de notitie nooit leeg), en opent de actie **Versies**
+  (sinds SF-1978 in het overflow-menu) een eigen route (`lib/note_versions_screen.dart`) met de eerdere versies uit
   `GET /api/v1/notes/versions` — per regel NL datum/tijd in lokale tijd (`vandaag 11:30` /
   `gisteren 11:30` / `ma 28 jul 09:05`) via een eigen mini-helper `formatVersionMoment()`, dus
   géén `intl`-dependency. Tikken opent een alleen-lezen weergave (`SelectableText` met de platte
@@ -279,7 +279,15 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
   de oude tekst juist wél in rood (`noteVersionColor = Color(0xFFE57373)`, één benoemde constante
   in `note_versions_screen.dart`) met daarboven het rode label `Oude versie van <datum tijd>`, en
   het onderste knopblok met **Terugzetten** zit in een `SafeArea(top: false)` zodat 'ie bij
-  edge-to-edge/gesture-navigatie niet achter de systeembalk valt.
+  edge-to-edge/gesture-navigatie niet achter de systeembalk valt. Sinds SF-1978 bevat de AppBar
+  van de editor nog maar drie elementen: de documentkeuze in een `Expanded` (lange titels kappen
+  af met ellipsis op één regel), daarnaast de opslag-indicator `_saveIndicator()`
+  (`ValueKey('opslagindicator')`: draaiend rondje tijdens opslaan, klein bolletje
+  `Icons.fiber_manual_record` bij niet-opgeslagen wijzigingen, en niets als alles opgeslagen is)
+  en rechts één `PopupMenuButton` (`ValueKey('overflowmenu')`) met Opslaan (disabled tijdens een
+  save), Documenten beheren, Versies en Uitloggen. De statustekst (`_status`, o.a. `Opgeslagen`)
+  is verdwenen; `Opslaan mislukt: …`/`Laden mislukt: …` komen met ongewijzigde tekst als
+  `SnackBar`, de harde `_error`-body blijft.
 - **`wind/`** — PoC "Hey Google" → App Actions → native trampoline (TTS + notificatie), praat
   met de backend-chat-assistent voor het windantwoord. Alleen APK.
 
@@ -1124,6 +1132,60 @@ maar een los `lib/theme.dart` zou die cyclus vermijden; (2) een APK bouwen kan n
 (geen Android SDK), dus de `notities-apk.yml`-workflow op `main` en de visuele check op een fysiek
 toestel blijven de laatste bevestiging — in de factory is dat afgedekt met
 scratch-widget-screenshots van een leeg en een gevuld document.
+
+Nieuw (SF-1978): **notities-editor krijgt een brede documenttab, een opslag-indicator en één
+overflow-menu**. Alleen `notities/lib/notes_editor_screen.dart` + de tests (en
+`notities/test/fake_api_client.dart`); geen backend-, API-, opslagformaat-, thema- of
+dependencywijziging, en `lib/api_client.dart`, `lib/markdown_delta.dart`,
+`lib/note_documents_screen.dart`, `lib/note_versions_screen.dart` en `lib/main.dart` zijn niet
+aangeraakt. Aanleiding: de AppBar zat propvol icoonknoppen, waardoor nauwelijks zichtbaar was welk
+document openstond. (1) **Brede titel**: de AppBar-`title` is nu een `Row` met
+`Expanded(child: _documentDropdown())` en daarnaast de indicator; de dropdown zelf is inhoudelijk
+ongewijzigd (`ValueKey('documentkeuze')`, `isExpanded: true`, terugval `Text('Notities')`,
+`onChanged: (_loading || _saving) ? null : …`), alleen de item-`Text` kreeg expliciet
+`maxLines: 1` + `softWrap: false` naast de al aanwezige `TextOverflow.ellipsis`, zodat een lange
+titel afkapt in plaats van de indicator/overflow-knop weg te duwen. (2) **Opslag-indicator**:
+nieuwe `_saveIndicator()` — bij `_saving` een `SizedBox(16×16)` met
+`CircularProgressIndicator(strokeWidth: 2)` en tooltip "Bezig met opslaan", anders bij `_dirty`
+een 12 px `Icons.fiber_manual_record` met tooltip "Niet-opgeslagen wijzigingen", en bij "alles
+opgeslagen" géén symbool (alleen een `SizedBox(width: 8)`); beide zichtbare varianten dragen
+`ValueKey('opslagindicator')` en de `Tooltip` levert het semantische label. (3) **`_dirty` altijd
+via `setState`**: nieuwe helper `_setDirty(bool)` gebruikt `setState` als de widget `mounted` is
+en kent het veld anders direct toe — `dispose()` leest `_dirty` immers nog voor de best-effort
+save, en zo kan er geen setState-na-dispose optreden. `_dirty = false` staat nog steeds vóór de
+`await` in `_save()`, zodat een wijziging tijdens het opslaan meteen weer dirty markeert; de
+autosave-/dispose-semantiek is dus ongewijzigd, alleen de rebuild is nu gegarandeerd.
+(4) **Eén overflow-menu**: de vier losse `IconButton`s zijn vervangen door één
+`PopupMenuButton<_EditorAction>` (`ValueKey('overflowmenu')`, standaard drie-puntjes-icoon, geen
+nieuwe dependency) met in volgorde **Opslaan** (`_save(force: true)`, `enabled: !_saving`),
+**Documenten beheren** (`_openDocuments()`), **Versies** (`_openVersions()`) en **Uitloggen**
+(`widget.onLoggedOut()`) — labels gelijk aan de oude tooltips, aangeroepen methodes niet
+aangeraakt. (5) **Statustekst weg, fouten als SnackBar**: het veld `_status` is verwijderd; de
+nieuwe `_showMessage(String)` toont `Opslaan mislukt: $e` en `Laden mislukt: $e` met letterlijk
+ongewijzigde tekst via `ScaffoldMessenger.maybeOf(context)` + `hideCurrentSnackBar()` (patroon uit
+`robberts_assistent/lib/assistant_screen.dart`), zodat meldingen niet stapelen en er niets crasht
+als de scaffold al weg is; de harde `_error`-body blijft. (6) **Onaangeroerd**: `_toolbar()`
+(negen `IconButton`s, `ValueKey('opmaakbalk')`), de `QuillEditor` met `ColoredBox`
+(`ValueKey('editorachtergrond')`), `_editorStyles`/`_baseTextStyle`, de 10s-debounce-autosave, de
+save bij `paused`/`inactive`, de dispose-save, het markdown-opslagformaat en beide
+`SharedPreferences`-voorkeuren. Tests: bestaande `find.byTooltip('Opslaan'/'Versies'/'Documenten
+beheren')`-tikken gaan via de helper `_tapMenu(tester, label)` (menu openen → item op tekst
+aantikken) met inhoudelijk gelijke asserties, `expect(find.text('Opgeslagen'), findsOneWidget)` is
+vervangen door een assertie op de verdwenen indicator, en er kwamen tests bij voor de drie
+AppBar-elementen, de afkappende lange titel op een 360×640-viewport, de indicator-overgangen en
+het menu (volgorde, disabled Opslaan tijdens een save, elke actie). `test/fake_api_client.dart`
+kreeg `blockSave`/`completeSave()` (een `Completer`) om de "bezig met opslaan"-toestand
+deterministisch te maken; let op dat `find.byType(PopupMenuItem<...>)` op exacte `runtimeType`
+matcht terwijl `_EditorAction` privé is (dus `find.byWidgetPredicate`) en dat `pumpAndSettle()`
+vastloopt zolang de voortgangsindicator draait (losse `pump()`-frames). Verificatie: in
+`notities/` `flutter analyze` → "No issues found!", `flutter test` → **80 groen** (was 73),
+`flutter build bundle --release` geslaagd; backend als vangnet `mvn -o test` → 433 groen.
+Bekende, niet-blokkerende aandachtspunten: (1) de KDoc van `_switchDocument()` spreekt nog van
+"de bestaande foutmelding blijft staan", wat niet meer klopt nu de melding een SnackBar is
+(cosmetisch, uit de review); (2) een APK bouwen kan niet in de sandbox (geen Android SDK op
+linux/arm64), dus de `notities-apk.yml`-workflow op `main` en een visuele check op een fysiek
+toestel blijven de laatste bevestiging — in de factory is dat afgedekt met een
+scratch-widget-screenshot van de nieuwe AppBar.
 
 ---
 

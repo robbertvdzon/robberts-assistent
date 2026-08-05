@@ -11,6 +11,9 @@ import 'note_documents_screen.dart';
 import 'note_versions_screen.dart';
 import 'self_update_prompt.dart';
 
+/// De vier acties in het overflow-menu van de AppBar.
+enum _EditorAction { save, documents, versions, logout }
+
 /// Toont het gekozen notitiedocument in een WYSIWYG-editor (Quill) met een
 /// compacte opmaakbalk; bovenin kiest een dropdown welk document je bewerkt.
 /// Slaat vanzelf op:
@@ -39,7 +42,6 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   var _dirty = false;
   var _saving = false;
   String? _error;
-  String _status = '';
   late SharedPreferences _preferences;
   var _fontSize = _defaultFontSize;
   List<NoteDocument> _documents = const [];
@@ -116,10 +118,7 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   /// Laadt de tekst van [id] in de editor en onthoudt de keuze lokaal.
   Future<void> _openDocument(String id) async {
     _debounce?.cancel();
-    setState(() {
-      _loading = true;
-      _status = '';
-    });
+    setState(() => _loading = true);
     try {
       final text = await widget.api.getNoteDocumentText(id);
       if (!mounted) return;
@@ -133,10 +132,8 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
       unawaited(_preferences.setString(_documentPreferenceKey, id));
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _status = 'Laden mislukt: $e';
-          _loading = false;
-        });
+        setState(() => _loading = false);
+        _showMessage('Laden mislukt: $e');
       }
     }
   }
@@ -159,8 +156,18 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
         await _openDocument(documents.first.id);
       }
     } catch (e) {
-      if (mounted) setState(() => _status = 'Laden mislukt: $e');
+      if (mounted) _showMessage('Laden mislukt: $e');
     }
+  }
+
+  /// Meldingen gaan als SnackBar; `hideCurrentSnackBar()` ervoor zodat ze niet
+  /// stapelen, en `maybeOf` omdat de scaffold al weg kan zijn.
+  void _showMessage(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   int _readFontSize(SharedPreferences preferences) {
@@ -238,9 +245,19 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     _documentChanges = _controller.document.changes.listen((_) => _onChanged());
   }
 
+  /// Zet [_dirty] én laat de opslag-indicator hertekenen. De toekenning
+  /// gebeurt hoe dan ook meteen (ook zonder mount), want `dispose()` leest
+  /// [_dirty] voor de best-effort save.
+  void _setDirty(bool value) {
+    if (!mounted) {
+      _dirty = value;
+      return;
+    }
+    setState(() => _dirty = value);
+  }
+
   void _onChanged() {
-    _dirty = true;
-    if (mounted) setState(() => _status = '');
+    _setDirty(true);
     _debounce?.cancel();
     _debounce = Timer(_debounceDuration, _save);
   }
@@ -257,18 +274,19 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
     if (documentId == null) return true;
     if (!_dirty && !force) return true;
     _debounce?.cancel();
-    _dirty = false;
+    // Bewust vóór de await: wijzigingen die tijdens het opslaan binnenkomen
+    // markeren de notitie meteen weer als niet-opgeslagen.
+    _setDirty(false);
     if (mounted) setState(() => _saving = true);
     final text = _currentMarkdown();
     try {
       await widget.api.saveNoteDocument(documentId, text);
-      if (mounted) setState(() => _status = 'Opgeslagen');
       return true;
     } catch (e) {
       // Niet-opgeslagen wijzigingen blijven gewoon in de editor staan; de
       // volgende debounce-tik of app-pauze probeert opnieuw.
-      _dirty = true;
-      if (mounted) setState(() => _status = 'Opslaan mislukt: $e');
+      _setDirty(true);
+      _showMessage('Opslaan mislukt: $e');
       return false;
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -346,28 +364,15 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: _documentDropdown(),
-        actions: [
-          IconButton(
-            tooltip: 'Documenten beheren',
-            icon: const Icon(Icons.folder_open),
-            onPressed: _openDocuments,
-          ),
-          if (_status.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(child: Text(_status, style: const TextStyle(fontSize: 12))),
-            ),
-          IconButton(
-            tooltip: 'Opslaan',
-            icon: _saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save),
-            onPressed: _saving ? null : () => _save(force: true),
-          ),
-          IconButton(tooltip: 'Versies', icon: const Icon(Icons.history), onPressed: _openVersions),
-          IconButton(tooltip: 'Uitloggen', icon: const Icon(Icons.logout), onPressed: widget.onLoggedOut),
-        ],
+        // De documentnaam krijgt vrijwel de hele balk; alleen de indicator en
+        // het overflow-menu staan ernaast.
+        title: Row(
+          children: [
+            Expanded(child: _documentDropdown()),
+            _saveIndicator(),
+          ],
+        ),
+        actions: [_overflowMenu()],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -429,10 +434,68 @@ class _NotesEditorScreenState extends State<NotesEditorScreen> with WidgetsBindi
           .map(
             (document) => DropdownMenuItem<String>(
               value: document.id,
-              child: Text(document.title, overflow: TextOverflow.ellipsis),
+              child: Text(document.title, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis),
             ),
           )
           .toList(growable: false),
+    );
+  }
+
+  /// Compacte opslagstatus naast de documentnaam: draaiend tijdens het
+  /// opslaan, een bolletje zolang er niet-opgeslagen wijzigingen zijn, en
+  /// niets als alles opgeslagen is.
+  Widget _saveIndicator() {
+    if (_saving) {
+      return const Padding(
+        key: ValueKey('opslagindicator'),
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Tooltip(
+          message: 'Bezig met opslaan',
+          child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
+    if (_dirty) {
+      return const Padding(
+        key: ValueKey('opslagindicator'),
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Tooltip(
+          message: 'Niet-opgeslagen wijzigingen',
+          child: Icon(Icons.fiber_manual_record, size: 12),
+        ),
+      );
+    }
+    // Alles opgeslagen: rustig, geen symbool.
+    return const SizedBox(width: 8);
+  }
+
+  /// Alle acties uit de oude AppBar-knoppen, nu onder één drie-puntjes-knop.
+  Widget _overflowMenu() {
+    return PopupMenuButton<_EditorAction>(
+      key: const ValueKey('overflowmenu'),
+      tooltip: 'Menu',
+      onSelected: (action) {
+        switch (action) {
+          case _EditorAction.save:
+            unawaited(_save(force: true));
+          case _EditorAction.documents:
+            unawaited(_openDocuments());
+          case _EditorAction.versions:
+            unawaited(_openVersions());
+          case _EditorAction.logout:
+            widget.onLoggedOut();
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _EditorAction.save,
+          enabled: !_saving,
+          child: const Text('Opslaan'),
+        ),
+        const PopupMenuItem(value: _EditorAction.documents, child: Text('Documenten beheren')),
+        const PopupMenuItem(value: _EditorAction.versions, child: Text('Versies')),
+        const PopupMenuItem(value: _EditorAction.logout, child: Text('Uitloggen')),
+      ],
     );
   }
 

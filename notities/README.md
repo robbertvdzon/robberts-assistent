@@ -7,10 +7,10 @@ Flutter-app (APK-only) met meerdere auto-opslaande notitiedocumenten, gekoppeld 
 
 - **Meerdere documenten** (sinds SF-1891): in de AppBar van de editor staat een
   `DropdownButton` (`ValueKey('documentkeuze')`) met alle documenten in de volgorde die de
-  backend teruggeeft, en ernaast een knop "Documenten beheren". Wisselen slaat eerst het
-  openstaande werk van het huidige document op (de debounce wordt direct afgedwongen) en
-  wisselt **alleen bij succes** — mislukt de save, dan blijft de tekst plus de bestaande
-  foutmelding staan, dus geen tekstverlies. De laatst gekozen document-id staat onder
+  backend teruggeeft; "Documenten beheren" staat sinds SF-1978 in het overflow-menu. Wisselen
+  slaat eerst het openstaande werk van het huidige document op (de debounce wordt direct
+  afgedwongen) en wisselt **alleen bij succes** — mislukt de save, dan blijft de tekst staan en
+  verschijnt de foutmelding als `SnackBar`, dus geen tekstverlies. De laatst gekozen document-id staat onder
   `notes_editor_document_id` in `SharedPreferences`; bestaat dat document niet meer, dan opent
   de app het eerste document in de volgorde. Robberts bestaande notitie is backend-side
   automatisch het document 'todo' geworden, inclusief de bewaarde versies.
@@ -78,7 +78,7 @@ Flutter-app (APK-only) met meerdere auto-opslaande notitiedocumenten, gekoppeld 
   niet in de historie (één keer undo maakt de notitie nooit leeg). Een undo/redo
   is een gewone wijziging en gaat via de normale debounce-autosave. Er is bewust
   geen Ctrl+Z-sneltoets; de knoppen zijn de enige weg.
-- **Versies** (`Icons.history`) in de AppBar opent een eigen scherm
+- **Versies** in het overflow-menu van de AppBar opent een eigen scherm
   (`lib/note_versions_screen.dart`) met de eerdere versies van het gekozen document uit
   `GET /api/v1/notes/documents/{id}/versions` (nieuwste eerst, max 200; versies van het ene
   document verschijnen nooit bij een ander). Per regel datum + tijd in
@@ -100,12 +100,21 @@ Flutter-app (APK-only) met meerdere auto-opslaande notitiedocumenten, gekoppeld 
   7 dagen alles, daarvóór één versie per dag.
 - Slaat automatisch op: 10 seconden na de laatste wijziging (debounce), en
   meteen bij het naar de achtergrond gaan of afsluiten van de app.
-- Heeft daarnaast een "Opslaan"-knop in de `AppBar` van de editor
-  (naast de statustekst en de uitlog-knop) om direct handmatig op te slaan,
-  zonder op de debounce te wachten. De knop annuleert een eventueel lopende
-  debounce-timer, is tijdens het opslaan kort uitgeschakeld (laadindicator)
-  om dubbele requests te voorkomen, en toont dezelfde statusindicator
-  ("Opgeslagen" / "Opslaan mislukt: ...") als de auto-save.
+- **AppBar** (sinds SF-1978): de documentkeuze krijgt vrijwel de volle breedte en kapt een lange
+  titel af met ellipsis op één regel; direct ernaast staat de opslag-indicator
+  (`ValueKey('opslagindicator')`) — tijdens het opslaan een klein draaiend rondje (tooltip
+  "Bezig met opslaan"), bij niet-opgeslagen wijzigingen een klein bolletje
+  (`Icons.fiber_manual_record`, tooltip "Niet-opgeslagen wijzigingen"), en niets zodra alles
+  opgeslagen is. Rechts staat één overflow-knop (`PopupMenuButton`, `ValueKey('overflowmenu')`)
+  met in volgorde **Opslaan**, **Documenten beheren**, **Versies** en **Uitloggen**; dat zijn
+  dezelfde acties als de vroegere losse icoonknoppen. **Opslaan** slaat direct handmatig op zonder
+  op de debounce te wachten (annuleert een lopende debounce-timer) en is uitgeschakeld zolang een
+  save loopt, om dubbele requests te voorkomen.
+- De losse statustekst ("Opgeslagen") in de AppBar bestaat sinds SF-1978 niet meer — dat toont nu
+  de opslag-indicator. Foutmeldingen blijven wél zichtbaar en met dezelfde tekst:
+  "Opslaan mislukt: ..." en "Laden mislukt: ..." verschijnen als `SnackBar` (via
+  `ScaffoldMessenger.maybeOf` met `hideCurrentSnackBar()` ervoor, dus ze stapelen niet en er
+  crasht niets als de scaffold al weg is). Een harde laadfout vult zoals voorheen het hele scherm.
 - Checkt bij opstarten (async, niet-blokkerend) of er een nieuwere versie op
   GitHub staat en vraagt een dialoogje om bij te werken zo ja
   (`lib/self_update_prompt.dart`/`lib/update_checker.dart`).
