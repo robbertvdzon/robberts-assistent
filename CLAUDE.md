@@ -242,7 +242,8 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
   **donker thema** (zwart, witte tekst, ook op het inlogscherm) en een **WYSIWYG-editor**
   (`flutter_quill`) met precies vijf vaste opmaakknoppen: Vet, Cursief, Onderstreept,
   Opsomming en Opmaak wissen. Sinds SF-1899 heeft het bewerkbare tekstvlak een eigen,
-  iets lichtere donkergrijze achtergrond (`notitiesEditorBackground = Color(0xFF262626)`,
+  iets lichtere donkergrijze achtergrond (`notitiesEditorBackground`, sinds SF-1967
+  `Color(0xFF404040)`, was `Color(0xFF262626)`,
   top-level constante in `lib/main.dart`, bewust buiten `notitiesDarkTheme`): een
   `ColoredBox` binnen het `Expanded` rond de `QuillEditor` (`expands: true`) vult het hele
   vlak onder de opmaakbalk/`Divider`, ook bij een leeg document, zodat zichtbaar is waar de

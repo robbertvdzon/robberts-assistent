@@ -225,7 +225,7 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   alleen-lezen versieweergave gebruiken hun bestaande grootte.
 - **Editor-achtergrond als losse constante (Flutter, `notities/`, SF-1899):** `lib/main.dart` heeft
   naast `notitiesDarkTheme` één top-level constante `const notitiesEditorBackground =
-  Color(0xFF262626)`. Die staat bewust **buiten** het thema: `scaffoldBackgroundColor`,
+  Color(0xFF404040)`. Die staat bewust **buiten** het thema: `scaffoldBackgroundColor`,
   `ColorScheme.dark(surface: Colors.black)`, `appBarTheme`, `textSelectionTheme` en
   `inputDecorationTheme` blijven ongewijzigd zwart, zodat alleen het editorvlak van kleur
   verandert en de documentenlijst, de versiegeschiedenis en het inlogscherm meeliften op het
@@ -238,7 +238,7 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   importcyclus (`main.dart` importeert het scherm), in Dart toegestaan en `flutter analyze`-schoon,
   maar een los `lib/theme.dart` zou 'm vermijden. De `QuillEditorConfig` en de
   `_baseTextStyle(context)`/`_editorStyles(context)`-constructie uit SF-1823 zijn ongewijzigd;
-  tekstkleur (`colorScheme.onSurface`), cursor en selectie (`0x66FFFFFF`) zijn op `#262626`
+  tekstkleur (`colorScheme.onSurface`), cursor en selectie (`0x66FFFFFF`) zijn op `#404040`
   gecontroleerd en niet bijgesteld, evenmin als Quills gedempte placeholder. Testhaak: de
   widgettest zoekt de `ColoredBox` via `ValueKey('editorachtergrond')` en vergelijkt zijn rect met
   die van het `Scaffold` en de opmaakbalk.

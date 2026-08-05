@@ -28,7 +28,7 @@ Flutter-app (APK-only) met meerdere auto-opslaande notitiedocumenten, gekoppeld 
   iconen, witte cursor/selectie, grijze hint; ook het login-scherm is leesbaar op
   zwart (donkergrijze kaart, wit `Icons.edit_note`, `Colors.white70`-uitleg).
 - Alleen het **bewerkbare tekstvlak** van de editor is sinds SF-1899 donkergrijs in plaats van
-  zwart: de top-level constante `notitiesEditorBackground = Color(0xFF262626)` in `lib/main.dart`
+  zwart: de top-level constante `notitiesEditorBackground = Color(0xFF404040)` in `lib/main.dart`
   (bewust buiten `notitiesDarkTheme`) wordt in `notes_editor_screen.dart` gebruikt als
   `ColoredBox` (`ValueKey('editorachtergrond')`) binnen het `Expanded` rond de `QuillEditor`.
   Omdat de editor `expands: true` gebruikt, vult die kleur het hele vlak onder de opmaakbalk en

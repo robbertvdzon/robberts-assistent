@@ -196,6 +196,8 @@ void main() {
     expect(background, findsOneWidget);
     expect(tester.widget<ColoredBox>(background).color, notitiesEditorBackground);
     expect(notitiesEditorBackground, isNot(Colors.black));
+    // Vastgelegde waarde uit SF-1967: #404040.
+    expect(notitiesEditorBackground, const Color(0xFF404040));
     // De achtergrond zit rondom de editor, dus die valt er volledig binnen.
     expect(find.descendant(of: background, matching: find.byType(QuillEditor)), findsOneWidget);
 
