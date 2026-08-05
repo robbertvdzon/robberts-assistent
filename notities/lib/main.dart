@@ -40,7 +40,7 @@ final notitiesDarkTheme = ThemeData(
 /// Bewust een losse constante en géén onderdeel van [notitiesDarkTheme]: het
 /// thema (scaffold, surface, AppBar) blijft zwart, zodat de overige schermen
 /// — documentenlijst, versiegeschiedenis en inloggen — ongewijzigd blijven.
-const notitiesEditorBackground = Color(0xFF262626);
+const notitiesEditorBackground = Color(0xFF404040);
 
 class NotitiesApp extends StatelessWidget {
   const NotitiesApp({super.key});
