@@ -111,3 +111,46 @@ scope-overschrijding (geen backend-, API-, thema- of dependencywijziging).
 
 Geen blockers. Eén cosmetische suggestie: de KDoc van `_switchDocument()` spreekt nog van
 "de bestaande foutmelding blijft staan" — dat klopt niet meer nu de melding een SnackBar is.
+
+## Test (SF-1980, tester)
+
+Zelf uitgevoerd in `notities/` (Flutter 3.44.7 / Dart 3.12.2 in de sandbox):
+- `flutter analyze` → **No issues found!** (AC9)
+- `flutter test` → **80/80 groen**, inclusief de zeven nieuwe/aangepaste AppBar-tests (AC7, AC8).
+
+Handmatige toetsing van de diff tegen de acceptatiecriteria:
+- **AC1/AC2** — AppBar is `Row(Expanded(_documentDropdown()), _saveIndicator())` + één
+  `PopupMenuButton` in `actions`. De dropdown had al `isExpanded: true`; de item-`Text` kreeg
+  `maxLines: 1` / `softWrap: false` / `TextOverflow.ellipsis`. De test op een 360×640-viewport
+  meet dat `opslagindicator` en `overflowmenu` binnen het scaffold-rect blijven en dat er geen
+  overflow-exception valt.
+- **AC3** — `_setDirty()` trekt beide toekenningen in `setState` (met `!mounted`-terugval, zodat
+  de best-effort save in `dispose()` `_dirty` ongewijzigd blijft lezen en er geen
+  setState-na-dispose kan optreden). `_dirty = false` staat nog steeds vóór de `await`, dus een
+  wijziging tijdens het opslaan markeert meteen weer dirty. Tests dekken: geen indicator na
+  laden → bolletje (`Icons.fiber_manual_record` + tooltip) na een wijziging → spinner tijdens een
+  geblokkeerde save → weg na afronden.
+- **AC4** — menu-items roepen `_save(force: true)`, `_openDocuments()`, `_openVersions()` en
+  `widget.onLoggedOut()` aan; volgorde is hard geasserteerd via `_menuLabels()`, en
+  `enabled: !_saving` is bewezen door tijdens een hangende save `_menuItemEnabled('Opslaan')`
+  op `false` te meten.
+- **AC5** — `_status` bestaat niet meer (grep op `lib/` levert niets); `Opslaan mislukt: …` en
+  `Laden mislukt: …` gaan letterlijk via `_showMessage()` → `ScaffoldMessenger.maybeOf` +
+  `hideCurrentSnackBar()`. De harde `_error`-body-weergave is ongemoeid.
+- **AC6** — opmaakbalk telt onveranderd negen `IconButton`s (bestaande test) en editor,
+  `ColoredBox`, `_editorStyles`/`_baseTextStyle`, autosave/debounce, lifecycle-save,
+  dispose-save en voorkeuren zijn niet aangeraakt.
+- Scope: `git diff main...HEAD --stat` toont alleen `notities/lib/notes_editor_screen.dart`,
+  `notities/test/*` en dit worklog — geen backend-, API-, thema- of dependencywijziging.
+
+Visueel bewijs: `notities/` is APK-only (geen web-preview), dus een screenshot is gemaakt met de
+scratch-widget-truc (`flutter test /tmp/appbar_test.dart` +
+`OffsetLayer.toImage`) →`SF-1980-appbar-dirty.png`: AppBar met een afgekapte lange documenttitel,
+de dirty-indicator ernaast en de overflow-knop rechts, boven de ongewijzigde opmaakbalk en het
+donkergrijze editorvlak. Letters zijn Ahem-testblokjes (geen echte fonts in de testomgeving), dus
+alleen layout/kleur is bruikbaar bewijs.
+
+Niet uitgevoerd (bekend, conform de aannames van de story): `flutter build apk` — geen Android SDK
+op linux/arm64. AC10 blijft afhankelijk van de `notities-apk.yml`-workflow op `main`.
+
+Geen bugs gevonden, geen flakes waargenomen.
