@@ -91,3 +91,23 @@ Twee testdetails die opvielen en in helpers zijn vastgelegd:
 - `flutter build apk` kan niet in de sandbox (geen Android SDK op linux/arm64), dus de workflow
   `.github/workflows/notities-apk.yml` op `main` en een visuele check op een fysiek toestel blijven
   de laatste bevestiging.
+
+## Review (SF-1979, reviewer)
+
+Volledige story-diff `git diff main...HEAD` beoordeeld (4 bestanden, alleen `notities/` + dit
+worklog). Zelf geverifieerd in `notities/`: `flutter analyze` → No issues found, `flutter test` →
+**80 groen** — dit bevestigt de developer-claim.
+
+Getoetst tegen de acceptatiecriteria: AppBar bevat nog exact drie elementen (dropdown in
+`Expanded`, `_saveIndicator()`, één `PopupMenuButton`); lange titel kapt af (`isExpanded: true` +
+`maxLines: 1`/`softWrap: false`/ellipsis) en de test meet dat indicator en overflow-knop binnen
+het scherm blijven; `_setDirty()` trekt beide toekenningen in `setState` met correcte
+`!mounted`-terugval, `_dirty = false` staat nog steeds vóór de `await` en `dispose()` leest het
+veld ongewijzigd; menu-acties roepen exact de oude methodes aan, Opslaan is `enabled: !_saving`;
+`_status` is weg en `Opslaan mislukt: …`/`Laden mislukt: …` komen letterlijk terug als SnackBar
+via `ScaffoldMessenger.maybeOf` + `hideCurrentSnackBar()`; opmaakbalk, `QuillEditor`/`ColoredBox`,
+`_editorStyles`, autosave, lifecycle-save, dispose-save en voorkeuren zijn niet aangeraakt. Geen
+scope-overschrijding (geen backend-, API-, thema- of dependencywijziging).
+
+Geen blockers. Eén cosmetische suggestie: de KDoc van `_switchDocument()` spreekt nog van
+"de bestaande foutmelding blijft staan" — dat klopt niet meer nu de melding een SnackBar is.
