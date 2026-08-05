@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:notities/api_client.dart';
 import 'package:notities/main.dart' show notitiesDarkTheme, notitiesEditorBackground;
+import 'package:notities/note_documents_screen.dart';
 import 'package:notities/notes_editor_screen.dart';
 
 import 'fake_api_client.dart';
@@ -60,13 +61,14 @@ void main() {
     _controllerOf(tester).document = Document.fromDelta(Delta()..insert('nieuwe inhoud\n'));
     await tester.pump();
 
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+    await _tapMenu(tester, 'Opslaan');
 
     expect(api.saveCallCount, 1);
     expect(api.lastSavedText, 'nieuwe inhoud');
-    expect(find.text('Opgeslagen'), findsOneWidget);
+    // De statustekst is vervallen; na een geslaagde save staat er geen
+    // dirty-indicator meer in de AppBar.
+    expect(find.text('Opgeslagen'), findsNothing);
+    expect(find.byKey(const ValueKey('opslagindicator')), findsNothing);
   });
 
   testWidgets('save-knop toont een foutmelding als opslaan mislukt', (WidgetTester tester) async {
@@ -74,9 +76,7 @@ void main() {
 
     await _pumpLoaded(tester, api);
 
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+    await _tapMenu(tester, 'Opslaan');
 
     expect(api.saveCallCount, 1);
     expect(find.textContaining('Opslaan mislukt'), findsOneWidget);
@@ -86,6 +86,7 @@ void main() {
     // Voorkomt dat dispose() (best-effort save bij nog-openstaande wijzigingen)
     // opnieuw een onopgevangen fout gooit tijdens de teardown van deze test.
     api.saveError = null;
+    await _dismissSnackBar(tester);
   });
 
   testWidgets('de bestaande notitie wordt als opgemaakte tekst geladen', (WidgetTester tester) async {
@@ -307,9 +308,7 @@ void main() {
     await tester.pump();
     expect(api.saveCallCount, 0);
 
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+    await _tapMenu(tester, 'Opslaan');
     expect(api.saveCallCount, 1);
     expect(api.lastSavedText, markdown);
   });
@@ -339,9 +338,7 @@ void main() {
     await tester.tap(find.byTooltip('Vet'));
     await tester.pump();
 
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+    await _tapMenu(tester, 'Opslaan');
     expect(api.lastSavedText, '**notitie**');
 
     _selectAll(tester);
@@ -349,9 +346,7 @@ void main() {
     await tester.tap(find.byTooltip('Opmaak wissen'));
     await tester.pump();
 
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+    await _tapMenu(tester, 'Opslaan');
     expect(api.lastSavedText, 'notitie');
   });
 
@@ -365,9 +360,7 @@ void main() {
     await tester.tap(find.byTooltip('Opsomming'));
     await tester.pump();
 
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+    await _tapMenu(tester, 'Opslaan');
     expect(api.lastSavedText, '- melk');
   });
 
@@ -445,8 +438,7 @@ void main() {
 
     await _pumpLoaded(tester, api);
 
-    await tester.tap(find.byTooltip('Versies'));
-    await tester.pumpAndSettle();
+    await _tapMenu(tester, 'Versies');
     expect(find.textContaining('vandaag '), findsOneWidget);
 
     await tester.tap(find.textContaining('vandaag '));
@@ -460,8 +452,7 @@ void main() {
     final api = FakeApiClient()..versionTexts = {'v1': 'oude inhoud'};
 
     await _pumpLoaded(tester, api);
-    await tester.tap(find.byTooltip('Versies'));
-    await tester.pumpAndSettle();
+    await _tapMenu(tester, 'Versies');
     await tester.tap(find.byType(ListTile).first);
     await tester.pumpAndSettle();
 
@@ -482,8 +473,7 @@ void main() {
       ..versionTexts = {'v1': 'oude inhoud'};
 
     await _pumpLoaded(tester, api);
-    await tester.tap(find.byTooltip('Versies'));
-    await tester.pumpAndSettle();
+    await _tapMenu(tester, 'Versies');
     await tester.tap(find.byType(ListTile).first);
     await tester.pumpAndSettle();
 
@@ -516,8 +506,7 @@ void main() {
       ..versionTexts = {'v1': '- melk\n- **eieren**'};
 
     await _pumpLoaded(tester, api);
-    await tester.tap(find.byTooltip('Versies'));
-    await tester.pumpAndSettle();
+    await _tapMenu(tester, 'Versies');
     await tester.tap(find.byType(ListTile).first);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Terugzetten'));
@@ -525,9 +514,7 @@ void main() {
     await tester.tap(find.text('Ja, terugzetten'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+    await _tapMenu(tester, 'Opslaan');
     expect(api.lastSavedText, '- melk\n- **eieren**');
   });
 
@@ -569,9 +556,7 @@ void main() {
     // Opslaan gaat vanaf nu naar het gekozen document.
     _controllerOf(tester).document.insert(0, 'meer ');
     await tester.pump();
-    await tester.tap(find.byTooltip('Opslaan'));
-    await tester.pump();
-    await tester.pump();
+    await _tapMenu(tester, 'Opslaan');
     expect(api.lastSavedDocumentId, 'recepten');
     expect(api.lastSavedText, 'meer pannenkoeken');
   });
@@ -592,6 +577,7 @@ void main() {
 
     // Voorkomt een onopgevangen fout tijdens de teardown (best-effort save in dispose).
     api.saveError = null;
+    await _dismissSnackBar(tester);
   });
 
   testWidgets('na herstart opent de app het laatst gekozen document', (WidgetTester tester) async {
@@ -624,8 +610,7 @@ void main() {
     await _pumpLoaded(tester, api);
     await _chooseDocument(tester, 'recepten');
 
-    await tester.tap(find.byTooltip('Versies'));
-    await tester.pumpAndSettle();
+    await _tapMenu(tester, 'Versies');
     expect(api.lastVersionsDocumentId, 'recepten');
   });
 
@@ -638,8 +623,7 @@ void main() {
     await _chooseDocument(tester, 'recepten');
     expect(_controllerOf(tester).document.toPlainText(), 'pannenkoeken\n');
 
-    await tester.tap(find.byTooltip('Documenten beheren'));
-    await tester.pumpAndSettle();
+    await _tapMenu(tester, 'Documenten beheren');
     await tester.tap(find.byTooltip('Verwijderen').at(1));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ja, verwijderen'));
@@ -649,6 +633,164 @@ void main() {
 
     expect(find.text('todo'), findsOneWidget);
     expect(_controllerOf(tester).document.toPlainText(), 'bestaande notitie\n');
+  });
+
+  testWidgets('de AppBar toont alleen de documentkeuze en één overflow-knop', (WidgetTester tester) async {
+    await _pumpLoaded(tester, _multiDocumentApi());
+
+    final appBar = find.byType(AppBar);
+    expect(find.descendant(of: appBar, matching: find.byKey(const ValueKey('documentkeuze'))), findsOneWidget);
+    expect(find.descendant(of: appBar, matching: find.byKey(const ValueKey('overflowmenu'))), findsOneWidget);
+    // Precies één knop rechts: het overflow-menu zelf.
+    expect(find.descendant(of: appBar, matching: find.byType(IconButton)), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('overflowmenu')),
+        matching: find.byType(IconButton),
+      ),
+      findsOneWidget,
+    );
+    // Geen losse actieknoppen meer in de balk.
+    for (final tooltip in ['Opslaan', 'Versies', 'Documenten beheren', 'Uitloggen']) {
+      expect(find.byTooltip(tooltip), findsNothing, reason: 'losse knop $tooltip zit nog in de AppBar');
+    }
+  });
+
+  testWidgets('een lange documenttitel kapt af en duwt indicator noch overflow-knop uit beeld', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final api = FakeApiClient()
+      ..documents = const [
+        NoteDocument(id: 'note', title: 'een heel erg lange documenttitel die nooit past in de balk', order: 0),
+      ]
+      ..texts = {'note': 'bestaande notitie'};
+
+    await _pumpLoaded(tester, api);
+    // Wijziging => de indicator staat er ook nog naast.
+    _controllerOf(tester).document.insert(0, 'extra ');
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    final title = tester.widget<Text>(
+      find.descendant(of: find.byKey(const ValueKey('documentkeuze')), matching: find.byType(Text)).first,
+    );
+    expect(title.maxLines, 1);
+    expect(title.overflow, TextOverflow.ellipsis);
+
+    final screen = tester.getRect(find.byType(Scaffold));
+    for (final key in [const ValueKey('opslagindicator'), const ValueKey('overflowmenu')]) {
+      final box = tester.getRect(find.byKey(key));
+      expect(box.right, lessThanOrEqualTo(screen.right), reason: '$key valt buiten beeld');
+      expect(box.width, greaterThan(0));
+    }
+  });
+
+  testWidgets('de opslag-indicator verschijnt bij een wijziging en is na een geslaagde save weg', (
+    WidgetTester tester,
+  ) async {
+    final api = FakeApiClient();
+    await _pumpLoaded(tester, api);
+
+    final indicator = find.byKey(const ValueKey('opslagindicator'));
+    // Net geladen: alles opgeslagen, dus geen symbool.
+    expect(indicator, findsNothing);
+
+    _controllerOf(tester).document.insert(0, 'extra ');
+    // De changes-stream levert asynchroon; pas daarna volgt de setState.
+    await tester.pump();
+    await tester.pump();
+    expect(indicator, findsOneWidget);
+    expect(find.descendant(of: indicator, matching: find.byIcon(Icons.fiber_manual_record)), findsOneWidget);
+    expect(find.byTooltip('Niet-opgeslagen wijzigingen'), findsOneWidget);
+
+    await _tapMenu(tester, 'Opslaan');
+    expect(api.saveCallCount, 1);
+    expect(indicator, findsNothing);
+  });
+
+  testWidgets('tijdens het opslaan toont de indicator een voortgangsindicator', (WidgetTester tester) async {
+    final api = FakeApiClient()..blockSave = true;
+    await _pumpLoaded(tester, api);
+
+    _controllerOf(tester).document.insert(0, 'extra ');
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('overflowmenu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Opslaan'));
+    // Geen pumpAndSettle: de voortgangsindicator blijft frames plannen.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final indicator = find.byKey(const ValueKey('opslagindicator'));
+    expect(indicator, findsOneWidget);
+    expect(find.descendant(of: indicator, matching: find.byType(CircularProgressIndicator)), findsOneWidget);
+
+    // Opslaan is uitgeschakeld zolang er een save loopt.
+    await tester.tap(find.byKey(const ValueKey('overflowmenu')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(_menuItemEnabled(tester, 'Opslaan'), isFalse);
+    await tester.tapAt(const Offset(5, 400));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    api.completeSave();
+    await tester.pump();
+    await tester.pump();
+    expect(indicator, findsNothing);
+  });
+
+  testWidgets('het overflow-menu bevat de vier acties in de afgesproken volgorde', (WidgetTester tester) async {
+    await _pumpLoaded(tester, FakeApiClient());
+
+    await tester.tap(find.byKey(const ValueKey('overflowmenu')));
+    await tester.pumpAndSettle();
+
+    for (final label in ['Opslaan', 'Documenten beheren', 'Versies', 'Uitloggen']) {
+      expect(find.text(label), findsOneWidget, reason: 'menu-item $label ontbreekt');
+    }
+    expect(_menuLabels(tester), ['Opslaan', 'Documenten beheren', 'Versies', 'Uitloggen']);
+    // Zonder lopende save is Opslaan gewoon bruikbaar.
+    expect(_menuItemEnabled(tester, 'Opslaan'), isTrue);
+  });
+
+  testWidgets('Uitloggen in het overflow-menu roept de callback aan', (WidgetTester tester) async {
+    var loggedOut = 0;
+    SharedPreferences.setMockInitialValues(const {});
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: FlutterQuillLocalizations.localizationsDelegates,
+        supportedLocales: FlutterQuillLocalizations.supportedLocales,
+        home: NotesEditorScreen(api: FakeApiClient(), onLoggedOut: () => loggedOut++),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await _tapMenu(tester, 'Uitloggen');
+    expect(loggedOut, 1);
+  });
+
+  testWidgets('Versies en Documenten beheren openen vanuit het menu hun eigen scherm', (WidgetTester tester) async {
+    final api = FakeApiClient()..versionTexts = {'v1': 'oude inhoud'};
+    await _pumpLoaded(tester, api);
+
+    await _tapMenu(tester, 'Versies');
+    expect(find.text('Versies'), findsWidgets);
+    expect(api.lastVersionsDocumentId, 'note');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await _tapMenu(tester, 'Documenten beheren');
+    expect(find.byType(NoteDocumentsScreen), findsOneWidget);
   });
 }
 
@@ -667,6 +809,37 @@ Future<void> _chooseDocument(WidgetTester tester, String title) async {
   await tester.pumpAndSettle();
   // De titel staat zowel in de knop als in het menu; het menu-item is de laatste.
   await tester.tap(find.text(title).last);
+  await tester.pumpAndSettle();
+}
+
+/// Opent het overflow-menu in de AppBar en kiest het item met dit label.
+Future<void> _tapMenu(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('overflowmenu')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label));
+  await tester.pumpAndSettle();
+}
+
+/// De menu-items van het geopende overflow-menu, op volgorde. `find.byType`
+/// vergelijkt op exacte `runtimeType`, en het waardetype van de items is
+/// privé — vandaar een predicaat.
+Finder _menuItems() => find.byWidgetPredicate((widget) => widget is PopupMenuItem);
+
+List<String?> _menuLabels(WidgetTester tester) => tester
+    .widgetList(_menuItems())
+    .map((widget) => ((widget as PopupMenuItem).child as Text).data)
+    .toList(growable: false);
+
+bool _menuItemEnabled(WidgetTester tester, String label) => tester
+    .widgetList(_menuItems())
+    .map((widget) => widget as PopupMenuItem)
+    .firstWhere((item) => (item.child as Text).data == label)
+    .enabled;
+
+/// Laat een getoonde SnackBar aflopen, zodat er geen timer blijft hangen na
+/// het einde van de test.
+Future<void> _dismissSnackBar(WidgetTester tester) async {
+  await tester.pump(const Duration(seconds: 5));
   await tester.pumpAndSettle();
 }
 
