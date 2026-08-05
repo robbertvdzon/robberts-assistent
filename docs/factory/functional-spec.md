@@ -228,7 +228,8 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   `- ` voor bullets), zodat de assistent en de dagelijkse briefing er net als voorheen bij
   kunnen; alle overige tekst en opmaak (kopjes, tabellen, links, lege regels) blijft letterlijk
   staan, dus tekst die de assistent zelf toevoegt raakt niet beschadigd. Automatisch opslaan,
-  de Opslaan-knop, de statusregel en uitloggen werken ongewijzigd. Sinds SF-1808 staan links in
+  de Opslaan-actie en uitloggen werken ongewijzigd (de statusregel is sinds SF-1978 vervallen,
+  zie onder). Sinds SF-1808 staan links in
   die balk een **Ongedaan maken**- en een **Opnieuw**-knop (uitgegrijsd als er niets te doen valt;
   vlak na het openen van de notitie dus allebei, zodat één keer undo de notitie nooit leegmaakt),
   en opent de knop **Versies** in de AppBar een lijst van eerdere versies met Nederlandse datum en
@@ -241,7 +242,16 @@ test-harness: skills zijn als `@Tool` aan de agent gehangen, dus per zin te test
   label `Oude versie van <datum tijd>` — zodat direct duidelijk is dat je niet naar je huidige
   notitie kijkt — en is de knop **Terugzetten** onderaan dat scherm altijd volledig zichtbaar en
   aantikbaar, ook op telefoons met gesture-navigatie waar hij eerder deels achter de systeembalk
-  verdween.
+  verdween. Sinds SF-1978 is de balk bovenin opgeruimd: de documentnaam krijgt vrijwel de hele
+  breedte (te lange namen kappen af met '…' op één regel) en staat niet meer tussen een rij
+  knoppen. Direct ernaast toont een klein tekentje de opslagstatus — een draaiend rondje tijdens
+  het opslaan, een bolletje zolang er niet-opgeslagen wijzigingen zijn, en niets zodra alles
+  opgeslagen is. De losse knoppen Opslaan, Documenten beheren, Versies en Uitloggen staan nu in
+  één menu met drie puntjes rechts in die balk, met dezelfde namen en precies hetzelfde gedrag;
+  Opslaan is niet aantikbaar zolang er nog een save loopt. De tekst 'Opgeslagen' is verdwenen,
+  maar foutmeldingen blijven zichtbaar: 'Opslaan mislukt: …' en 'Laden mislukt: …' verschijnen nu
+  als melding onderin het scherm (met ongewijzigde tekst), en een harde laadfout vult zoals
+  voorheen het hele scherm. De opmaakbalk en de editor zelf zijn niet veranderd.
 - **wind** — "Hey Google, vraag Wind …" → onzichtbare trampoline die het antwoord uitspreekt
   (TTS) + als notificatie post (leesbaar op Garmin-horloge).
 

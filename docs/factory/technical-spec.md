@@ -209,6 +209,35 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
   geaccepteerd: bold/italic buiten underline in handmatig aangeleverde markdown wordt bij de
   eerste cyclus naar de canonieke nestvolgorde genormaliseerd (stabiel vanaf cyclus 2), en een
   geplakte embed verdwijnt stil bij het opslaan.
+- **AppBar met dirty-indicator en overflow-menu (Flutter, `notities/`, SF-1978):** de AppBar-`title`
+  van `notes_editor_screen.dart` is een `Row` met `Expanded(child: _documentDropdown())` (nog steeds
+  `ValueKey('documentkeuze')`, `isExpanded: true`, terugval `Text('Notities')`,
+  `onChanged: (_loading || _saving) ? null : …`; de item-`Text` kreeg expliciet `maxLines: 1` +
+  `softWrap: false` naast de al aanwezige `TextOverflow.ellipsis`) en daarnaast `_saveIndicator()`.
+  Die indicator toont bij `_saving` een `SizedBox(16×16)` met `CircularProgressIndicator
+  (strokeWidth: 2)` en tooltip "Bezig met opslaan", anders bij `_dirty` een 12 px
+  `Icons.fiber_manual_record` met tooltip "Niet-opgeslagen wijzigingen", en anders géén symbool
+  (alleen een `SizedBox(width: 8)`); beide zichtbare varianten dragen `ValueKey('opslagindicator')`,
+  dus stabiel testbaar, en de `Tooltip` levert meteen het semantische label. `actions` bevat nog
+  precies één `PopupMenuButton<_EditorAction>` (`ValueKey('overflowmenu')`, standaard
+  drie-puntjes-icoon, geen nieuwe dependency) met in volgorde **Opslaan** (`_save(force: true)`,
+  `enabled: !_saving`), **Documenten beheren**, **Versies** en **Uitloggen** — labels gelijk aan de
+  oude tooltips, aangeroepen methodes ongewijzigd. Nieuwe helper `_setDirty(bool)` trekt beide
+  `_dirty`-toekenningen (`_onChanged()` en `_save()`) in `setState`, met directe toekenning zonder
+  `setState` als de widget niet meer `mounted` is — `dispose()` leest `_dirty` immers voor de
+  best-effort save, en zo kan er geen setState-na-dispose optreden. `_dirty = false` staat nog
+  steeds vóór de `await`, zodat een wijziging tijdens het opslaan meteen weer dirty markeert. Het
+  veld `_status` is vervallen; `_showMessage(String)` toont `Opslaan mislukt: …` en
+  `Laden mislukt: …` met ongewijzigde tekst via `ScaffoldMessenger.maybeOf(context)` +
+  `hideCurrentSnackBar()` (patroon uit `robberts_assistent/lib/assistant_screen.dart`), de harde
+  `_error`-body blijft. Testdetails: `find.byType(PopupMenuItem<...>)` matcht op exacte
+  `runtimeType` en `_EditorAction` is privé, dus de tests gebruiken
+  `find.byWidgetPredicate((w) => w is PopupMenuItem)`; `pumpAndSettle()` loopt vast zolang de
+  voortgangsindicator draait (losse `pump()`-frames gebruiken), en `test/fake_api_client.dart`
+  kreeg `blockSave`/`completeSave()` (een `Completer`) om de "bezig met opslaan"-toestand
+  deterministisch te maken. Bekend aandachtspunt uit de review (cosmetisch, niet opgelost): de
+  KDoc van `_switchDocument()` spreekt nog van "de bestaande foutmelding blijft staan", wat niet
+  meer klopt nu de melding een SnackBar is.
 - **Lokale editorlettergrootte (Flutter, `notities/`, SF-1809):**
   `notes_editor_screen.dart` leest vóór `api.getNotes()` de bestaande `shared_preferences`-key
   `notes_editor_font_size`. De toegestane gehele waarden zijn 12 t/m 28 in stappen van 2, met 16
