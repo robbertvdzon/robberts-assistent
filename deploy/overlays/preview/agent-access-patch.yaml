@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: robberts-assistent-backend
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        env:
+        - name: AI_ACCESS_TOKEN
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: AI_ACCESS_TOKEN
+        - name: AI_ACCESS_EMAILS
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: AI_ACCESS_EMAILS
+        - name: AI_ACCESS_ALLOWED_ORIGINS
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: AI_ACCESS_ALLOWED_ORIGINS
+        - name: RA_GOOGLE_CLIENT_ID
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: RA_GOOGLE_CLIENT_ID
+        - name: RA_ALLOWED_EMAILS
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: RA_ALLOWED_EMAILS
+        - name: RA_REMEMBER_SECRET
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: RA_REMEMBER_SECRET
+        - name: RA_MOCK_AI
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: RA_MOCK_AI
+        - name: RA_PREVIEW_SKIP_GOOGLE_AUTH
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: RA_PREVIEW_SKIP_GOOGLE_AUTH
+        - name: RA_FIREBASE_PROJECT_ID
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ai-access-preview
+              key: RA_FIREBASE_PROJECT_ID
+        envFrom:
+        - secretRef:
+            name: ai-access-preview

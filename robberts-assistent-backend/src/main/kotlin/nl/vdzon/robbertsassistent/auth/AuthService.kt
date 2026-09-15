@@ -53,6 +53,12 @@ class AuthService(
      * login volledig overgeslagen, zodat de tester-agent zonder Google-account kan inloggen. Moet
      * in productie altijd uit staan (afgedwongen via [AppSecrets], niet hier).
      */
+    fun loginForAgent(email: String): LoginResponse {
+        if (email !in secrets.allowedEmails) throw ResponseStatusException(HttpStatus.FORBIDDEN, "Identity is not allowed")
+        val expiresAt = Instant.now().plusSeconds(3600).epochSecond
+        return LoginResponse(token = token(email, expiresAt), username = email)
+    }
+
     fun requireAuthorization(header: String?): String {
         if (secrets.previewSkipGoogleAuth) {
             return PREVIEW_IDENTITY
