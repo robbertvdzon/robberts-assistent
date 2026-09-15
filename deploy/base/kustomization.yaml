@@ -25,3 +25,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 patches:
 - path: agent-access-patch.yaml
+- path: backend-memory.yaml
+- path: robberts-assistent-frontend-memory.yaml
+- path: groentetuin-frontend-memory.yaml
