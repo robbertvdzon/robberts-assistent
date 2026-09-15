@@ -23,3 +23,11 @@ Gebruik eerst alleen-lezen databasequeries en OpenShift-logs/status. Voor explic
 productielogin staat in `robberts-infrastructure/tools/copy-agent-access-token.py` een helper die de
 token alleen naar het macOS-klembord schrijft. Plak rechtstreeks in het gemaskeerde loginveld en
 wis het klembord na gebruik. De applicatie-ingang verleent uitsluitend bestaande rechten.
+
+## PR-preview
+
+De ApplicationSet geeft beide webapps een eigen route:
+`https://robberts-assistent-pr-N.vdzonsoftware.nl` en
+`https://groentetuin-pr-N.vdzonsoftware.nl`. Deze origins staan met een uitsluitend
+numerieke `{pr}`-placeholder op de allowlist. De preview-overlay verwijdert beide
+productiehostnamen ook wanneer hij buiten de ApplicationSet wordt gerenderd.

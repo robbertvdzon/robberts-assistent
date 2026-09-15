@@ -25,6 +25,10 @@ patches:
     kind: Route
     name: robberts-assistent-frontend
   patch: "- op: remove\n  path: /spec/host"
+- target:
+    kind: Route
+    name: groentetuin-frontend
+  patch: "- op: remove\n  path: /spec/host"
 - path: agent-access-patch.yaml
 - target:
     kind: SealedSecret
