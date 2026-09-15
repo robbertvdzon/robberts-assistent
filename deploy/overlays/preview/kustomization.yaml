@@ -35,3 +35,6 @@ patches:
     name: ai-access
   patch: "$patch: delete\napiVersion: bitnami.com/v1alpha1\nkind: SealedSecret\nmetadata:\n\
     \  name: ai-access\n"
+- path: backend-memory.yaml
+- path: robberts-assistent-frontend-memory.yaml
+- path: groentetuin-frontend-memory.yaml
