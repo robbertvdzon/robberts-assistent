@@ -17,7 +17,8 @@ spec:
       containers:
         - name: app
           image: ghcr.io/robbertvdzon/robberts-assistent-frontend:main
-          imagePullPolicy: Always
+          # Kustomize pins immutable SHA tags; reuse the exact cached image.
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080

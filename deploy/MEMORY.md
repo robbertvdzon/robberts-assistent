@@ -26,3 +26,7 @@ De ApplicationSet in `robberts-infrastructure` past hetzelfde previewprofiel als
 - Terugzetten kan door de profielcommit in Git te reverten en te pushen. Argo CD volgt `main`; een losse live-patch wordt weer overschreven. Bestaande previews volgen ook de centrale ApplicationSet-patches.
 
 Een lagere request/limit is geen gegarandeerde daling van het werkelijke RAM-verbruik. Een geslaagde start en healthcheck zijn geen belastingtest.
+
+## Bestaande frontend-images
+
+De registry mist de platformmanifesten van de momenteel gepinde frontend-images (Groentetuin `sha-3e951db`, Assistent `sha-62545f7`). Dezelfde images staan nog in de nodecache. De frontends gebruiken daarom `IfNotPresent` bij hun onveranderlijke SHA-tags. De rollout gebruikt daarmee dezelfde images. Een lege node of verwijderde cache vereist nog steeds het herstellen/publiceren van die images.
