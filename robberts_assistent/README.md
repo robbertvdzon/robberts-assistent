@@ -40,7 +40,7 @@ bolletje én het woord **goed**, **let op** of **niet**.
   eerst de 10 meest recente (niet-gearchiveerde) gesprekken, oudere onder een uitklapbare
   "Ouder"-sectie; swipe-links (`flutter_slidable`) biedt archiveren en verwijderen (met
   bevestiging), een AppBar-toggle toont ook gearchiveerde gesprekken. Chat met de backend's AI
-  (Spring AI/OpenAI), met tools voor Robberts notitie, reminders/alarms, agenda, Google Docs en
+  (Spring AI via de Agent Runtime), met tools voor Robberts notitie, reminders/alarms, agenda, Google Docs en
   windmetingen/-voorspellingen bij IJmuiden (`robberts-assistent-backend/.../assistant/ai/`).
   Het invoerveld is sinds SF-1732 multiline (`minLines: 1`, `maxLines: 5`,
   `TextInputType.multiline`, `TextInputAction.newline`): het start op één regel, groeit mee tot vijf

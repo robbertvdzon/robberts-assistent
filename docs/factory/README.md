@@ -9,7 +9,7 @@ Flutter/Android-apps (`robberts_assistent/`, `groentetuin/`, `notities/`, `wind/
 backend is een Spring Modulith met onder meer notes, reminders,
 gardenchat/moestuin-chat, briefing, langdurige websitezoekopdrachten (`watches`)
 en de Google-/windkoppelingen. De apps spreken modules via REST aan; de
-OpenAI-agent gebruikt daarnaast `@Tool`-functies. Externe koppelingen en
+AI-agent (via de Agent Runtime) gebruikt daarnaast `@Tool`-functies. Externe koppelingen en
 persistente opslag hebben waar mogelijk een stub- of in-memory fallback, zodat
 de applicatie zonder optionele secrets kan bouwen en testen.
 

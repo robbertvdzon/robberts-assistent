@@ -59,13 +59,13 @@ naar `ghcr.io` en bumpt `deploy/base/kustomization.yaml` — ArgoCD synct vanzel
   de frontend-nginx proxy't die same-origin naar `robberts-assistent-backend:80`
   in dezelfde namespace, dus elke preview raakt vanzelf zijn eigen backend.
   Backend krijgt ook `RA_MOCK_AI=true`: de chat-assistent gebruikt daar een
-  deterministische mock i.p.v. een echte OpenAI-call, ook al bevat de (via
-  Reflector gemirrorde) secret dezelfde `RA_OPENAI_API_KEY` als productie —
+  deterministische mock i.p.v. een echte runtime-call, ook al bevat de (via
+  Reflector gemirrorde) secret hetzelfde `RA_AGENT_RUNTIME_TOKEN` als productie —
   geen kosten/netwerkafhankelijkheid tijdens tester-runs.
 - **Notities-app en Wind** hebben geen eigen web-deploy, alleen de APK's hierboven.
   Wind praat wél rechtstreeks (native Kotlin, `AssistantClient.kt`, geen Flutter-
   runtime) met de **productie**-backend voor echte wind-/voorspellingsantwoorden
-  via de chat-assistent — geen preview-variant, dus altijd een echte OpenAI-call
+  via de chat-assistent — geen preview-variant, dus altijd een echte runtime-call
   bij gebruik. Eenmalige Google-login via `LoginActivity` (het app-icoon opent
   die zolang er nog geen gecachete sessie is); daarna gebruikt elke trampoline-
   activity silent sign-in. Bij falen (geen sessie, netwerk, timeout) valt de app

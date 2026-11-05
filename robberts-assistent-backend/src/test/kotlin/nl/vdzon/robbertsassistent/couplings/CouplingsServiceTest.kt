@@ -2,7 +2,8 @@ package nl.vdzon.robbertsassistent.couplings
 
 import nl.vdzon.robbertsassistent.airquality.AirQualityCouplingProbe
 import nl.vdzon.robbertsassistent.airquality.StubAirQualityClient
-import nl.vdzon.robbertsassistent.assistant.ai.OpenAiCouplingProbe
+import nl.vdzon.robbertsassistent.assistant.ai.AgentRuntimeCouplingProbe
+import nl.vdzon.robbertsassistent.assistant.ai.AgentRuntimeGateway
 import nl.vdzon.robbertsassistent.automower.AutomowerCouplingProbe
 import nl.vdzon.robbertsassistent.automower.StubAutomowerClient
 import nl.vdzon.robbertsassistent.config.AppSecrets
@@ -38,7 +39,7 @@ class CouplingsServiceTest {
         val firebase = FirebaseProvider(secrets)
         return CouplingsService(
             listOf(
-                OpenAiCouplingProbe(secrets),
+                AgentRuntimeCouplingProbe(secrets, NoopGateway),
                 TelegramCouplingProbe(secrets),
                 FirestoreCouplingProbe(firebase),
                 StorageCouplingProbe(secrets, firebase),
@@ -72,7 +73,7 @@ class CouplingsServiceTest {
 
         assertEquals(
             setOf(
-                "openai", "telegram", "firestore", "storage", "google", "fcm", "automower", "strava",
+                "agent-runtime", "telegram", "firestore", "storage", "google", "fcm", "automower", "strava",
                 "softwarefactory", "openshift",
             ) + keylessIds,
             statuses.map { it.id }.toSet(),
@@ -87,7 +88,7 @@ class CouplingsServiceTest {
     @Test
     fun `met secrets gaan koppelingen op echt`() {
         val configured = bareSecrets.copy(
-            openAiApiKey = "sk-test",
+            agentRuntimeToken = "ra-test-token",
             telegramBotToken = "bot",
             telegramChatId = "123",
             firebaseCredentialsJson = "{}",
@@ -108,7 +109,7 @@ class CouplingsServiceTest {
 
         val byId = service(configured).statuses().associateBy { it.id }
 
-        assertEquals("echt", byId.getValue("openai").mode)
+        assertEquals("echt", byId.getValue("agent-runtime").mode)
         assertEquals("echt", byId.getValue("telegram").mode)
         assertEquals("echt", byId.getValue("firestore").mode)
         assertEquals("echt", byId.getValue("storage").mode)
@@ -129,4 +130,15 @@ class CouplingsServiceTest {
             assertEquals(true, byId.getValue(id).test?.ok, "$id zou een geslaagde live-test moeten geven")
         }
     }
+}
+
+/** Gateway-fake voor probe-tests: geen netwerk. */
+private object NoopGateway : AgentRuntimeGateway {
+    override fun runStructured(
+        instruction: String,
+        resultSchema: com.fasterxml.jackson.databind.JsonNode,
+        attachments: List<nl.vdzon.robbertsassistent.assistant.ai.RuntimeAttachment>,
+    ): com.fasterxml.jackson.databind.JsonNode = error("niet bedoeld voor aanroep")
+
+    override fun ping(): Pair<Boolean, String> = true to "ok"
 }

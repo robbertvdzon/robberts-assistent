@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'status_pill.dart';
 
-/// Overzicht van alle externe koppelingen (OpenAI, Telegram, Firestore, Storage, Google, FCM):
+/// Overzicht van alle externe koppelingen (Agent Runtime, Telegram, Firestore, Storage, Google, FCM):
 /// per koppeling of 'ie geconfigureerd is en of de echte koppeling of de fallback actief is,
 /// plus een knop om ze allemaal live te testen.
 class CouplingsScreen extends StatefulWidget {

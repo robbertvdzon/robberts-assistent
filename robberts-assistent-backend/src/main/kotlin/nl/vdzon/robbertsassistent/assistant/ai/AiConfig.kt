@@ -1,11 +1,10 @@
 package nl.vdzon.robbertsassistent.assistant.ai
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.model.ChatModel
-import org.springframework.ai.openai.OpenAiChatModel
-import org.springframework.ai.openai.OpenAiChatOptions
-import org.springframework.ai.openai.api.OpenAiApi
+import org.springframework.ai.model.tool.ToolCallingManager
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
@@ -74,34 +73,30 @@ val VOICE_SYSTEM_PROMPT = """
 """.trimIndent()
 
 /**
- * Bewust GEEN spring-ai-starter-model-openai (auto-configuratie op basis van properties) — met
- * handmatige bean-wiring kiezen we hier zelf tussen het echte OpenAI-model en [MockChatModel],
- * gestuurd door [AppSecrets.effectiveMockAi] (altijd mock in preview/tests, nooit in productie).
+ * Alle AI loopt via de Agent Runtime ([AgentRuntimeChatModel]); er is bewust geen directe
+ * verbinding met een AI-provider en geen Spring AI-starter (auto-configuratie). Zonder
+ * runtime-token, of met `RA_MOCK_AI=true` (preview/tests), is het [MockChatModel] actief, zie
+ * [AppSecrets.effectiveMockAi].
  */
 @Configuration
 class AiConfig {
 
     @Bean
-    fun chatModel(secrets: AppSecrets): ChatModel =
+    fun agentRuntimeGateway(secrets: AppSecrets, mapper: ObjectMapper): AgentRuntimeGateway =
+        HttpAgentRuntimeGateway(
+            baseUrl = secrets.agentRuntimeBaseUrl,
+            token = secrets.agentRuntimeToken.orEmpty(),
+            execution = RuntimeExecution(secrets.aiVendor, secrets.aiModel, secrets.aiMode),
+            environment = "prod",
+            mapper = mapper,
+        )
+
+    @Bean
+    fun chatModel(secrets: AppSecrets, gateway: AgentRuntimeGateway, mapper: ObjectMapper): ChatModel =
         if (secrets.effectiveMockAi) {
             MockChatModel()
         } else {
-            OpenAiChatModel.builder()
-                .openAiApi(OpenAiApi.builder().apiKey(secrets.openAiApiKey).build())
-                .defaultOptions(
-                    OpenAiChatOptions.builder()
-                        // gpt-5.6-terra (en waarschijnlijk -luna/-sol) staat function tools op
-                        // /v1/chat/completions alleen toe met reasoning_effort="none", en deze
-                        // API-key mag reasoning_effort niet op "none"/"low" zetten voor dat model
-                        // (HTTP 401 "insufficient permissions") — een doodlopende weg zonder het
-                        // (door deze Spring AI-versie niet ondersteunde) /v1/responses-endpoint.
-                        // gpt-5.5 werkt wél met tools op dit account.
-                        .model("gpt-5.5")
-                        .maxCompletionTokens(600)
-                        .reasoningEffort("none")
-                        .build(),
-                )
-                .build()
+            AgentRuntimeChatModel(gateway, ToolCallingManager.builder().build(), mapper)
         }
 
     @Bean

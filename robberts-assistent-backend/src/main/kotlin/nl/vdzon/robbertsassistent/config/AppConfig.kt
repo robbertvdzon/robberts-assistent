@@ -17,12 +17,18 @@ data class AppSecrets(
     // Google-login volledig over zodat de tester-agent zonder account kan inloggen. Moet in
     // productie altijd false zijn.
     val previewSkipGoogleAuth: Boolean = false,
-    // OpenAI-API-key voor de chat-assistent (zie AiConfig). Null/leeg => mockAi wordt effectief
-    // altijd true, ongeacht de RA_MOCK_AI-waarde: zonder key kan er toch geen echte call gedaan
-    // worden, dus liever een voorspelbare mock dan een crash bij de eerste chat-vraag.
-    val openAiApiKey: String? = null,
-    // Expliciete override om de echte OpenAI-call over te slaan: altijd true in preview/tests
-    // (geen kosten, geen netwerk-afhankelijkheid, deterministisch), altijd false in productie.
+    // Agent Runtime (alle AI loopt hierdoorheen, zie AiConfig). Het token is het consumer-token
+    // van deze applicatie. Null/leeg => mockAi wordt effectief altijd true, ongeacht de
+    // RA_MOCK_AI-waarde: zonder token kan er toch geen echte call gedaan worden, dus liever een
+    // voorspelbare mock dan een crash bij de eerste chat-vraag.
+    val agentRuntimeToken: String? = null,
+    val agentRuntimeBaseUrl: String = DEFAULT_AGENT_RUNTIME_URL,
+    // Welk model de runtime gebruikt; SUBSCRIPTION = op het abonnement (geen API-kosten).
+    val aiVendor: String = "anthropic",
+    val aiModel: String = "claude-sonnet-5",
+    val aiMode: String = "SUBSCRIPTION",
+    // Expliciete override om de echte runtime-call over te slaan: altijd true in preview/tests
+    // (geen netwerk-afhankelijkheid, deterministisch), altijd false in productie.
     val mockAi: Boolean = false,
     // -- Fundament-koppelingen (fase 0: allemaal optioneel; ontbrekend => stub-fallback) --
     // Telegram-bot voor uitgaande berichten (Notifier). Zonder token/chat-id valt de
@@ -72,13 +78,15 @@ data class AppSecrets(
     val homeAssistantToken: String? = null,
 ) {
     /** Of de chat-assistent een [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel] moet gebruiken. */
-    val effectiveMockAi: Boolean get() = mockAi || openAiApiKey.isNullOrBlank()
+    val effectiveMockAi: Boolean get() = mockAi || agentRuntimeToken.isNullOrBlank()
 
     /** Of Firebase (Firestore + Storage) bruikbaar is: credentials (bestand of JSON) + project-id. */
     val firebaseConfigured: Boolean
         get() = (!firebaseCredentialsFile.isNullOrBlank() || !firebaseCredentialsJson.isNullOrBlank()) &&
             !firebaseProjectId.isNullOrBlank()
 }
+
+const val DEFAULT_AGENT_RUNTIME_URL = "https://agent-runtime.vdzonsoftware.nl"
 
 @Configuration
 class AppConfig {
@@ -107,7 +115,11 @@ class AppSecretsLoader(
             googleClientId = required("RA_GOOGLE_CLIENT_ID"),
             allowedEmails = parseAllowedEmails(optional("RA_ALLOWED_EMAILS") ?: DEFAULT_ALLOWED_EMAIL),
             previewSkipGoogleAuth = previewSkipGoogleAuth,
-            openAiApiKey = optional("RA_OPENAI_API_KEY"),
+            agentRuntimeToken = optional("RA_AGENT_RUNTIME_TOKEN"),
+            agentRuntimeBaseUrl = optional("RA_AGENT_RUNTIME_URL") ?: DEFAULT_AGENT_RUNTIME_URL,
+            aiVendor = optional("RA_AI_VENDOR") ?: "anthropic",
+            aiModel = optional("RA_AI_MODEL") ?: "claude-sonnet-5",
+            aiMode = optional("RA_AI_MODE") ?: "SUBSCRIPTION",
             mockAi = mockAi,
             telegramBotToken = optional("RA_TELEGRAM_BOT_TOKEN"),
             telegramChatId = optional("RA_TELEGRAM_CHAT_ID"),

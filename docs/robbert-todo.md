@@ -9,7 +9,7 @@ ik doe het zodra jij de waarde geeft · **[TEST]** = hoe we het verifiëren.
 
 - ✅ Backend fase 0–3 gedeployed (reminders + scheduler + AI-agent met tools).
 - ✅ **Telegram** actief (reminders/alerts → "Robberts Assistent"-groep, via de factory-bot).
-- ✅ **AI-agent** werkt met echte OpenAI: reminders zetten, agenda/docs bevragen (nog op stubs).
+- ✅ **AI-agent** werkt via de Agent Runtime: reminders zetten, agenda/docs bevragen (nog op stubs).
 - ✅ `/api/v1/ping` + **Groentetuin-app** (web-image + APK) gedeployed.
 - ✅ **Moestuin-AI-chat** (tekst + foto's → vision-AI) — backend live, app gedeployed.
 

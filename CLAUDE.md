@@ -13,7 +13,7 @@ Taal in code-commentaar, docs, commits en UI: **Nederlands**.
 Een backend die via skills allerlei taken doet (notities, wind/kite-check, reminders met
 alarm, moestuin-foto-chat, dagelijkse Morgen-briefing en langdurige
 websitezoekopdrachten) en die door apps + een AI-agent aangesproken wordt. De
-AI-agent (OpenAI via Spring AI, met `@Tool`-functies) is tegelijk de belangrijkste
+AI-agent (via de Agent Runtime, met Spring AI `@Tool`-functies) is tegelijk de belangrijkste
 **test-harness**: bijna elke agent-skill is als tool aan de agent gehangen, dus je
 test een hele keten met één zin ("zet een reminder over 10 min", "wanneer moet ik
 naar de tandarts", "telegram me mijn vakanties"). Websitezoekopdrachten worden
@@ -53,7 +53,7 @@ robberts-assistent/
 ## 3. Tech stack
 
 - **Backend:** Kotlin, Spring Boot 3.5, **Spring Modulith**, Java 21, Maven. Spring AI
-  (`spring-ai-openai`, handmatige bean-wiring) met **OpenAI gpt-5.5** (vision-capable).
+  (`spring-ai-client-chat`, handmatige bean-wiring) met een eigen `AgentRuntimeChatModel`: **alle AI loopt via de Agent Runtime** (default `anthropic/claude-sonnet-5` op het abonnement), nooit rechtstreeks via een AI-provider.
   firebase-admin (Firestore + Cloud Storage). JdbcTemplate + Flyway.
 - **Apps:** Flutter (stable), Dart `>=3.0.0 <4.0.0`. `wind/` heeft native Kotlin (App
   Actions-trampoline-activities). Web-apps draaien als nginx-container (Flutter web build).
@@ -131,7 +131,7 @@ zodat 'ie automatisch op het "Koppelingen"-scherm verschijnt.
 
 | Koppeling | Actief bij | Fallback |
 |---|---|---|
-| OpenAI (chat + vision) | `RA_OPENAI_API_KEY` | `MockChatModel` (deterministisch) |
+| Agent Runtime (chat + vision) | `RA_AGENT_RUNTIME_TOKEN` (+ optioneel `RA_AGENT_RUNTIME_URL`, `RA_AI_VENDOR`/`_MODEL`/`_MODE`) | `MockChatModel` (deterministisch) |
 | Telegram (Notifier) | `RA_TELEGRAM_BOT_TOKEN` + `RA_TELEGRAM_CHAT_ID` | `LoggingNotifier` |
 | Firestore + Storage | `RA_FIREBASE_CREDENTIALS_JSON`(/`_FILE`) + `RA_FIREBASE_PROJECT_ID` (+ `RA_FIREBASE_DATABASE_ID`, `RA_FIREBASE_STORAGE_BUCKET`) | in-memory |
 | Google Agenda + Docs | `RA_GOOGLE_OAUTH_CLIENT_ID` + `_SECRET` + `_REFRESH_TOKEN` | `StubCalendarClient` / `StubDocsClient` |

@@ -5,8 +5,8 @@ Architectuur, stack en codeconventies. Volledig overzicht + modulelijst: root `C
 ## Stack & versies
 
 - **Backend:** Kotlin, Spring Boot 3.5, **Spring Modulith**, Java 21, Maven. Spring AI
-  (`spring-ai-openai` + `spring-ai-client-chat`, handmatige bean-wiring, geen
-  auto-configuratie-starter) met **OpenAI gpt-5.5** (vision-capable). `firebase-admin`
+  (`spring-ai-client-chat`, handmatige bean-wiring, geen auto-configuratie-starter)
+  met `AgentRuntimeChatModel`: alle AI via de **Agent Runtime** (geen directe provider-aanroepen). `firebase-admin`
   (Firestore + Cloud Storage). JdbcTemplate + Flyway. Package-root `nl.vdzon.robbertsassistent`.
 - **Apps:** Flutter (stable), Dart `>=3.0.0 <4.0.0`. `wind/` daarnaast native Kotlin (App
   Actions-trampoline-activities, TTS, notificaties). Web-apps: Flutter web → nginx-container.

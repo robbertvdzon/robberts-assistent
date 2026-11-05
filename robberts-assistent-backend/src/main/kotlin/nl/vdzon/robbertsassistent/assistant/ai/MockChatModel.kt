@@ -11,7 +11,7 @@ import reactor.core.publisher.Flux
 /**
  * Deterministische, netwerk-vrije [ChatModel]-fake voor preview-omgevingen en unit-/
  * integratietests (zie [nl.vdzon.robbertsassistent.config.AppSecrets.effectiveMockAi]) — geen
- * OpenAI-kosten, geen flakiness door een externe API, en voorspelbaar te testen.
+ * runtime-aanroepen, geen flakiness door een externe API, en voorspelbaar te testen.
  *
  * Roept bewust GEEN tools aan: welke tool relevant is, is nu juist het deel dat een écht model
  * beslist. Toolgedrag test je daarom direct op [NotesTools]/[WindTools] zelf, niet via een

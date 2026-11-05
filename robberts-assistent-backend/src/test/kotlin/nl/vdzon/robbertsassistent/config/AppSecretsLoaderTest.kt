@@ -58,32 +58,34 @@ class AppSecretsLoaderTest {
     }
 
     @Test
-    fun `zonder openai-key is mock-ai effectief altijd aan, ook als RA_MOCK_AI niet gezet is`() {
+    fun `zonder runtime-token is mock-ai effectief altijd aan, ook als RA_MOCK_AI niet gezet is`() {
         val secrets = AppSecretsLoader(
             environment = baseEnv(),
             secretFiles = emptyList(),
         ).load()
 
-        assertEquals(null, secrets.openAiApiKey)
+        assertEquals(null, secrets.agentRuntimeToken)
         assertFalse(secrets.mockAi)
         assertTrue(secrets.effectiveMockAi)
     }
 
     @Test
-    fun `met openai-key en zonder RA_MOCK_AI is mock-ai effectief uit`() {
+    fun `met runtime-token en zonder RA_MOCK_AI is mock-ai effectief uit`() {
         val secrets = AppSecretsLoader(
-            environment = baseEnv("RA_OPENAI_API_KEY" to "sk-test"),
+            environment = baseEnv("RA_AGENT_RUNTIME_TOKEN" to "rt-test"),
             secretFiles = emptyList(),
         ).load()
 
-        assertEquals("sk-test", secrets.openAiApiKey)
+        assertEquals("rt-test", secrets.agentRuntimeToken)
+        assertEquals("anthropic", secrets.aiVendor)
+        assertEquals("SUBSCRIPTION", secrets.aiMode)
         assertFalse(secrets.effectiveMockAi)
     }
 
     @Test
-    fun `RA_MOCK_AI=true dwingt de mock af, ook met een geldige openai-key`() {
+    fun `RA_MOCK_AI=true dwingt de mock af, ook met een geldig runtime-token`() {
         val secrets = AppSecretsLoader(
-            environment = baseEnv("RA_OPENAI_API_KEY" to "sk-test", "RA_MOCK_AI" to "true"),
+            environment = baseEnv("RA_AGENT_RUNTIME_TOKEN" to "rt-test", "RA_MOCK_AI" to "true"),
             secretFiles = emptyList(),
         ).load()
 

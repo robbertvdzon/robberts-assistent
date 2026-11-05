@@ -29,7 +29,7 @@ private val SYSTEM_STATUS_SYSTEM_PROMPT = """
 
 /**
  * Losse, lichte [ChatClient]s (geen tools, geen gesprekshistorie) voor de briefingsecties die een
- * AI-beoordeling nodig hebben — hergebruiken de bestaande [ChatModel]-bean (echt OpenAI-model of
+ * AI-beoordeling nodig hebben — hergebruiken de bestaande [ChatModel]-bean (echt runtime-model of
  * [nl.vdzon.robbertsassistent.assistant.ai.MockChatModel], afhankelijk van
  * `AppSecrets.effectiveMockAi`, zie `assistant.ai.AiConfig`) zodat de briefing zonder eigen
  * mock-schakelaar deterministisch blijft onder `RA_MOCK_AI`.

@@ -37,8 +37,8 @@ Zie `deployment.md` voor hoe elke component gebouwd/gedeployed wordt en
   `wind/android/app/src/main/kotlin/nl/vdzon/wind/`).
 - **Backend**: Kotlin, Spring Boot 3.5, Spring Modulith, Java 21. JdbcTemplate +
   Flyway voor notities (Postgres in productie, H2 in-memory lokaal/tests).
-  Spring AI (`spring-ai-openai` + `spring-ai-client-chat`, handmatige bean-
-  wiring, geen auto-configuratie-starter) voor de chat-assistent.
+  Spring AI (`spring-ai-client-chat`, handmatige bean-wiring, geen auto-configuratie-
+  starter) voor de chat-assistent; alle AI loopt via de Agent Runtime.
 
 ## Commands
 

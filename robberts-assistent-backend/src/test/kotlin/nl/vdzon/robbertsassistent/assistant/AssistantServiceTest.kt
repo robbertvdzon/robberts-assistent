@@ -17,7 +17,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
- * Draait tegen [MockChatModel] i.p.v. een echte OpenAI-call — deterministisch, geen netwerk/kosten.
+ * Draait tegen [MockChatModel] i.p.v. een echte runtime-call — deterministisch, geen netwerk/kosten.
  * Toolgedrag (notities/wind) wordt apart getest op `NotesTools`/`WindTools` zelf; het mock-model
  * roept bewust geen tools aan (zie de class-doc van [MockChatModel]).
  */
@@ -39,8 +39,8 @@ class AssistantServiceTest {
             rememberSecret = "test-remember-secret",
             googleClientId = "test-client-id.apps.googleusercontent.com",
             allowedEmails = setOf("robbert@vdzon.com"),
-            // openAiApiKey moet gezet zijn, anders is effectiveMockAi altijd true ongeacht mockAi.
-            openAiApiKey = if (mockAi) null else "test-openai-key",
+            // agentRuntimeToken moet gezet zijn, anders is effectiveMockAi altijd true ongeacht mockAi.
+            agentRuntimeToken = if (mockAi) null else "test-runtime-token",
             mockAi = mockAi,
         )
         return AssistantService(client, client, memoryClient, secrets, InMemoryConversationRepository(), photos, memory)
