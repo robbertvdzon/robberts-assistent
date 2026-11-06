@@ -90,7 +90,7 @@ class AgentRuntimeChatModel(
         val out = StringBuilder()
         out.appendLine(PROTOCOL)
         if (tools.isEmpty()) {
-            out.appendLine("\nEr zijn in deze stap GEEN tools beschikbaar: `toolCalls` blijft altijd leeg.")
+            out.appendLine("\nEr zijn in deze stap GEEN tools beschikbaar: laat `toolCalls` volledig weg (schrijf het veld nooit zonder waarde).")
         } else {
             out.appendLine("\n## Beschikbare tools")
             tools.forEach { tool ->
@@ -136,7 +136,7 @@ class AgentRuntimeChatModel(
             - Heb je een tool nodig: zet de aanroepen in `toolCalls` (`name` = toolnaam, `arguments` = een
               JSON-object als tekst, volgens het parameterschema) en laat `reply` leeg. Je krijgt daarna de
               resultaten terug in het gesprek.
-            - Heb je genoeg informatie: laat `toolCalls` leeg en zet het definitieve antwoord aan de gebruiker in
+            - Heb je genoeg informatie: laat `toolCalls` weg (of schrijf exact `[]`, nooit een lege waarde) en zet het definitieve antwoord aan de gebruiker in
               `reply`, in de taal en stijl die de systeeminstructies vragen.
             - Verzin geen toolresultaten en gebruik alleen tools uit de lijst. Gebruik zelf geen shell-,
               bestands- of webtools; de enige acties zijn de genoemde tools.
@@ -144,7 +144,7 @@ class AgentRuntimeChatModel(
 
         val RESULT_SCHEMA: JsonNode = ObjectMapper().readTree(
             """
-            {"type":"object","required":["reply","toolCalls"],"additionalProperties":false,
+            {"type":"object","required":["reply"],"additionalProperties":false,
              "properties":{
                "reply":{"type":"string"},
                "toolCalls":{"type":"array","items":{"type":"object","required":["name","arguments"],"additionalProperties":false,
