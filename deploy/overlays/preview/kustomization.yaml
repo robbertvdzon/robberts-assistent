@@ -18,6 +18,7 @@ patches:
     \ zodat PR-previews niet naar\n    # de echte Firestore/Storage (prod-data) schrijven.\
     \ Overschrijft de via Reflector\n    # gemirrorde secret-waarde (expliciete env\
     \ wint van envFrom).\n    - name: RA_FIREBASE_PROJECT_ID\n      value: \"\"\n\
+    - name: RA_SEED_DATA\n      value: \"true\"\n\
     # Minder strikt rollout-gedrag \u2014 preview spawn moet snel zijn (geen\n# PVC/Recreate-vereiste\
     \ hier, maar consistent met het personal-feed-patroon).\n- op: replace\n  path:\
     \ /spec/strategy\n  value:\n    type: RollingUpdate"

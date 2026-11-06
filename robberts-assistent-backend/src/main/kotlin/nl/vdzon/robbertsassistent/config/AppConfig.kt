@@ -30,6 +30,11 @@ data class AppSecrets(
     // Expliciete override om de echte runtime-call over te slaan: altijd true in preview/tests
     // (geen netwerk-afhankelijkheid, deterministisch), altijd false in productie.
     val mockAi: Boolean = false,
+    // Vult de in-memory opslag (gesprekken/geheugen/notities/alarmen/reminders) bij startup met
+    // synthetische testdata (zie SeedDataRunner) — alleen zinvol zonder Firebase-config. Altijd
+    // true in branch-preview (zie deploy/overlays/preview), altijd false in productie. Nooit
+    // echte productiedata: preview-pods hebben geen Google-login en een publieke URL.
+    val seedData: Boolean = false,
     // -- Fundament-koppelingen (fase 0: allemaal optioneel; ontbrekend => stub-fallback) --
     // Telegram-bot voor uitgaande berichten (Notifier). Zonder token/chat-id valt de
     // Notifier terug op de LoggingNotifier.
@@ -109,6 +114,7 @@ class AppSecretsLoader(
 
         val previewSkipGoogleAuth = optional("RA_PREVIEW_SKIP_GOOGLE_AUTH")?.lowercase() == "true"
         val mockAi = optional("RA_MOCK_AI")?.lowercase() == "true"
+        val seedData = optional("RA_SEED_DATA")?.lowercase() == "true"
         val openShiftHealthEnabled = optional("RA_OPENSHIFT_HEALTH_ENABLED")?.lowercase() == "true"
         return AppSecrets(
             rememberSecret = required("RA_REMEMBER_SECRET"),
@@ -121,6 +127,7 @@ class AppSecretsLoader(
             aiModel = optional("RA_AI_MODEL") ?: "claude-sonnet-5",
             aiMode = optional("RA_AI_MODE") ?: "SUBSCRIPTION",
             mockAi = mockAi,
+            seedData = seedData,
             telegramBotToken = optional("RA_TELEGRAM_BOT_TOKEN"),
             telegramChatId = optional("RA_TELEGRAM_CHAT_ID"),
             firebaseCredentialsFile = optional("RA_FIREBASE_CREDENTIALS_FILE"),
