@@ -18,6 +18,8 @@ class HttpAgentRuntimeGatewayTest {
     private val requests = mutableListOf<String>()
     private val bodies = mutableMapOf<String, String>()
     private var finalStatus = "SUCCEEDED"
+    private var failFirstWithEngine = false
+    private var statusPolls = 0
     private val server: HttpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
         createContext("/") { ex -> handle(ex) }
         start()
@@ -47,7 +49,14 @@ class HttpAgentRuntimeGatewayTest {
             }
             "POST /v2/uploads/u1/complete" -> reply(ex, 200, """{"objectId":"o1"}""")
             "POST /v2/jobs" -> reply(ex, 202, """{"id":"j1","status":"QUEUED"}""")
-            "GET /v2/jobs/j1" -> reply(ex, 200, """{"id":"j1","status":"$finalStatus","errorCode":"X","errorMessage":"stuk"}""")
+            "GET /v2/jobs/j1" -> {
+                statusPolls++
+                if (failFirstWithEngine && statusPolls == 1) {
+                    reply(ex, 200, """{"id":"j1","status":"FAILED","errorCode":"ENGINE_FAILED","errorMessage":"Provider process exited with code 1."}""")
+                } else {
+                    reply(ex, 200, """{"id":"j1","status":"$finalStatus","errorCode":"X","errorMessage":"stuk"}""")
+                }
+            }
             "GET /v2/jobs/j1/result" -> reply(ex, 200, """{"result":{"reply":"hoi","toolCalls":[]}}""")
             "GET /v2/execution-options" -> reply(ex, 200, "{}")
             else -> reply(ex, 404)
@@ -87,6 +96,14 @@ class HttpAgentRuntimeGatewayTest {
         finalStatus = "FAILED"
         val error = assertFailsWith<IOException> { gateway().runStructured("x", mapper.readTree("{}")) }
         assertTrue(error.message!!.contains("stuk"))
+    }
+
+    @Test
+    fun `een tijdelijke ENGINE_FAILED wordt eenmaal opnieuw geprobeerd`() {
+        failFirstWithEngine = true
+        val result = gateway().runStructured("x", mapper.readTree("{}"))
+        assertEquals("hoi", result.path("reply").asText())
+        assertEquals(2, requests.count { it == "POST /v2/jobs" })
     }
 
     @Test

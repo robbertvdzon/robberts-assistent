@@ -63,6 +63,23 @@ class HttpAgentRuntimeGateway(
     private val http: HttpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build()
 
     override fun runStructured(instruction: String, resultSchema: JsonNode, attachments: List<RuntimeAttachment>): JsonNode {
+        // De Claude-worker stopt soms zonder eigen oorzaak (ENGINE_FAILED, exit code 1); een
+        // tweede poging met een nieuwe job lost dat meestal op.
+        var attempt = 1
+        while (true) {
+            try {
+                return runOnce(instruction, resultSchema, attachments)
+            } catch (e: EngineFailedException) {
+                if (attempt >= MAX_ATTEMPTS) throw IOException(e.message, e)
+                log.warn("[AgentRuntime] poging {} mislukt ({}), opnieuw proberen", attempt, e.message)
+                attempt++
+            }
+        }
+    }
+
+    private class EngineFailedException(message: String) : IOException(message)
+
+    private fun runOnce(instruction: String, resultSchema: JsonNode, attachments: List<RuntimeAttachment>): JsonNode {
         require(token.isNotBlank()) { "RA_AGENT_RUNTIME_TOKEN ontbreekt" }
         val started = Instant.now()
         val allAttachments = attachments.toMutableList()
@@ -92,7 +109,11 @@ class HttpAgentRuntimeGateway(
         val jobId = mapper.readTree(response.body()).path("id").asText()
         check(jobId.isNotBlank()) { "Runtime gaf geen job-id terug" }
         val outcome = await(jobId)
-        if (outcome.first != "SUCCEEDED") throw IOException("Runtime-job $jobId eindigde met ${outcome.second}")
+        if (outcome.first != "SUCCEEDED") {
+            val message = "Runtime-job $jobId eindigde met ${outcome.second}"
+            if (outcome.second.startsWith("ENGINE_FAILED")) throw EngineFailedException(message)
+            throw IOException(message)
+        }
         val result = getJson("/v2/jobs/$jobId/result").path("result")
         log.info("[AgentRuntime] job {} ({}) klaar in {} ms", jobId, execution, Duration.between(started, Instant.now()).toMillis())
         return result
@@ -180,6 +201,7 @@ class HttpAgentRuntimeGateway(
     companion object {
         /** Ruim onder de runtime-limiet van 65.536 tekens; langere opdrachten gaan als bijlage. */
         const val MAX_INLINE_INSTRUCTION = 60_000
+        const val MAX_ATTEMPTS = 2
 
         private fun sha256(bytes: ByteArray): String = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))
     }
