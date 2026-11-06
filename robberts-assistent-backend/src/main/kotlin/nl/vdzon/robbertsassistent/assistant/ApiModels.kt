@@ -22,6 +22,23 @@ data class AssistantChatResponse(
     val messages: List<ConversationMessageDto>,
 )
 
+/** Antwoord op het starten van een asynchrone chat-beurt (HTTP 202). */
+data class AssistantChatJobStarted(val jobId: String)
+
+/**
+ * Status van een asynchrone chat-beurt. [status] is RUNNING, DONE of FAILED; bij DONE zijn
+ * [conversationId], [title], [reply] en [messages] gevuld, bij FAILED de [error].
+ */
+data class AssistantChatJobResponse(
+    val jobId: String,
+    val status: String,
+    val conversationId: String? = null,
+    val title: String? = null,
+    val reply: String? = null,
+    val messages: List<ConversationMessageDto> = emptyList(),
+    val error: String? = null,
+)
+
 data class AssistantConversationResponse(
     val conversationId: String,
     val title: String,

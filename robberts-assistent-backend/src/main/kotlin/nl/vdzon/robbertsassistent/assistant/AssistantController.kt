@@ -28,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException
 class AssistantController(
     private val authService: AuthService,
     private val assistantService: AssistantService,
+    private val chatJobs: AssistantChatJobs,
     @Qualifier("assistantPhotoStorage") private val photoStorage: PhotoStorage,
 ) {
     @PostMapping("/api/v1/assistant/chat", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
@@ -54,6 +55,51 @@ class AssistantController(
             title = result.title,
             reply = result.reply,
             messages = result.messages.map { it.toDto() },
+        )
+    }
+
+    /**
+     * Asynchrone variant van [chat]: start de beurt op de achtergrond en geeft direct (202) een
+     * `jobId` terug. De AI-aanroep via de Agent Runtime kan langer duren dan een request mag duren
+     * (Cloudflare kapt na ~100 s af); de app haalt het antwoord op via [chatJob].
+     */
+    @PostMapping("/api/v1/assistant/chat/async", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun chatAsync(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestParam("message", required = false, defaultValue = "") message: String,
+        @RequestParam("conversationId", required = false) conversationId: String?,
+        @RequestParam("photos", required = false) photos: List<MultipartFile>?,
+        @RequestParam("voice", required = false, defaultValue = "false") voice: Boolean,
+    ): ResponseEntity<AssistantChatJobStarted> {
+        authService.requireAuthorization(authorization)
+        // De bytes nu inlezen: de tijdelijke multipart-bestanden verdwijnen zodra dit request klaar is.
+        val uploads = (photos ?: emptyList())
+            .filter { !it.isEmpty }
+            .map { PhotoUpload(it.bytes, it.contentType ?: MediaType.IMAGE_JPEG_VALUE) }
+        if (message.isBlank() && uploads.isEmpty()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Stuur een bericht en/of minstens één foto")
+        }
+        val jobId = chatJobs.submit(conversationId, message, uploads, voice)
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(AssistantChatJobStarted(jobId))
+    }
+
+    @GetMapping("/api/v1/assistant/chat/jobs/{jobId}")
+    fun chatJob(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable jobId: String,
+    ): AssistantChatJobResponse {
+        authService.requireAuthorization(authorization)
+        val job = chatJobs.get(jobId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Chat-beurt niet gevonden (mogelijk herstart)")
+        val result = job.result
+        return AssistantChatJobResponse(
+            jobId = job.id,
+            status = job.status.name,
+            conversationId = result?.conversationId,
+            title = result?.title,
+            reply = result?.reply,
+            messages = result?.messages?.map { it.toDto() } ?: emptyList(),
+            error = job.error,
         )
     }
 

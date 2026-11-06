@@ -137,6 +137,18 @@ class ApiClient {
   /// `conversationId` maakt de backend een nieuw gesprek aan. Met [voice] `true` (praatmodus: het
   /// antwoord wordt voorgelezen) gaat het extra veld `voice` mee, waarop de backend een kort
   /// spreektaal-antwoord geeft; de getypte route stuurt de vlag niet mee.
+  /// Interval waarmee [assistantChat] de status van een lopende beurt ophaalt, en de maximale
+  /// totale wachttijd. Aanpasbaar zodat tests niet echt hoeven te wachten.
+  Duration chatPollInterval = const Duration(seconds: 2);
+  Duration chatMaxWait = const Duration(minutes: 15);
+
+  /// Stuurt een chat-beurt naar de assistent en wacht op het antwoord.
+  ///
+  /// Het antwoord komt via de Agent Runtime en kan langer duren dan een HTTP-request mag duren
+  /// (Cloudflare kapt na ~100 s af). Daarom start dit `POST /api/v1/assistant/chat/async`
+  /// (direct een `jobId` terug) en haalt daarna elke [chatPollInterval] de status op via
+  /// `GET /api/v1/assistant/chat/jobs/{jobId}` tot die klaar of mislukt is. Losse netwerkfouten
+  /// tijdens het wachten worden een paar keer genegeerd; de beurt loopt op de server gewoon door.
   Future<AssistantChatReply> assistantChat({
     required String message,
     String? conversationId,
@@ -145,7 +157,7 @@ class ApiClient {
   }) async {
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$baseUrl/api/v1/assistant/chat'),
+      Uri.parse('$baseUrl/api/v1/assistant/chat/async'),
     );
     request.headers.addAll(authHeaders());
     request.fields['message'] = message;
@@ -165,12 +177,42 @@ class ApiClient {
     }
     final response = await http.Response.fromStream(await request.send());
     await _throwOnError(response);
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    return AssistantChatReply(
-      conversationId: body['conversationId'] as String,
-      title: body['title'] as String,
-      reply: body['reply'] as String,
-    );
+    final jobId =
+        (jsonDecode(response.body) as Map<String, dynamic>)['jobId'] as String;
+
+    final deadline = DateTime.now().add(chatMaxWait);
+    var failedPolls = 0;
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(chatPollInterval);
+      final http.Response poll;
+      try {
+        poll = await http.get(
+          Uri.parse('$baseUrl/api/v1/assistant/chat/jobs/$jobId'),
+          headers: authHeaders(),
+        );
+      } catch (_) {
+        // Tijdelijke netwerkfout (bv. tijdens een herstart van de tunnel): blijf proberen.
+        if (++failedPolls >= 20) rethrow;
+        continue;
+      }
+      if (poll.statusCode >= 500 && ++failedPolls < 20) continue;
+      await _throwOnError(poll);
+      failedPolls = 0;
+      final body = jsonDecode(poll.body) as Map<String, dynamic>;
+      switch (body['status']) {
+        case 'DONE':
+          return AssistantChatReply(
+            conversationId: body['conversationId'] as String,
+            title: body['title'] as String,
+            reply: body['reply'] as String,
+          );
+        case 'FAILED':
+          throw Exception(
+            (body['error'] as String?) ?? 'De assistent kon niet antwoorden.',
+          );
+      }
+    }
+    throw Exception('De assistent deed er te lang over. Probeer het opnieuw.');
   }
 
   /// Lijst van gesprekken (`GET /api/v1/assistant/conversations`), meest recent eerst.
