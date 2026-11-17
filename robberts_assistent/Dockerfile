@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM ghcr.io/cirruslabs/flutter:3.35.0 AS build
+FROM ghcr.io/cirruslabs/flutter:3.44.0 AS build
 WORKDIR /src
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
