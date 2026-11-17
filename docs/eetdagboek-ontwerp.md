@@ -109,10 +109,36 @@ uitschieters en geen gewone momenten om mee te vergelijken.
 De app leest de laatste zeven dagen uit Health Connect en stuurt ze naar de backend: bij het
 openen, bij elke etensfoto en een paar keer per dag op de achtergrond.
 
-**Nog te controleren op Robberts telefoon:** welke gegevens Garmin werkelijk doorzet. Body
-Battery en stress komen vermoedelijk niet mee. Ontbreekt het dagtotaal aan calorieën, dan
-rekent de backend rustverbruik zelf uit (leeftijd, lengte, gewicht) plus actieve calorieën.
-Eerste bouwstap voor deze koppeling is daarom een proefscherm.
+**Gecontroleerd via adb op 17 november 2026** (Pixel 10 Pro, Android 17, Health Connect
+ingebouwd, Garmin Connect 5.31): de koppeling staat aan. Garmin Connect heeft door Robbert
+toegekende schrijfrechten voor stappen, afstand, snelheid, verdiepingen, hoogtewinst,
+actieve calorieën, totale calorieën, trainingen, hartslag, rusthartslag, slaap, gewicht en
+vetpercentage. Geen rechten voor HRV, stress of Body Battery; die komen dus niet mee.
+
+**Inhoud gecontroleerd op 17 november 2026** met een losse test-app (Flutter-pakket
+`health` 13.3.2, alleen leesrechten, laatste zeven dagen). Het werkt; de gegevens waren
+minder dan een uur oud. Bevindingen en wat ze voor de bouw betekenen:
+
+| Gegeven | Wat er staat | Gevolg |
+|---|---|---|
+| Totale calorieën | Alleen van Garmin. Elke dag compleet, van 00:00 tot 23:59, opgeknipt rond trainingen. | **Dit is de bron voor "verbruikt".** Geen eigen berekening van rustverbruik nodig. |
+| Actieve calorieën | Van Garmin alleen rond trainingen en niet elke dag; daarnaast een eigen schatting van de telefoon. | Niet gebruiken als dagtotaal. |
+| Stappen, afstand | **Twee bronnen:** Garmin én de stappenteller van de telefoon zelf. Optellen geeft ongeveer het dubbele. | Altijd filteren op bron `com.garmin.android.apps.connectmobile`. |
+| Slaap | Elke nacht een sessie met begin en eind, plus fases licht, diep, REM en wakker. | Bruikbaar zoals ontworpen. |
+| Trainingen | Soort, begin, eind en calorieën. Afstand ontbreekt soms (binnen fietsen). | Bruikbaar; afstand optioneel. |
+| Rusthartslag | Eén waarde per dag. | Bruikbaar als extra kenmerk voor de verbanden. |
+| Hartslag | Ongeveer elke anderhalve minuut. | Alleen ophalen als er iets mee gedaan wordt (minuten lage intensiteit). |
+| Gewicht, vetpercentage | Niets. | Handmatig invoerveld, zoals gekozen. |
+
+Aandachtspunten voor de bouw:
+
+- De stappen-uitlezing gaf precies 2000 records terug; dat lijkt een limiet per aanvraag.
+  Lees per dag, of gebruik de aggregatie van Health Connect.
+- Het laatste calorieën-blok van vandaag loopt al tot 23:59. Vermoedelijk rekent Garmin
+  het rustverbruik voor de rest van de dag vooruit; nog niet bevestigd. Toon de lopende dag
+  daarom als voorlopig.
+- `MainActivity` moet `FlutterFragmentActivity` zijn en `minSdk` 26. De eerder geplande proefstap is hiermee gedaan; bouwstap 3 kan direct met de echte
+koppeling beginnen.
 
 ## 5. Hoe het leren werkt
 
