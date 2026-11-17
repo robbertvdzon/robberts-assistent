@@ -75,7 +75,7 @@ class _FakeApiClient extends ApiClient {
         title: title,
         url: url,
         instruction: instruction,
-          notifyOnFound: notifyOnFound,
+        notifyOnFound: notifyOnFound,
         status: 'NOG_NIET_GECONTROLEERD',
         statusDescription: 'Nog niet gecontroleerd.',
         active: true,
@@ -180,7 +180,7 @@ void main() {
           title: 'Concertkaartjes',
           url: 'https://example.com',
           instruction: 'Zoek twee kaarten',
-                  notifyOnFound: true,
+          notifyOnFound: true,
           status: 'NIET_GEVONDEN',
           statusDescription: 'Nog geen twee kaarten beschikbaar.',
           active: true,
@@ -203,35 +203,34 @@ void main() {
     expect(find.textContaining('Nog geen zoekopdrachten'), findsOneWidget);
   });
 
-  testWidgets(
-    'maakt watch aan met afzonderlijke velden en pushvoorkeur',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(900, 1000));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final api = _FakeApiClient();
-      await tester.pumpWidget(_wrap(api));
-      await tester.pump();
+  testWidgets('maakt watch aan met afzonderlijke velden en pushvoorkeur', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeApiClient();
+    await tester.pumpWidget(_wrap(api));
+    await tester.pump();
 
-      await tester.tap(find.byTooltip('Nieuwe zoekopdracht'));
-      await tester.pumpAndSettle();
-      final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), 'Concertkaartjes');
-      await tester.enterText(fields.at(1), 'https://example.com/tickets');
-      await tester.enterText(fields.at(2), 'Zoek twee kaarten naast elkaar');
-      expect(find.textContaining('frequentie', findRichText: true), findsNothing);
-      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
-      await tester.tap(find.byType(Switch));
-      await tester.tap(find.widgetWithText(FilledButton, 'Opslaan'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Nieuwe zoekopdracht'));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'Concertkaartjes');
+    await tester.enterText(fields.at(1), 'https://example.com/tickets');
+    await tester.enterText(fields.at(2), 'Zoek twee kaarten naast elkaar');
+    expect(find.textContaining('frequentie', findRichText: true), findsNothing);
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    await tester.tap(find.byType(Switch));
+    await tester.tap(find.widgetWithText(FilledButton, 'Opslaan'));
+    await tester.pumpAndSettle();
 
-      expect(api.createdTitle, 'Concertkaartjes');
-      expect(api.createdUrl, 'https://example.com/tickets');
-      expect(api.createdInstruction, 'Zoek twee kaarten naast elkaar');
-      expect(api.createdNotify, isFalse);
-      expect(find.text('Concertkaartjes'), findsOneWidget);
-      expect(find.text('Nog niet gecontroleerd.'), findsOneWidget);
-    },
-  );
+    expect(api.createdTitle, 'Concertkaartjes');
+    expect(api.createdUrl, 'https://example.com/tickets');
+    expect(api.createdInstruction, 'Zoek twee kaarten naast elkaar');
+    expect(api.createdNotify, isFalse);
+    expect(find.text('Concertkaartjes'), findsOneWidget);
+    expect(find.text('Nog niet gecontroleerd.'), findsOneWidget);
+  });
 
   testWidgets('bewerkt een bestaande watch met vooraf ingevulde velden', (
     tester,

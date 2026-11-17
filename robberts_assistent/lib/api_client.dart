@@ -549,6 +549,32 @@ class ApiClient {
   Future<void> saveFoodMemory(String text) =>
       putJson('/api/v1/nutrition/memory', {'text': text});
 
+  // -- Check-ins (honger en energie) ---------------------------------------------
+  Future<CheckIn> recordCheckIn({
+    int? hunger,
+    int? energy,
+    String note = '',
+    String source = 'APP',
+    String? mealId,
+  }) async => CheckIn.fromJson(
+    await postJson('/api/v1/checkins', {
+      if (hunger != null) 'hunger': hunger,
+      if (energy != null) 'energy': energy,
+      'note': note,
+      'source': source,
+      if (mealId != null) 'mealId': mealId,
+    }),
+  );
+
+  Future<List<CheckIn>> getCheckIns(DateTime date) async {
+    final d =
+        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final body = await getJson('/api/v1/checkins?date=$d');
+    return ((body['checkIns'] as List?) ?? const [])
+        .map((e) => CheckIn.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -1224,5 +1250,37 @@ class NutritionDay {
     meals: ((m['meals'] as List?) ?? const [])
         .map((e) => Meal.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList(),
+  );
+}
+
+/// Hoe Robbert zich op één moment voelde. [hunger] 0 = geen … 3 = slap van de honger,
+/// [energy] 1 = moe … 5 = fit; elk mag ontbreken.
+class CheckIn {
+  final String id;
+  final DateTime at;
+  final int? hunger;
+  final int? energy;
+  final String note;
+  final String source;
+  final String? mealId;
+
+  const CheckIn({
+    required this.id,
+    required this.at,
+    this.hunger,
+    this.energy,
+    this.note = '',
+    this.source = 'APP',
+    this.mealId,
+  });
+
+  static CheckIn fromJson(Map<String, dynamic> m) => CheckIn(
+    id: m['id'] as String,
+    at: DateTime.parse(m['at'] as String).toLocal(),
+    hunger: (m['hunger'] as num?)?.toInt(),
+    energy: (m['energy'] as num?)?.toInt(),
+    note: m['note'] as String? ?? '',
+    source: m['source'] as String? ?? 'APP',
+    mealId: m['mealId'] as String?,
   );
 }

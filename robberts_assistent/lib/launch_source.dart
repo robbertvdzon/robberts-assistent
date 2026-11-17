@@ -39,8 +39,11 @@ class AppLaunchInfo {
       platform: platform,
       referrer: map['referrer']?.toString(),
       action: map['action']?.toString(),
-      categories: (map['categories'] as List?)?.map((c) => '$c').toList() ?? const [],
-      extras: (map['extras'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ?? const {},
+      categories:
+          (map['categories'] as List?)?.map((c) => '$c').toList() ?? const [],
+      extras:
+          (map['extras'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
+          const {},
       appVersion: appVersion,
     );
   }
@@ -75,7 +78,10 @@ class LaunchSourceService {
     if (kIsWeb) {
       // Web heeft geen MethodChannel; één launch met alleen het platform houdt dat veld
       // betekenisvol zonder native code.
-      lastLaunch.value = const AppLaunchInfo(source: 'UNKNOWN', platform: 'web');
+      lastLaunch.value = const AppLaunchInfo(
+        source: 'UNKNOWN',
+        platform: 'web',
+      );
       return;
     }
     // Push: een tweede start komt via onNewIntent binnen terwijl de app al draait.
@@ -109,8 +115,10 @@ class LaunchSourceService {
   /// Hergebruikt de bestaande versielogica (dezelfde updater-channel als `UpdateChecker`).
   static Future<String?> _appVersion() async {
     try {
-      final code = await const MethodChannel('nl.vdzon.robberts_assistent/updater')
-          .invokeMethod<int>('installedVersionCode', {
+      final code =
+          await const MethodChannel(
+            'nl.vdzon.robberts_assistent/updater',
+          ).invokeMethod<int>('installedVersionCode', {
             'packageName': UpdateChecker.selfPackageName,
           });
       return (code == null || code < 0) ? null : '$code';

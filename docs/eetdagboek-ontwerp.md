@@ -1,10 +1,12 @@
 # Eetdagboek met foto's — ontwerp
 
-Status: **bouwstap 1 gebouwd** (17 november 2026): backendmodule `nutrition` en het
-scherm Eten onder Meer in de hoofdapp (`lib/food_screen.dart`). Lokaal getest met de mock-AI;
-de echte AI-analyse is nog niet met een foto beproefd. Stappen 2 t/m 6 zijn nog ontwerp. Schermontwerpen staan in de
-artifact-versie van dit document: https://claude.ai/artifact/8yhwdq15eHShrTin5RjwVv
-(privé, alleen voor Robbert).
+Status: **bouwstap 1 en het grootste deel van stap 2 gebouwd** (17 november 2026).
+Stap 1: backendmodule `nutrition` en het scherm Eten onder Meer in de hoofdapp
+(`lib/food_screen.dart`). Stap 2: backendmodule `wellbeing`, het check-in-scherm
+(`lib/checkin_screen.dart`), de vraag onder het vastleggen en de drie meldingen per dag. Nog niet
+gebouwd uit stap 2: de widget op het startscherm en antwoordknoppen ín de melding (een tik op de
+melding opent nu het check-in-scherm). Lokaal getest met de mock-AI; de echte AI-analyse is nog
+niet met een foto beproefd. Stappen 3 t/m 6 zijn nog ontwerp.
 
 Eén foto per eetmoment. De assistent zegt wat hij ziet, Robbert tikt op Klopt of verbetert
 het, en de verbetering wordt onthouden. Garmin levert wat hij verbruikt. Daarnaast korte

@@ -321,7 +321,9 @@ void main() {
       addTearDown(() => LaunchSourceService.lastLaunch.value = null);
       final api = _FakeApiClient();
       await tester.pumpWidget(
-        MaterialApp(home: HomeScreen(api: api, onLoggedOut: () {})),
+        MaterialApp(
+          home: HomeScreen(api: api, onLoggedOut: () {}),
+        ),
       );
       await tester.pump();
 
@@ -359,7 +361,9 @@ void main() {
       addTearDown(() => LaunchSourceService.lastLaunch.value = null);
       final api = _FakeApiClient();
       await tester.pumpWidget(
-        MaterialApp(home: HomeScreen(api: api, onLoggedOut: () {})),
+        MaterialApp(
+          home: HomeScreen(api: api, onLoggedOut: () {}),
+        ),
       );
       await tester.pump();
 

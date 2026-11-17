@@ -55,6 +55,29 @@ class _FakeApiClient extends ApiClient {
   @override
   Future<Meal> getMeal(String id) async => meal;
 
+  final checkIns = <CheckIn>[];
+  Map<String, Object?>? recorded;
+
+  @override
+  Future<List<CheckIn>> getCheckIns(DateTime date) async => checkIns;
+
+  @override
+  Future<CheckIn> recordCheckIn({
+    int? hunger,
+    int? energy,
+    String note = '',
+    String source = 'APP',
+    String? mealId,
+  }) async {
+    recorded = {
+      'hunger': hunger,
+      'energy': energy,
+      'source': source,
+      'mealId': mealId,
+    };
+    return CheckIn(id: 'c1', at: DateTime(2026, 11, 17, 15, 30));
+  }
+
   @override
   Future<Meal> confirmMeal(String id, {List<MealItem>? items}) async {
     confirmCalled = true;
@@ -200,5 +223,48 @@ void main() {
     await tester.pump();
 
     expect(api.createdNote, 'een appel en koffie');
+  });
+
+  testWidgets('gevoel voor het eten gaat als check-in mee met het eetmoment', (
+    tester,
+  ) async {
+    final api = _FakeApiClient();
+    await _pump(tester, MealCaptureScreen(api: api, openCameraOnStart: false));
+
+    await tester.enterText(find.byType(TextField), 'een appel');
+    await tester.tap(find.text('Trek'));
+    await tester.tap(find.text('4'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Klaar'));
+    await tester.tap(find.text('Klaar'));
+    await tester.pump();
+
+    expect(api.recorded, {
+      'hunger': 1,
+      'energy': 4,
+      'source': 'FOTO',
+      'mealId': 'm1',
+    });
+  });
+
+  testWidgets('dagoverzicht toont de check-ins van die dag', (tester) async {
+    final api = _FakeApiClient()
+      ..checkIns.add(
+        CheckIn(
+          id: 'c1',
+          at: DateTime(2026, 11, 17, 15, 30),
+          hunger: 3,
+          energy: 2,
+          note: 'na het fietsen',
+        ),
+      );
+    await _pump(tester, FoodScreen(api: api));
+
+    expect(find.text('Hoe je je voelde'), findsOneWidget);
+    expect(find.text('15:30'), findsOneWidget);
+    expect(
+      find.text('slap van de honger · energie 2 — na het fietsen'),
+      findsOneWidget,
+    );
   });
 }

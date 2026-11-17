@@ -7,10 +7,10 @@ import 'package:robberts_assistent/api_client.dart';
 
 void main() {
   http.Response json(Object body, [int status = 200]) => http.Response(
-        jsonEncode(body),
-        status,
-        headers: {'content-type': 'application/json'},
-      );
+    jsonEncode(body),
+    status,
+    headers: {'content-type': 'application/json'},
+  );
 
   ApiClient newClient() => ApiClient()
     ..token = 'tok'
@@ -43,7 +43,10 @@ void main() {
     expect(reply.conversationId, 'c1');
     expect(reply.title, 'Titel');
     expect(calls.first, 'POST /api/v1/assistant/chat/async');
-    expect(calls.where((c) => c == 'GET /api/v1/assistant/chat/jobs/j1').length, 3);
+    expect(
+      calls.where((c) => c == 'GET /api/v1/assistant/chat/jobs/j1').length,
+      3,
+    );
   });
 
   test('een mislukte beurt geeft de foutmelding van de server', () async {
@@ -61,26 +64,29 @@ void main() {
     );
   });
 
-  test('een kortstondige netwerkfout tijdens het wachten wordt overleefd', () async {
-    var polls = 0;
-    final mock = MockClient((request) async {
-      if (request.method == 'POST') return json({'jobId': 'j1'}, 202);
-      polls++;
-      if (polls == 1) throw http.ClientException('verbinding weg');
-      return json({
-        'jobId': 'j1',
-        'status': 'DONE',
-        'conversationId': 'c1',
-        'title': 'T',
-        'reply': 'Klaar',
+  test(
+    'een kortstondige netwerkfout tijdens het wachten wordt overleefd',
+    () async {
+      var polls = 0;
+      final mock = MockClient((request) async {
+        if (request.method == 'POST') return json({'jobId': 'j1'}, 202);
+        polls++;
+        if (polls == 1) throw http.ClientException('verbinding weg');
+        return json({
+          'jobId': 'j1',
+          'status': 'DONE',
+          'conversationId': 'c1',
+          'title': 'T',
+          'reply': 'Klaar',
+        });
       });
-    });
 
-    final reply = await http.runWithClient(
-      () => newClient().assistantChat(message: 'hallo'),
-      () => mock,
-    );
+      final reply = await http.runWithClient(
+        () => newClient().assistantChat(message: 'hallo'),
+        () => mock,
+      );
 
-    expect(reply.reply, 'Klaar');
-  });
+      expect(reply.reply, 'Klaar');
+    },
+  );
 }

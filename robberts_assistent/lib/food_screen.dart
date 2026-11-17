@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'api_client.dart';
+import 'checkin_screen.dart';
 
 const _monthNames = [
   'jan', 'feb', 'mrt', 'apr', 'mei', 'jun',
@@ -57,6 +58,7 @@ class FoodScreen extends StatefulWidget {
 class _FoodScreenState extends State<FoodScreen> {
   DateTime _date = DateUtils.dateOnly(DateTime.now());
   NutritionDay? _day;
+  List<CheckIn> _checkIns = const [];
   String? _error;
   bool _loading = true;
   Timer? _poll;
@@ -77,9 +79,14 @@ class _FoodScreenState extends State<FoodScreen> {
     if (!silent) setState(() => _loading = true);
     try {
       final day = await widget.api.getNutritionDay(_date);
+      // Check-ins zijn bijzaak op dit scherm: lukt het ophalen niet, dan blijft de dag gewoon staan.
+      final checkIns = await widget.api
+          .getCheckIns(_date)
+          .catchError((_) => const <CheckIn>[]);
       if (!mounted) return;
       setState(() {
         _day = day;
+        _checkIns = checkIns;
         _error = null;
         _loading = false;
       });
@@ -114,6 +121,13 @@ class _FoodScreenState extends State<FoodScreen> {
     }
   }
 
+  Future<void> _checkIn() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => CheckInScreen(api: widget.api)),
+    );
+    if (saved == true) _load(silent: true);
+  }
+
   Future<void> _open(Meal meal) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -130,6 +144,11 @@ class _FoodScreenState extends State<FoodScreen> {
       appBar: AppBar(
         title: const Text('Eten'),
         actions: [
+          IconButton(
+            tooltip: 'Hoe voel je je?',
+            icon: const Icon(Icons.mood_outlined),
+            onPressed: _checkIn,
+          ),
           IconButton(
             tooltip: 'Wat ik van je weet',
             icon: const Icon(Icons.psychology_outlined),
@@ -214,6 +233,53 @@ class _FoodScreenState extends State<FoodScreen> {
                   meal: meal,
                   onTap: () => _open(meal),
                 ),
+              if (_checkIns.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hoe je je voelde',
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        for (final c in _checkIns)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 48,
+                                  child: Text(
+                                    _time(c.at),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    [
+                                      describeCheckIn(c),
+                                      if (c.note.isNotEmpty) c.note,
+                                    ].join(' — '),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ],
         ),
@@ -467,6 +533,8 @@ class _MealCaptureScreenState extends State<MealCaptureScreen> {
   final _note = TextEditingController();
   final _photos = <AssistantAttachment>[];
   bool _sending = false;
+  int? _hunger;
+  int? _energy;
 
   @override
   void initState() {
@@ -523,7 +591,23 @@ class _MealCaptureScreenState extends State<MealCaptureScreen> {
   Future<void> _send() async {
     setState(() => _sending = true);
     try {
-      await widget.api.createMeal(photos: _photos, note: _note.text.trim());
+      final meal = await widget.api.createMeal(
+        photos: _photos,
+        note: _note.text.trim(),
+      );
+      if (_hunger != null || _energy != null) {
+        // Het gevoel net voor het eten hoort bij dit eetmoment. Mislukt het bewaren, dan is het
+        // eetmoment zelf al binnen; dat laten we niet alsnog falen.
+        await widget.api
+            .recordCheckIn(
+              hunger: _hunger,
+              energy: _energy,
+              source: 'FOTO',
+              mealId: meal.id,
+            )
+            .then<void>((_) {})
+            .catchError((_) {});
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
@@ -619,6 +703,19 @@ class _MealCaptureScreenState extends State<MealCaptureScreen> {
               hintText:
                   'Bijv. "de helft opgegeten", "60 gram havermout gewogen" of alleen tekst zonder foto',
             ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Hoe voelde je je net voor het eten? (hoeft niet)',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 10),
+          CheckInPicker(
+            hunger: _hunger,
+            energy: _energy,
+            enabled: !_sending,
+            onHunger: (v) => setState(() => _hunger = v),
+            onEnergy: (v) => setState(() => _energy = v),
           ),
           const SizedBox(height: 20),
           FilledButton(

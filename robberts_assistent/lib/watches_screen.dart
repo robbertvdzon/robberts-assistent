@@ -298,10 +298,7 @@ class _WatchDialogState extends State<_WatchDialog> {
       setState(() => _validationError = error);
       return;
     }
-    Navigator.pop(
-      context,
-      _WatchInput(title, url, instruction, _notify),
-    );
+    Navigator.pop(context, _WatchInput(title, url, instruction, _notify));
   }
 
   @override

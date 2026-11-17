@@ -11,8 +11,10 @@ const _briefingPushType = 'briefing';
 const _watchPushType = 'watch';
 // Moet gelijk zijn aan het `type` dat `nutrition.MealService` meestuurt.
 const _mealPushType = 'meal';
+// Moet gelijk zijn aan `wellbeing.CheckInPromptScheduler.PUSH_TYPE`.
+const _checkInPushType = 'checkin';
 
-enum DeepLinkTarget { today, watches, food }
+enum DeepLinkTarget { today, watches, food, checkIn }
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond
 /// of gesloten is toont Android de FCM-notification-payload zelf op het opgegeven kanaal.
@@ -47,6 +49,8 @@ class FcmService {
       deepLinkTarget.value = DeepLinkTarget.watches;
     } else if (data['type'] == _mealPushType) {
       deepLinkTarget.value = DeepLinkTarget.food;
+    } else if (data['type'] == _checkInPushType) {
+      deepLinkTarget.value = DeepLinkTarget.checkIn;
     }
   }
 

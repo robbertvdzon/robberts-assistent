@@ -130,7 +130,8 @@ class AssistantScreen extends StatefulWidget {
 
 class _AssistantScreenState extends State<AssistantScreen> {
   final _history = <ChatMessage>[];
-  late final SpeechRecognizer _speech = widget.speech ?? _PluginSpeechRecognizer();
+  late final SpeechRecognizer _speech =
+      widget.speech ?? _PluginSpeechRecognizer();
   late final VoiceSpeaker _speaker = widget.speaker ?? _PluginVoiceSpeaker();
   final _chatController = TextEditingController();
   final _scrollController = ScrollController();

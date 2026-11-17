@@ -434,23 +434,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('luistert niet opnieuw na handmatig stoppen tijdens het uitspreken', (
-      tester,
-    ) async {
-      await tester.pumpWidget(screen());
-      await tester.pump();
-      await askAndAwaitSpeaking(tester);
+    testWidgets(
+      'luistert niet opnieuw na handmatig stoppen tijdens het uitspreken',
+      (tester) async {
+        await tester.pumpWidget(screen());
+        await tester.pump();
+        await askAndAwaitSpeaking(tester);
 
-      await tester.tap(find.byIcon(Icons.stop));
-      await tester.pump();
+        await tester.tap(find.byIcon(Icons.stop));
+        await tester.pump();
 
-      speaker.finishSpeaking();
-      await tester.pump();
-      await tester.pump();
+        speaker.finishSpeaking();
+        await tester.pump();
+        await tester.pump();
 
-      expect(speech.listenCount, 1);
-      expect(find.byIcon(Icons.mic), findsOneWidget);
-    });
+        expect(speech.listenCount, 1);
+        expect(find.byIcon(Icons.mic), findsOneWidget);
+      },
+    );
 
     testWidgets('luistert niet opnieuw na wisselen naar chatmodus', (
       tester,
@@ -488,25 +489,23 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('stopt de lus bij een fout van de chat-API en toont de foutmelding', (
-      tester,
-    ) async {
-      api.failWith = Exception('backend onbereikbaar');
+    testWidgets(
+      'stopt de lus bij een fout van de chat-API en toont de foutmelding',
+      (tester) async {
+        api.failWith = Exception('backend onbereikbaar');
 
-      await tester.pumpWidget(screen());
-      await tester.pump();
-      speech.hear('wat is de wind');
-      await tester.pump();
-      await tester.pump();
+        await tester.pumpWidget(screen());
+        await tester.pump();
+        speech.hear('wat is de wind');
+        await tester.pump();
+        await tester.pump();
 
-      expect(speaker.spoken, isEmpty);
-      expect(speech.listenCount, 1);
-      expect(
-        find.textContaining('backend onbereikbaar'),
-        findsOneWidget,
-      );
-      expect(find.byIcon(Icons.mic), findsOneWidget);
-    });
+        expect(speaker.spoken, isEmpty);
+        expect(speech.listenCount, 1);
+        expect(find.textContaining('backend onbereikbaar'), findsOneWidget);
+        expect(find.byIcon(Icons.mic), findsOneWidget);
+      },
+    );
 
     testWidgets('stopt de lus na twee rondes zonder verstane spraak', (
       tester,
@@ -517,7 +516,11 @@ void main() {
 
       speech.hearNothing();
       await tester.pump();
-      expect(speech.listenCount, 2, reason: 'eerste stille ronde: nog een keer proberen');
+      expect(
+        speech.listenCount,
+        2,
+        reason: 'eerste stille ronde: nog een keer proberen',
+      );
 
       speech.hearNothing();
       await tester.pump();
@@ -539,47 +542,49 @@ void main() {
       expect(find.text('Spraakherkenning: no-match'), findsOneWidget);
     });
 
-    testWidgets('de spraakroute stuurt de voice-vlag mee, de getypte route niet', (
-      tester,
-    ) async {
-      await tester.pumpWidget(screen());
-      await tester.pump();
+    testWidgets(
+      'de spraakroute stuurt de voice-vlag mee, de getypte route niet',
+      (tester) async {
+        await tester.pumpWidget(screen());
+        await tester.pump();
 
-      speech.hear('wat is de wind');
-      await tester.pump();
-      await tester.pump();
-      expect(api.lastVoice, isTrue);
+        speech.hear('wat is de wind');
+        await tester.pump();
+        await tester.pump();
+        expect(api.lastVoice, isTrue);
 
-      // Beurt afronden (klaar met uitspreken), dan overschakelen op typen.
-      speaker.finishSpeaking();
-      await tester.pump();
-      await tester.pump();
+        // Beurt afronden (klaar met uitspreken), dan overschakelen op typen.
+        speaker.finishSpeaking();
+        await tester.pump();
+        await tester.pump();
 
-      await tester.tap(find.text('Chatten'));
-      await tester.pump();
-      await tester.enterText(find.byType(TextField), 'en morgen?');
-      await tester.tap(find.byIcon(Icons.send));
-      await tester.pump();
-      await tester.pump();
+        await tester.tap(find.text('Chatten'));
+        await tester.pump();
+        await tester.enterText(find.byType(TextField), 'en morgen?');
+        await tester.tap(find.byIcon(Icons.send));
+        await tester.pump();
+        await tester.pump();
 
-      expect(api.lastMessage, 'en morgen?');
-      expect(api.lastVoice, isFalse);
-    });
+        expect(api.lastMessage, 'en morgen?');
+        expect(api.lastVoice, isFalse);
+      },
+    );
 
-    testWidgets('er ontstaat geen tweede listen-sessie zolang er al geluisterd wordt', (
-      tester,
-    ) async {
-      await tester.pumpWidget(screen());
-      await tester.pump();
-      expect(speech.listenCount, 1);
+    testWidgets(
+      'er ontstaat geen tweede listen-sessie zolang er al geluisterd wordt',
+      (tester) async {
+        await tester.pumpWidget(screen());
+        await tester.pump();
+        expect(speech.listenCount, 1);
 
-      // Stop-knop indrukken en meteen weer starten levert precies één nieuwe sessie op.
-      await tester.tap(find.byIcon(Icons.stop));
-      await tester.pump();
-      await tester.tap(find.byIcon(Icons.mic));
-      await tester.pump();
+        // Stop-knop indrukken en meteen weer starten levert precies één nieuwe sessie op.
+        await tester.tap(find.byIcon(Icons.stop));
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.mic));
+        await tester.pump();
 
-      expect(speech.listenCount, 2);
-    });
+        expect(speech.listenCount, 2);
+      },
+    );
   });
 }

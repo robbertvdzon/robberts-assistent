@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_logo.dart';
+import 'checkin_screen.dart';
 import 'assistant_screen.dart';
 import 'conversations_screen.dart';
 import 'fcm_service.dart';
@@ -95,9 +96,14 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => target == DeepLinkTarget.food
-              ? FoodScreen(api: widget.api)
-              : WatchesScreen(api: widget.api),
+          builder: (_) => switch (target) {
+            DeepLinkTarget.food => FoodScreen(api: widget.api),
+            DeepLinkTarget.checkIn => CheckInScreen(
+              api: widget.api,
+              source: 'MELDING',
+            ),
+            _ => WatchesScreen(api: widget.api),
+          },
         ),
       );
     });
