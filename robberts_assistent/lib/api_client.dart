@@ -456,6 +456,99 @@ class ApiClient {
     return CheckRun.fromJson(body);
   }
 
+  // -- Eetdagboek ---------------------------------------------------------------
+  /// Nieuw eetmoment (`POST /api/v1/meals`, multipart). De backend geeft de maaltijd direct terug
+  /// met status `ANALYSEREN`; het voorstel volgt later (pollen via [getMeal] of na de push).
+  Future<Meal> createMeal({
+    List<AssistantAttachment> photos = const [],
+    String note = '',
+    DateTime? eatenAt,
+  }) => _mealMultipart(
+    '/api/v1/meals',
+    photos: photos,
+    note: note,
+    eatenAt: eatenAt,
+  );
+
+  /// Extra foto's (tweede bord, etiket, recept) bij een bestaand eetmoment.
+  Future<Meal> addMealPhotos(
+    String id, {
+    List<AssistantAttachment> photos = const [],
+    String note = '',
+  }) => _mealMultipart('/api/v1/meals/$id/photos', photos: photos, note: note);
+
+  Future<Meal> _mealMultipart(
+    String path, {
+    required List<AssistantAttachment> photos,
+    required String note,
+    DateTime? eatenAt,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
+    request.headers.addAll(authHeaders());
+    request.fields['note'] = note;
+    if (eatenAt != null) {
+      request.fields['eatenAt'] = eatenAt.toUtc().toIso8601String();
+    }
+    for (final photo in photos) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'photos',
+          photo.bytes,
+          filename: photo.filename,
+          contentType: MediaType.parse(photo.contentType),
+        ),
+      );
+    }
+    final response = await http.Response.fromStream(await request.send());
+    await _throwOnError(response);
+    return Meal.fromJson(
+      Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+    );
+  }
+
+  Future<Meal> getMeal(String id) async =>
+      Meal.fromJson(await getJson('/api/v1/meals/$id'));
+
+  /// Dagoverzicht (`GET /api/v1/meals?date=jjjj-mm-dd`).
+  Future<NutritionDay> getNutritionDay(DateTime date) async {
+    final d =
+        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return NutritionDay.fromJson(await getJson('/api/v1/meals?date=$d'));
+  }
+
+  /// Bevestigt een eetmoment. Zonder [items] wordt het voorstel overgenomen.
+  Future<Meal> confirmMeal(String id, {List<MealItem>? items}) async =>
+      Meal.fromJson(
+        await putJson('/api/v1/meals/$id', {
+          if (items != null) 'items': items.map((i) => i.toJson()).toList(),
+        }),
+      );
+
+  /// Verbetering in gewone woorden; de AI rekent het eetmoment opnieuw door.
+  Future<Meal> correctMeal(String id, String text) async => Meal.fromJson(
+    await postJson('/api/v1/meals/$id/correct', {'text': text}),
+  );
+
+  Future<Meal> retryMeal(String id) async =>
+      Meal.fromJson(await postJson('/api/v1/meals/$id/retry'));
+
+  Future<void> deleteMeal(String id) => _delete('/api/v1/meals/$id');
+
+  Future<Uint8List> fetchMealPhoto(String photoId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/v1/meals/photos/$photoId'),
+      headers: authHeaders(),
+    );
+    await _throwOnError(response);
+    return response.bodyBytes;
+  }
+
+  Future<String> getFoodMemory() async =>
+      (await getJson('/api/v1/nutrition/memory'))['text'] as String? ?? '';
+
+  Future<void> saveFoodMemory(String text) =>
+      putJson('/api/v1/nutrition/memory', {'text': text});
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -944,5 +1037,192 @@ class NightlyCheck {
     lastRun: m['lastRun'] == null
         ? null
         : CheckRun.fromJson(m['lastRun'] as Map<String, dynamic>),
+  );
+}
+
+// -- Eetdagboek -----------------------------------------------------------------
+
+/// Eén onderdeel van een maaltijd, met voedingswaarden voor de gegeten hoeveelheid.
+class MealItem {
+  final String name;
+  final int grams;
+  final int kcal;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+  final double fiberG;
+  final int vegetableG;
+  final int fruitG;
+  final bool uncertain;
+
+  /// `GEWOGEN`, `ETIKET`, `RECEPT`, `VERGELEKEN` of `GESCHAT`.
+  final String basis;
+
+  const MealItem({
+    required this.name,
+    required this.grams,
+    required this.kcal,
+    this.proteinG = 0,
+    this.carbsG = 0,
+    this.fatG = 0,
+    this.fiberG = 0,
+    this.vegetableG = 0,
+    this.fruitG = 0,
+    this.uncertain = false,
+    this.basis = 'GESCHAT',
+  });
+
+  bool get weighed => basis == 'GEWOGEN';
+
+  /// Zelfde product, andere hoeveelheid: alle waarden schalen mee.
+  MealItem withGrams(int newGrams, {bool? weighed}) {
+    final f = grams > 0 ? newGrams / grams : 1.0;
+    return MealItem(
+      name: name,
+      grams: newGrams,
+      kcal: (kcal * f).round(),
+      proteinG: proteinG * f,
+      carbsG: carbsG * f,
+      fatG: fatG * f,
+      fiberG: fiberG * f,
+      vegetableG: (vegetableG * f).round(),
+      fruitG: (fruitG * f).round(),
+      uncertain: false,
+      basis: (weighed ?? this.weighed)
+          ? 'GEWOGEN'
+          : (basis == 'GEWOGEN' ? 'GESCHAT' : basis),
+    );
+  }
+
+  MealItem copyWith({String? name, int? kcal}) => MealItem(
+    name: name ?? this.name,
+    grams: grams,
+    kcal: kcal ?? this.kcal,
+    proteinG: proteinG,
+    carbsG: carbsG,
+    fatG: fatG,
+    fiberG: fiberG,
+    vegetableG: vegetableG,
+    fruitG: fruitG,
+    uncertain: false,
+    basis: basis,
+  );
+
+  static MealItem fromJson(Map<String, dynamic> m) => MealItem(
+    name: m['name'] as String? ?? '',
+    grams: (m['grams'] as num?)?.toInt() ?? 0,
+    kcal: (m['kcal'] as num?)?.toInt() ?? 0,
+    proteinG: (m['proteinG'] as num?)?.toDouble() ?? 0,
+    carbsG: (m['carbsG'] as num?)?.toDouble() ?? 0,
+    fatG: (m['fatG'] as num?)?.toDouble() ?? 0,
+    fiberG: (m['fiberG'] as num?)?.toDouble() ?? 0,
+    vegetableG: (m['vegetableG'] as num?)?.toInt() ?? 0,
+    fruitG: (m['fruitG'] as num?)?.toInt() ?? 0,
+    uncertain: m['uncertain'] as bool? ?? false,
+    basis: m['basis'] as String? ?? 'GESCHAT',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'grams': grams,
+    'kcal': kcal,
+    'proteinG': proteinG,
+    'carbsG': carbsG,
+    'fatG': fatG,
+    'fiberG': fiberG,
+    'vegetableG': vegetableG,
+    'fruitG': fruitG,
+    'uncertain': uncertain,
+    'basis': basis,
+  };
+}
+
+/// Een eetmoment. [status] is `ANALYSEREN`, `VOORSTEL`, `BEVESTIGD`, `VERBETERD` of `MISLUKT`.
+class Meal {
+  final String id;
+  final DateTime eatenAt;
+  final String title;
+  final List<String> photoIds;
+  final String note;
+  final String status;
+  final int kcal;
+  final List<MealItem> items;
+  final String remark;
+  final String learned;
+  final String error;
+
+  const Meal({
+    required this.id,
+    required this.eatenAt,
+    required this.title,
+    required this.photoIds,
+    required this.note,
+    required this.status,
+    required this.kcal,
+    required this.items,
+    this.remark = '',
+    this.learned = '',
+    this.error = '',
+  });
+
+  bool get analysing => status == 'ANALYSEREN';
+  bool get failed => status == 'MISLUKT';
+  bool get proposal => status == 'VOORSTEL';
+  bool get confirmed => status == 'BEVESTIGD' || status == 'VERBETERD';
+
+  static Meal fromJson(Map<String, dynamic> m) => Meal(
+    id: m['id'] as String,
+    eatenAt: DateTime.parse(m['eatenAt'] as String).toLocal(),
+    title: m['title'] as String? ?? '',
+    photoIds: ((m['photoIds'] as List?) ?? const []).cast<String>(),
+    note: m['note'] as String? ?? '',
+    status: m['status'] as String? ?? 'MISLUKT',
+    kcal: (m['kcal'] as num?)?.toInt() ?? 0,
+    items: ((m['items'] as List?) ?? const [])
+        .map((e) => MealItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
+    remark: m['remark'] as String? ?? '',
+    learned: m['learned'] as String? ?? '',
+    error: m['error'] as String? ?? '',
+  );
+}
+
+class NutritionTotals {
+  final int kcal;
+  final double proteinG;
+  final double fiberG;
+  final int vegetableG;
+  final int fruitG;
+
+  const NutritionTotals({
+    this.kcal = 0,
+    this.proteinG = 0,
+    this.fiberG = 0,
+    this.vegetableG = 0,
+    this.fruitG = 0,
+  });
+
+  static NutritionTotals fromJson(Map<String, dynamic> m) => NutritionTotals(
+    kcal: (m['kcal'] as num?)?.toInt() ?? 0,
+    proteinG: (m['proteinG'] as num?)?.toDouble() ?? 0,
+    fiberG: (m['fiberG'] as num?)?.toDouble() ?? 0,
+    vegetableG: (m['vegetableG'] as num?)?.toInt() ?? 0,
+    fruitG: (m['fruitG'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class NutritionDay {
+  final NutritionTotals totals;
+  final List<Meal> meals;
+
+  const NutritionDay({required this.totals, required this.meals});
+
+  static NutritionDay fromJson(Map<String, dynamic> m) => NutritionDay(
+    totals: NutritionTotals.fromJson(
+      Map<String, dynamic>.from(m['totals'] as Map? ?? const {}),
+    ),
+    meals: ((m['meals'] as List?) ?? const [])
+        .map((e) => Meal.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
   );
 }

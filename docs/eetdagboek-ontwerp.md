@@ -1,6 +1,8 @@
 # Eetdagboek met foto's — ontwerp
 
-Status: **ontwerp, nog niets gebouwd** (17 november 2026). Schermontwerpen staan in de
+Status: **bouwstap 1 gebouwd** (17 november 2026): backendmodule `nutrition` en het
+scherm Eten onder Meer in de hoofdapp (`lib/food_screen.dart`). Lokaal getest met de mock-AI;
+de echte AI-analyse is nog niet met een foto beproefd. Stappen 2 t/m 6 zijn nog ontwerp. Schermontwerpen staan in de
 artifact-versie van dit document: https://claude.ai/artifact/8yhwdq15eHShrTin5RjwVv
 (privé, alleen voor Robbert).
 

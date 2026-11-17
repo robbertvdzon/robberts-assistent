@@ -11,7 +11,7 @@ vier Flutter/Android-apps.
   stub- of in-memory fallback.
 - **`robberts_assistent/`** — hoofdapp als Android-APK en web-app. De vier
   hoofdbestemmingen zijn Vandaag, Assistent, Taken en Meer; onder Meer staan onder
-  meer Health check en Zoekopdrachten. Vandaag vat kiten, strandfietsen en afval
+  meer Eten (eetdagboek met foto's, zie `docs/eetdagboek-ontwerp.md`), Health check en Zoekopdrachten. Vandaag vat kiten, strandfietsen en afval
   samen in maximaal drie interactieve statustegels. Via Zoekopdrachten kan de
   gebruiker een website periodiek laten beoordelen en optioneel een push ontvangen
   zodra het gezochte is gevonden; een knop bovenin laat alle lopende zoekopdrachten

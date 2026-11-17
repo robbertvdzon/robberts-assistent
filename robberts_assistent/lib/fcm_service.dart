@@ -9,8 +9,10 @@ import 'api_client.dart';
 // Moet gelijk zijn aan `BriefingScheduler.PUSH_TYPE` in de backend.
 const _briefingPushType = 'briefing';
 const _watchPushType = 'watch';
+// Moet gelijk zijn aan het `type` dat `nutrition.MealService` meestuurt.
+const _mealPushType = 'meal';
 
-enum DeepLinkTarget { today, watches }
+enum DeepLinkTarget { today, watches, food }
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond
 /// of gesloten is toont Android de FCM-notification-payload zelf op het opgegeven kanaal.
@@ -43,6 +45,8 @@ class FcmService {
       deepLinkTarget.value = DeepLinkTarget.today;
     } else if (data['type'] == _watchPushType) {
       deepLinkTarget.value = DeepLinkTarget.watches;
+    } else if (data['type'] == _mealPushType) {
+      deepLinkTarget.value = DeepLinkTarget.food;
     }
   }
 

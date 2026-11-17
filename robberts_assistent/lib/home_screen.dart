@@ -11,6 +11,7 @@ import 'more_screen.dart';
 import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
 import 'summary_screen.dart';
+import 'food_screen.dart';
 import 'watches_screen.dart';
 
 /// App-shell na het inloggen: vier hoofdbestemmingen met de overige schermen onder 'Meer'.
@@ -46,7 +47,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _onLaunch();
     // Na de eerste frame: setup() kan de waarde meteen zetten en dat mag geen setState tijdens
     // initState opleveren.
-    WidgetsBinding.instance.addPostFrameCallback((_) => LaunchSourceService.setup());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => LaunchSourceService.setup(),
+    );
   }
 
   @override
@@ -90,9 +93,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => WatchesScreen(api: widget.api)));
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => target == DeepLinkTarget.food
+              ? FoodScreen(api: widget.api)
+              : WatchesScreen(api: widget.api),
+        ),
+      );
     });
   }
 
