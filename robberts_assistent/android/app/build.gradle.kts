@@ -32,10 +32,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
-
     defaultConfig {
         applicationId = "nl.vdzon.robberts_assistent"
         // Health Connect (pakket `health`) vereist minimaal Android 8 (API 26).
@@ -73,6 +69,13 @@ android {
                 signingConfigs.getByName("debug")
             }
         }
+    }
+}
+
+// Kotlin 2.4 kent `kotlinOptions` binnen `android { }` niet meer; dit is de vervanger.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 
