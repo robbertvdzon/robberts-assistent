@@ -575,6 +575,23 @@ class ApiClient {
         .toList();
   }
 
+  // -- Bewegen, verbruik en slaap (Garmin via Health Connect) ---------------------
+  /// Stuurt de laatste dagen uit Health Connect naar de backend (`POST /api/v1/activity/days`).
+  Future<void> syncActivityDays(List<Map<String, dynamic>> days) => postJson(
+    '/api/v1/activity/days',
+    {'source': 'health-connect', 'days': days},
+  );
+
+  /// De gegevens van één dag, of `null` als er voor die dag niets is.
+  Future<ActivityDay?> getActivityDay(DateTime date) async {
+    final d =
+        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final body = await getJson('/api/v1/activity/days?from=$d&to=$d');
+    final days = (body['days'] as List?) ?? const [];
+    if (days.isEmpty) return null;
+    return ActivityDay.fromJson(Map<String, dynamic>.from(days.first as Map));
+  }
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -1282,5 +1299,57 @@ class CheckIn {
     note: m['note'] as String? ?? '',
     source: m['source'] as String? ?? 'APP',
     mealId: m['mealId'] as String?,
+  );
+}
+
+class ActivityWorkout {
+  final String type;
+  final int minutes;
+  final int? kcal;
+
+  const ActivityWorkout({required this.type, required this.minutes, this.kcal});
+
+  /// Nederlandse naam voor de soorten die Garmin het vaakst aanlevert.
+  String get label => switch (type) {
+    'WALKING' => 'wandelen',
+    'RUNNING' => 'hardlopen',
+    'BIKING' => 'fietsen',
+    'SWIMMING' => 'zwemmen',
+    'STRENGTH_TRAINING' => 'krachttraining',
+    'HIKING' => 'wandelen',
+    _ => type.toLowerCase().replaceAll('_', ' '),
+  };
+}
+
+/// Wat Robbert op één dag bewoog, verbruikte en sliep (van Garmin, via Health Connect).
+class ActivityDay {
+  final int? steps;
+  final int? totalKcal;
+  final int? sleepMinutes;
+  final List<ActivityWorkout> workouts;
+
+  const ActivityDay({
+    this.steps,
+    this.totalKcal,
+    this.sleepMinutes,
+    this.workouts = const [],
+  });
+
+  static ActivityDay fromJson(Map<String, dynamic> m) => ActivityDay(
+    steps: (m['steps'] as num?)?.toInt(),
+    totalKcal: (m['totalKcal'] as num?)?.toInt(),
+    sleepMinutes: ((m['sleep'] as Map?)?['minutes'] as num?)?.toInt(),
+    workouts: ((m['workouts'] as List?) ?? const []).map((e) {
+      final w = Map<String, dynamic>.from(e as Map);
+      final start = DateTime.tryParse(w['start'] as String? ?? '');
+      final end = DateTime.tryParse(w['end'] as String? ?? '');
+      return ActivityWorkout(
+        type: w['type'] as String? ?? '',
+        minutes: start == null || end == null
+            ? 0
+            : end.difference(start).inMinutes,
+        kcal: (w['kcal'] as num?)?.toInt(),
+      );
+    }).toList(),
   );
 }

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'api_client.dart';
 import 'checkin_screen.dart';
+import 'health_sync.dart';
 
 const _monthNames = [
   'jan', 'feb', 'mrt', 'apr', 'mei', 'jun',
@@ -44,12 +45,22 @@ Future<List<AssistantAttachment>> _toAttachments(List<XFile> files) async {
 /// Dagoverzicht van het eetdagboek: totalen bovenaan, daaronder de eetmomenten als tijdlijn.
 /// Zolang er een analyse loopt wordt de dag elke paar seconden opnieuw opgehaald.
 class FoodScreen extends StatefulWidget {
-  const FoodScreen({super.key, required this.api, this.pollInterval});
+  const FoodScreen({
+    super.key,
+    required this.api,
+    this.pollInterval,
+    this.healthSync = syncHealth,
+    this.healthAccess = requestHealthAccess,
+  });
 
   final ApiClient api;
 
   /// Aanpasbaar voor tests; standaard 3 seconden.
   final Duration? pollInterval;
+
+  /// Leest Garmin-gegevens uit Health Connect; vervangbaar in tests.
+  final Future<HealthSyncStatus> Function(ApiClient api) healthSync;
+  final Future<HealthSyncStatus> Function(ApiClient api) healthAccess;
 
   @override
   State<FoodScreen> createState() => _FoodScreenState();
@@ -59,6 +70,8 @@ class _FoodScreenState extends State<FoodScreen> {
   DateTime _date = DateUtils.dateOnly(DateTime.now());
   NutritionDay? _day;
   List<CheckIn> _checkIns = const [];
+  ActivityDay? _activity;
+  HealthSyncStatus? _health;
   String? _error;
   bool _loading = true;
   Timer? _poll;
@@ -67,12 +80,24 @@ class _FoodScreenState extends State<FoodScreen> {
   void initState() {
     super.initState();
     _load();
+    _syncHealth(widget.healthSync);
   }
 
   @override
   void dispose() {
     _poll?.cancel();
     super.dispose();
+  }
+
+  /// Haalt de laatste Garmin-dagen op de telefoon op en toont ze zodra ze bij de backend staan.
+  /// Loopt los van het laden van het scherm: het eetdagboek wacht er niet op.
+  Future<void> _syncHealth(
+    Future<HealthSyncStatus> Function(ApiClient api) run,
+  ) async {
+    final status = await run(widget.api);
+    if (!mounted) return;
+    setState(() => _health = status);
+    if (status == HealthSyncStatus.synced) _load(silent: true);
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -83,10 +108,14 @@ class _FoodScreenState extends State<FoodScreen> {
       final checkIns = await widget.api
           .getCheckIns(_date)
           .catchError((_) => const <CheckIn>[]);
+      final activity = await widget.api
+          .getActivityDay(_date)
+          .catchError((_) => null);
       if (!mounted) return;
       setState(() {
         _day = day;
         _checkIns = checkIns;
+        _activity = activity;
         _error = null;
         _loading = false;
       });
@@ -212,7 +241,13 @@ class _FoodScreenState extends State<FoodScreen> {
                 ),
               )
             else ...[
-              _TotalsCard(totals: _day!.totals),
+              _TotalsCard(
+                totals: _day!.totals,
+                activity: _activity,
+                onConnect: _health == HealthSyncStatus.needsPermission
+                    ? () => _syncHealth(widget.healthAccess)
+                    : null,
+              ),
               const SizedBox(height: 12),
               if (_day!.meals.isEmpty)
                 Padding(
@@ -289,9 +324,30 @@ class _FoodScreenState extends State<FoodScreen> {
 }
 
 class _TotalsCard extends StatelessWidget {
-  const _TotalsCard({required this.totals});
+  const _TotalsCard({required this.totals, this.activity, this.onConnect});
 
   final NutritionTotals totals;
+  final ActivityDay? activity;
+
+  /// Gezet als Health Connect er is maar de app nog geen leestoestemming heeft.
+  final VoidCallback? onConnect;
+
+  /// Stappen, trainingen en slaap in één regel, bv. "9.420 stappen · 45 min fietsen · 6 u 40 geslapen".
+  String? get _activityLine {
+    final a = activity;
+    if (a == null) return null;
+    String thousands(int n) => n.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+$)'),
+      (m) => '${m[1]}.',
+    );
+    final parts = [
+      if (a.steps != null) '${thousands(a.steps!)} stappen',
+      for (final w in a.workouts) '${w.minutes} min ${w.label}',
+      if (a.sleepMinutes != null)
+        '${a.sleepMinutes! ~/ 60} u ${(a.sleepMinutes! % 60).toString().padLeft(2, '0')} geslapen',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -330,6 +386,38 @@ class _TotalsCard extends StatelessWidget {
                 Text('kcal', style: muted),
               ],
             ),
+            if (activity?.totalKcal != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(child: Text('Verbruikt (Garmin)', style: muted)),
+                    Text(
+                      '${activity!.totalKcal}',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(width: 4),
+                    Text('kcal', style: muted),
+                  ],
+                ),
+              ),
+            if (_activityLine != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(_activityLine!, style: muted),
+              ),
+            if (onConnect != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: onConnect,
+                  icon: const Icon(Icons.watch_outlined),
+                  label: const Text('Garmin koppelen'),
+                ),
+              ),
             const Divider(height: 20),
             row('Eiwit', '', '${totals.proteinG.round()} g'),
             row('Vezels', 'richtwaarde 30–40', '${totals.fiberG.round()} g'),

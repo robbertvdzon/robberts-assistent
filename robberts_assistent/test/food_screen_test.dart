@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:robberts_assistent/api_client.dart';
 import 'package:robberts_assistent/food_screen.dart';
+import 'package:robberts_assistent/health_sync.dart';
 
 const _potatoes = MealItem(
   name: 'Gekookte aardappelen',
@@ -54,6 +55,11 @@ class _FakeApiClient extends ApiClient {
 
   @override
   Future<Meal> getMeal(String id) async => meal;
+
+  ActivityDay? activity;
+
+  @override
+  Future<ActivityDay?> getActivityDay(DateTime date) async => activity;
 
   final checkIns = <CheckIn>[];
   Map<String, Object?>? recorded;
@@ -266,5 +272,56 @@ void main() {
       find.text('slap van de honger · energie 2 — na het fietsen'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('toont verbruik, stappen, training en slaap van Garmin', (
+    tester,
+  ) async {
+    final api = _FakeApiClient()
+      ..activity = const ActivityDay(
+        steps: 9420,
+        totalKcal: 2590,
+        sleepMinutes: 400,
+        workouts: [ActivityWorkout(type: 'BIKING', minutes: 65, kcal: 654)],
+      );
+    await _pump(
+      tester,
+      FoodScreen(api: api, healthSync: (_) async => HealthSyncStatus.synced),
+    );
+
+    expect(find.text('Verbruikt (Garmin)'), findsOneWidget);
+    expect(find.text('2590'), findsOneWidget);
+    expect(
+      find.text('9.420 stappen · 65 min fietsen · 6 u 40 geslapen'),
+      findsOneWidget,
+    );
+    expect(find.text('Garmin koppelen'), findsNothing);
+  });
+
+  testWidgets('zonder toestemming staat er een knop om Garmin te koppelen', (
+    tester,
+  ) async {
+    final api = _FakeApiClient();
+    var asked = 0;
+    await _pump(
+      tester,
+      FoodScreen(
+        api: api,
+        healthSync: (_) async => HealthSyncStatus.needsPermission,
+        healthAccess: (_) async {
+          asked++;
+          api.activity = const ActivityDay(totalKcal: 2100);
+          return HealthSyncStatus.synced;
+        },
+      ),
+    );
+
+    expect(find.text('Verbruikt (Garmin)'), findsNothing);
+    await tester.tap(find.text('Garmin koppelen'));
+    await tester.pumpAndSettle();
+
+    expect(asked, 1);
+    expect(find.text('Garmin koppelen'), findsNothing);
+    expect(find.text('2100'), findsOneWidget);
   });
 }

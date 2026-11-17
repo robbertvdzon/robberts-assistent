@@ -38,7 +38,8 @@ android {
 
     defaultConfig {
         applicationId = "nl.vdzon.robberts_assistent"
-        minSdk = flutter.minSdkVersion
+        // Health Connect (pakket `health`) vereist minimaal Android 8 (API 26).
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

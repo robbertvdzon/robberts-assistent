@@ -2,7 +2,7 @@ package nl.vdzon.robberts_assistent
 
 import android.content.Intent
 import android.os.Bundle
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlin.concurrent.thread
@@ -13,7 +13,9 @@ import nl.vdzon.robberts_assistent.alarm.AlarmChannel
  * het alarm-MethodChannel voor de native wekker (zie [AlarmChannel]) en het launch-MethodChannel dat
  * Flutter vertelt waar de app-start vandaan kwam (zie [LaunchSource]).
  */
-class MainActivity : FlutterActivity() {
+// FlutterFragmentActivity (i.p.v. FlutterActivity): het `health`-pakket vraagt Health Connect-
+// toestemming via registerForActivityResult, en dat bestaat alleen op een ComponentActivity.
+class MainActivity : FlutterFragmentActivity() {
     private val installer by lazy { UpdateInstaller(applicationContext) }
 
     /** Laatst bepaalde launch; Flutter haalt 'm op via `launchInfo` (dekt de koude start). */

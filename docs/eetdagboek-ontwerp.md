@@ -1,12 +1,19 @@
 # Eetdagboek met foto's — ontwerp
 
-Status: **bouwstap 1 en het grootste deel van stap 2 gebouwd** (17 november 2026).
-Stap 1: backendmodule `nutrition` en het scherm Eten onder Meer in de hoofdapp
-(`lib/food_screen.dart`). Stap 2: backendmodule `wellbeing`, het check-in-scherm
-(`lib/checkin_screen.dart`), de vraag onder het vastleggen en de drie meldingen per dag. Nog niet
-gebouwd uit stap 2: de widget op het startscherm en antwoordknoppen ín de melding (een tik op de
-melding opent nu het check-in-scherm). Lokaal getest met de mock-AI; de echte AI-analyse is nog
-niet met een foto beproefd. Stappen 3 t/m 6 zijn nog ontwerp.
+Status (17 november 2026): **stap 1, het grootste deel van stap 2 en stap 3 zijn gebouwd.**
+
+- Stap 1: backendmodule `nutrition`, scherm Eten onder Meer (`lib/food_screen.dart`).
+- Stap 2: backendmodule `wellbeing`, check-in-scherm (`lib/checkin_screen.dart`), de vraag onder
+  het vastleggen en drie meldingen per dag. Nog niet: de widget op het startscherm en
+  antwoordknoppen ín de melding (een tik op de melding opent het check-in-scherm).
+- Stap 3: backendmodule `activity`, uitlezen van Health Connect in de app (`lib/health_sync*.dart`),
+  en verbruik, stappen, trainingen en slaap op het scherm Eten. Nog niet: sync op de achtergrond
+  (er wordt gesynct bij het openen van het scherm Eten) en een invoerveld voor gewicht in de app
+  (het endpoint bestaat).
+- Getest: backend- en app-tests, en de schermen lokaal in de browser met een nagebootste AI.
+  **Nog niet getest:** de echte AI-analyse met een foto, en de Health Connect-koppeling van de
+  hoofdapp op de telefoon (het uitlezen zelf is wel met een losse test-app beproefd).
+- Stappen 4 t/m 6 zijn nog ontwerp.
 
 Eén foto per eetmoment. De assistent zegt wat hij ziet, Robbert tikt op Klopt of verbetert
 het, en de verbetering wordt onthouden. Garmin levert wat hij verbruikt. Daarnaast korte
