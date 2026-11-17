@@ -41,6 +41,11 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu ni
   (Robbert heeft Premium, dus geen probleem)
 - ❌ Garmin — geen fatsoenlijke publieke API; developer-program staat sowieso gepauzeerd en is
   uberhaupt alleen voor bedrijven, niet voor persoonlijk gebruik
+- 🔜 Garmin via Health Connect — de Garmin Connect-app schrijft stappen, calorieën, trainingen
+  en slaap naar Health Connect op de telefoon; de Android-app kan ze daar uitlezen. Nog te
+  controleren op Robberts telefoon. Zie [eetdagboek-ontwerp.md](eetdagboek-ontwerp.md) §4
+- 🔜 Eetdagboek met foto's + check-ins honger/energie — ontwerp in
+  [eetdagboek-ontwerp.md](eetdagboek-ontwerp.md)
 
 ## Huis & tuin
 - ✅ Moestuin-AI-chat — foto's + tekst → vision-antwoord
