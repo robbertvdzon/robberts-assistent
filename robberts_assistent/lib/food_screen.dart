@@ -256,6 +256,7 @@ class _FoodScreenState extends State<FoodScreen> {
               _TotalsCard(
                 totals: _day!.totals,
                 activity: _activity,
+                today: isToday,
                 onConnect: _health == HealthSyncStatus.needsPermission
                     ? () => _syncHealth(widget.healthAccess)
                     : null,
@@ -336,7 +337,15 @@ class _FoodScreenState extends State<FoodScreen> {
 }
 
 class _TotalsCard extends StatelessWidget {
-  const _TotalsCard({required this.totals, this.activity, this.onConnect});
+  const _TotalsCard({
+    required this.totals,
+    this.activity,
+    this.onConnect,
+    this.today = false,
+  });
+
+  /// Vandaag is nog niet af: Garmin telt door tot middernacht.
+  final bool today;
 
   final NutritionTotals totals;
   final ActivityDay? activity;
@@ -405,7 +414,14 @@ class _TotalsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Expanded(child: Text('Verbruikt (Garmin)', style: muted)),
+                    Expanded(
+                      child: Text(
+                        today
+                            ? 'Verbruikt tot nu toe (Garmin)'
+                            : 'Verbruikt (Garmin)',
+                        style: muted,
+                      ),
+                    ),
                     Text(
                       '${activity!.totalKcal}',
                       style: Theme.of(context).textTheme.headlineMedium

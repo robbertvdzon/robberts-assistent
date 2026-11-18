@@ -25,16 +25,26 @@ Bewust anders of niet gebouwd:
 - **De analyse is één AI-aanroep**, niet twee: de referentiefoto's gaan direct mee. Dat scheelt
   een halve minuut wachttijd per foto.
 - **Verbanden zonder AI-weektekst en zonder proefjes.** De bevindingen zijn uitgerekende zinnen.
-- **Niet gebouwd:** de widget op het startscherm, antwoordknoppen ín de melding, sync van
-  Health Connect op de achtergrond (nu bij het openen van het scherm Eten), een receptlink
-  delen vanuit de browser (plakken in het tekstvak werkt), en de gewichts-ijking van de
-  schattingen. De eerste drie vragen Android-specifieke code die alleen op de telefoon te testen
-  is.
+- **Snelkoppelingen in plaats van een widget:** ingedrukt houden op het app-icoon geeft "Foto van
+  eten" en "Hoe voel je je?" (`lib/app_shortcuts.dart`); ze zijn los op het startscherm te zetten.
+- **Garmin-sync bij het openen van de app en bij terugkeer**, hooguit één keer per kwartier, in
+  plaats van een taak op de achtergrond. Elke sync haalt zeven dagen op.
+- **Niet gebouwd:** antwoordknoppen ín de melding (Android toont er hooguit drie, een check-in
+  heeft twee schalen), een receptlink delen vanuit de browser (plakken in het tekstvak werkt) en
+  de gewichts-ijking van de schattingen.
 
-Getest: backend- en app-tests, en de schermen lokaal in de browser met een nagebootste AI.
+Getest: backend- en app-tests; de schermen lokaal in de browser; en op Robberts telefoon met een
+testversie naast de echte app (tegen een lokale backend met nagebootste AI): snelkoppelingen,
+vastleggen met de camera, check-ins en de Garmin-sync van zeven dagen.
 **Nog niet getest:** de echte AI-analyse met een foto (dus ook niet of referentiefoto's en
-recepten het voorstel verbeteren) en de meldingen op de telefoon. De Garmin-koppeling werkt op
-Robberts telefoon.
+recepten het voorstel verbeteren) en de meldingen op de telefoon.
+
+Testen op de telefoon zonder de echte app te raken: zet tijdelijk `applicationIdSuffix = ".test"`
+in het debug-buildtype, een `src/debug/google-services.json` met die pakketnaam en
+`usesCleartextTraffic` in het debug-manifest; bouw met
+`--dart-define=API_BASE_URL=http://127.0.0.1:8091 --dart-define=SKIP_GOOGLE_AUTH=true` en gebruik
+`adb reverse tcp:8091 tcp:8091` naar een lokale backend (`RA_SECRETS_FILE` met
+`RA_PREVIEW_SKIP_GOOGLE_AUTH=true` en `RA_MOCK_AI=true`). Niet committen.
 
 ## 1. Doelen en gemaakte keuzes
 

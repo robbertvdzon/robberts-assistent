@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'package:robberts_assistent/api_client.dart';
+import 'package:robberts_assistent/app_shortcuts.dart';
 import 'package:robberts_assistent/app_logo.dart';
 import 'package:robberts_assistent/assistant_screen.dart';
 import 'package:robberts_assistent/launch_source.dart';
@@ -402,5 +403,43 @@ void main() {
       final text = tester.widget<Text>(find.text(label));
       expect(text.maxLines, anyOf(isNull, 1));
     }
+  });
+
+  testWidgets('snelkoppeling vanaf het startscherm opent het check-in-scherm', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {}),
+      ),
+    );
+    await tester.pump();
+
+    AppShortcuts.pending.value = AppShortcut.checkIn;
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hoe voel je je?'), findsOneWidget);
+    expect(find.text('Slap'), findsOneWidget);
+    expect(AppShortcuts.pending.value, isNull);
+  });
+
+  test('dezelfde snelkoppeling binnen twee seconden telt maar één keer', () {
+    final t = DateTime(2026, 11, 18, 8);
+    AppShortcuts.pending.value = null;
+
+    AppShortcuts.handle('food_photo', now: t);
+    expect(AppShortcuts.pending.value, AppShortcut.foodPhoto);
+    AppShortcuts.pending.value = null;
+
+    AppShortcuts.handle('food_photo', now: t.add(const Duration(seconds: 1)));
+    expect(AppShortcuts.pending.value, isNull);
+
+    // Een andere snelkoppeling, of dezelfde later, telt wel.
+    AppShortcuts.handle('check_in', now: t.add(const Duration(seconds: 1)));
+    expect(AppShortcuts.pending.value, AppShortcut.checkIn);
+    AppShortcuts.pending.value = null;
+    AppShortcuts.handle('check_in', now: t.add(const Duration(seconds: 10)));
+    expect(AppShortcuts.pending.value, AppShortcut.checkIn);
+    AppShortcuts.pending.value = null;
   });
 }

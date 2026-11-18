@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_logo.dart';
+import 'app_shortcuts.dart';
 import 'checkin_screen.dart';
 import 'assistant_screen.dart';
 import 'conversations_screen.dart';
@@ -13,6 +14,7 @@ import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
 import 'summary_screen.dart';
 import 'food_screen.dart';
+import 'health_sync.dart';
 import 'watches_screen.dart';
 
 /// App-shell na het inloggen: vier hoofdbestemmingen met de overige schermen onder 'Meer'.
@@ -26,8 +28,9 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   var _tab = 1;
+  DateTime? _lastHealthSync;
 
   @override
   void initState() {
@@ -42,6 +45,16 @@ class _HomeScreenState extends State<HomeScreen> {
     // Tik op een briefing- of watch-push (ook bij koude start) → het bijbehorende doel tonen.
     FcmService.deepLinkTarget.addListener(_onDeepLinkTarget);
     _onDeepLinkTarget();
+    // Snelkoppelingen vanaf het startscherm (foto van eten, check-in).
+    AppShortcuts.pending.addListener(_onShortcut);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await AppShortcuts.setup();
+      _onShortcut();
+    });
+    // Garmin-gegevens ophalen bij het openen en bij terugkeer naar de app, zodat ze ook
+    // binnenkomen op dagen dat het scherm Eten niet wordt geopend.
+    WidgetsBinding.instance.addObserver(this);
+    _syncHealth();
     // Waar de app-start vandaan kwam: altijd melden bij de backend, en bij een start via Google
     // Assistent meteen een nieuw gesprek in praatmodus openen.
     LaunchSourceService.lastLaunch.addListener(_onLaunch);
@@ -56,8 +69,41 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     FcmService.deepLinkTarget.removeListener(_onDeepLinkTarget);
+    AppShortcuts.pending.removeListener(_onShortcut);
+    WidgetsBinding.instance.removeObserver(this);
     LaunchSourceService.lastLaunch.removeListener(_onLaunch);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _syncHealth();
+  }
+
+  /// Hooguit één keer per kwartier; zonder toestemming gebeurt er niets (de knop daarvoor staat
+  /// op het scherm Eten).
+  void _syncHealth() {
+    final now = DateTime.now();
+    final last = _lastHealthSync;
+    if (last != null && now.difference(last) < const Duration(minutes: 15)) {
+      return;
+    }
+    _lastHealthSync = now;
+    syncHealth(widget.api);
+  }
+
+  void _onShortcut() {
+    final shortcut = AppShortcuts.pending.value;
+    if (shortcut == null || !mounted) return;
+    AppShortcuts.pending.value = null;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => switch (shortcut) {
+          AppShortcut.foodPhoto => MealCaptureScreen(api: widget.api),
+          AppShortcut.checkIn => CheckInScreen(api: widget.api),
+        },
+      ),
+    );
   }
 
   void _onLaunch() {

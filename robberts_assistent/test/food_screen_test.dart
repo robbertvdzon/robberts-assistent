@@ -292,7 +292,7 @@ void main() {
       FoodScreen(api: api, healthSync: (_) async => HealthSyncStatus.synced),
     );
 
-    expect(find.text('Verbruikt (Garmin)'), findsOneWidget);
+    expect(find.text('Verbruikt tot nu toe (Garmin)'), findsOneWidget);
     expect(find.text('2590'), findsOneWidget);
     expect(
       find.text('9.420 stappen · 65 min fietsen · 6 u 40 geslapen'),
@@ -319,7 +319,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Verbruikt (Garmin)'), findsNothing);
+    expect(find.text('Verbruikt tot nu toe (Garmin)'), findsNothing);
     await tester.tap(find.text('Garmin koppelen'));
     await tester.pumpAndSettle();
 
