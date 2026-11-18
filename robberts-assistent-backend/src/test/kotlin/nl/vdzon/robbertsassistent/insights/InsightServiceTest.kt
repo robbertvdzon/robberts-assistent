@@ -25,6 +25,9 @@ import nl.vdzon.robbertsassistent.nutrition.RecipeFetcher
 import nl.vdzon.robbertsassistent.push.PushService
 import nl.vdzon.robbertsassistent.wellbeing.CheckInService
 import nl.vdzon.robbertsassistent.wellbeing.InMemoryCheckInRepository
+import nl.vdzon.robbertsassistent.wellbeing.InMemoryNapRepository
+import nl.vdzon.robbertsassistent.wellbeing.Nap
+import nl.vdzon.robbertsassistent.wellbeing.NapService
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import kotlin.test.assertEquals
@@ -51,7 +54,9 @@ class InsightServiceTest {
     )
     private val checkIns = CheckInService(InMemoryCheckInRepository())
     private val activity = ActivityService(InMemoryActivityDayRepository(), clock)
-    private val service = InsightService(meals, checkIns, activity, clock)
+    private val napRepository = InMemoryNapRepository()
+    private val naps = NapService(napRepository, clock)
+    private val service = InsightService(meals, checkIns, activity, naps, clock)
 
     /** Tijdstip op een dag in Nederlandse wintertijd (UTC+1). */
     private fun at(date: LocalDate, hour: Int, minute: Int = 0): Instant =
@@ -154,7 +159,7 @@ class InsightServiceTest {
         val few = InsightService(meals, CheckInService(InMemoryCheckInRepository()).also {
             it.record(null, 4, at = at(today.minusDays(1), 15))
             it.record(null, 2, at = at(today.minusDays(11), 15))
-        }, activity, clock).insights().single { it.key == "slaap-energie" }
+        }, activity, naps, clock).insights().single { it.key == "slaap-energie" }
         assertEquals(InsightStrength.NOG_TE_WEINIG, few.strength)
     }
 
@@ -209,5 +214,27 @@ class InsightServiceTest {
         val insights = service.insights().associateBy { it.key }
         assertEquals(listOf(2.0 to 3, 1.0 to 3), insights.getValue("training-honger").groups.map { it.value to it.n })
         assertEquals(listOf(2.0 to 3, 4.0 to 3), insights.getValue("lunch-middagenergie").groups.map { it.value to it.n })
+    }
+
+    @Test
+    fun `dutjes tegen energie later op de dag en tegen een korte nacht`() {
+        // Zes dagen terug begon het eerste dutje; daarvoor tellen dagen niet mee.
+        (1L..6L).forEach { i ->
+            val day = today.minusDays(i)
+            val napped = i % 2 == 0L
+            sleep(day, if (napped) 330 else 450)
+            if (napped) napRepository.save(Nap("nap-$i", at(day, 13), at(day, 13, 40)))
+            checkIns.record(null, if (napped) 4 else 2, at = at(day, 18))
+            // Voor 16:00 telt niet mee.
+            checkIns.record(null, 1, at = at(day, 11))
+        }
+        // Een lopend dutje vandaag en een oude dag zonder dutje doen niet mee.
+        napRepository.save(Nap("open", at(today, 13)))
+        sleep(today.minusDays(20), 300)
+        checkIns.record(null, 1, at = at(today.minusDays(20), 18))
+
+        val insights = service.insights().associateBy { it.key }
+        assertEquals(listOf(4.0 to 3, 2.0 to 3), insights.getValue("dutje-avondenergie").groups.map { it.value to it.n })
+        assertEquals(listOf(100.0 to 3, 0.0 to 3), insights.getValue("korte-nacht-dutje").groups.map { it.value to it.n })
     }
 }

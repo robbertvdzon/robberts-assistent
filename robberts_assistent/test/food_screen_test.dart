@@ -61,6 +61,11 @@ class _FakeApiClient extends ApiClient {
   @override
   Future<ActivityDay?> getActivityDay(DateTime date) async => activity;
 
+  NapDay naps = const NapDay();
+
+  @override
+  Future<NapDay> getNaps(DateTime date) async => naps;
+
   final checkIns = <CheckIn>[];
   Map<String, Object?>? recorded;
 
@@ -269,12 +274,77 @@ void main() {
       );
     await _pump(tester, FoodScreen(api: api));
 
-    expect(find.text('Hoe je je voelde'), findsOneWidget);
     expect(find.text('15:30'), findsOneWidget);
     expect(
       find.text('slap van de honger · energie 2 — na het fietsen'),
       findsOneWidget,
     );
+  });
+
+  testWidgets(
+    'tijdlijn zet slaap, wandeling, dutje, check-in en eten op tijd',
+    (tester) async {
+      final api = _FakeApiClient()
+        ..activity = ActivityDay(
+          sleepMinutes: 450,
+          sleepStart: DateTime(2026, 11, 16, 23, 40),
+          sleepEnd: DateTime(2026, 11, 17, 7, 10),
+          workouts: [
+            ActivityWorkout(
+              type: 'WALKING',
+              minutes: 45,
+              kcal: 210,
+              start: DateTime(2026, 11, 17, 19, 30),
+              end: DateTime(2026, 11, 17, 20, 15),
+            ),
+          ],
+        )
+        ..naps = NapDay(
+          naps: [
+            Nap(
+              id: 'n1',
+              start: DateTime(2026, 11, 17, 13, 10),
+              end: DateTime(2026, 11, 17, 13, 40),
+              endEstimated: true,
+            ),
+          ],
+        )
+        ..checkIns.add(
+          CheckIn(id: 'c1', at: DateTime(2026, 11, 17, 15, 30), hunger: 1),
+        );
+      // Hoog venster: de lijst bouwt alleen wat in beeld is.
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _pump(tester, FoodScreen(api: api));
+
+      final texts = [
+        'Geslapen tot 07:10 · 7 u 30',
+        'Dutje 13:10–13:40 · 30 min (eind geschat)',
+        'trek',
+        'Avondeten',
+        'Wandelen tot 20:15 · 45 min · 210 kcal',
+      ];
+      for (final text in texts) {
+        expect(find.text(text), findsOneWidget, reason: text);
+      }
+      final tops = [
+        for (final text in texts) tester.getTopLeft(find.text(text)).dy,
+      ];
+      expect(tops, [...tops]..sort(), reason: 'volgorde van tijd');
+    },
+  );
+
+  testWidgets('een lopend dutje staat bovenaan en opent het afmeldscherm', (
+    tester,
+  ) async {
+    final open = Nap(id: 'n1', start: DateTime(2026, 11, 16, 23, 50));
+    final api = _FakeApiClient()..naps = NapDay(open: open);
+    await _pump(tester, FoodScreen(api: api));
+
+    await tester.tap(find.text('Dutje sinds 23:50, loopt nog'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ik ben wakker'), findsOneWidget);
   });
 
   testWidgets('toont verbruik, stappen, training en slaap van Garmin', (

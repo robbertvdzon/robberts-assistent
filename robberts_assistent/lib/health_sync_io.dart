@@ -113,6 +113,7 @@ Future<HealthSyncStatus> _readAndSend(ApiClient api) async {
       if (_kinds[p.type] != null) _sample(p, _kinds[p.type]!),
   ];
   await api.syncActivityDays(aggregateDays(samples, days));
+  await estimateNaps(api, samples);
   return HealthSyncStatus.synced;
 }
 

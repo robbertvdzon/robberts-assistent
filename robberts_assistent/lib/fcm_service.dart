@@ -14,7 +14,10 @@ const _mealPushType = 'meal';
 // Moet gelijk zijn aan `wellbeing.CheckInPromptScheduler.PUSH_TYPE`.
 const _checkInPushType = 'checkin';
 
-enum DeepLinkTarget { today, watches, food, checkIn }
+// Payload van de doorlopende melding bij een lopend dutje (zie [FcmService.showNapNotification]).
+const _napPushType = 'nap';
+
+enum DeepLinkTarget { today, watches, food, checkIn, nap }
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond
 /// of gesloten is toont Android de FCM-notification-payload zelf op het opgegeven kanaal.
@@ -51,7 +54,48 @@ class FcmService {
       deepLinkTarget.value = DeepLinkTarget.food;
     } else if (data['type'] == _checkInPushType) {
       deepLinkTarget.value = DeepLinkTarget.checkIn;
+    } else if (data['type'] == _napPushType) {
+      deepLinkTarget.value = DeepLinkTarget.nap;
     }
+  }
+
+  static const _napNotificationId = 900001;
+
+  /// Doorlopende melding zolang er een dutje loopt; een tik opent het scherm om af te melden.
+  /// Doet niets op web of zolang de meldingen niet zijn opgezet.
+  static Future<void> showNapNotification(DateTime start) async {
+    if (kIsWeb || !_done) return;
+    final time =
+        '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
+    try {
+      await _local.show(
+        _napNotificationId,
+        'Dutje sinds $time',
+        'Tik als je wakker bent.',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'dutje',
+            'Dutje',
+            channelDescription: 'Zichtbaar zolang er een dutje loopt',
+            importance: Importance.low,
+            priority: Priority.low,
+            ongoing: true,
+            autoCancel: false,
+            onlyAlertOnce: true,
+          ),
+        ),
+        payload: _napPushType,
+      );
+    } catch (_) {
+      // De melding is een geheugensteun; zonder werkt het dutje ook.
+    }
+  }
+
+  static Future<void> cancelNapNotification() async {
+    if (kIsWeb || !_done) return;
+    try {
+      await _local.cancel(_napNotificationId);
+    } catch (_) {}
   }
 
   @visibleForTesting

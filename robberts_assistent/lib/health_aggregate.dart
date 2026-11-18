@@ -120,3 +120,22 @@ Map<String, dynamic> _aggregateDay(List<HcSample> samples, DateTime day) {
     ],
   };
 }
+
+/// De eerste minuut met echte beweging na [start]: het vroegste blok stappen (van het horloge of
+/// van de telefoon) dat minstens [minSteps] telt en een paar minuten na [start] begint. Gebruikt om
+/// het eind van een dutje te schatten. `null` als er (nog) niets is.
+DateTime? firstMovementAfter(
+  List<HcSample> samples,
+  DateTime start, {
+  int minSteps = 10,
+}) {
+  final from = start.add(const Duration(minutes: 3));
+  final until = start.add(const Duration(days: 1));
+  DateTime? first;
+  for (final s in samples) {
+    if (s.kind != HcKind.steps || s.value < minSteps) continue;
+    if (s.from.isBefore(from) || s.from.isAfter(until)) continue;
+    if (first == null || s.from.isBefore(first)) first = s.from;
+  }
+  return first;
+}

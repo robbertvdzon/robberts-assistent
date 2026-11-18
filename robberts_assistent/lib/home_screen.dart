@@ -10,6 +10,8 @@ import 'conversations_screen.dart';
 import 'fcm_service.dart';
 import 'launch_source.dart';
 import 'more_screen.dart';
+import 'nap_alarm.dart';
+import 'nap_screen.dart';
 import 'schedules_screen.dart';
 import 'self_update_prompt.dart';
 import 'summary_screen.dart';
@@ -45,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Tik op een briefing- of watch-push (ook bij koude start) → het bijbehorende doel tonen.
     FcmService.deepLinkTarget.addListener(_onDeepLinkTarget);
     _onDeepLinkTarget();
-    // Snelkoppelingen vanaf het startscherm (foto van eten, check-in).
+    // Snelkoppelingen vanaf het startscherm (foto van eten, check-in, dutje).
     AppShortcuts.pending.addListener(_onShortcut);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await AppShortcuts.setup();
@@ -54,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Garmin-gegevens ophalen bij het openen en bij terugkeer naar de app, zodat ze ook
     // binnenkomen op dagen dat het scherm Eten niet wordt geopend.
     WidgetsBinding.instance.addObserver(this);
-    _syncHealth();
+    _onForeground();
     // Waar de app-start vandaan kwam: altijd melden bij de backend, en bij een start via Google
     // Assistent meteen een nieuw gesprek in praatmodus openen.
     LaunchSourceService.lastLaunch.addListener(_onLaunch);
@@ -77,7 +79,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _syncHealth();
+    if (state == AppLifecycleState.resumed) _onForeground();
+  }
+
+  /// Eerst het dutje bijwerken (de wekker kan intussen zijn uitgezet), dan pas de sync: die schat
+  /// het eind van een dutje dat nog openstaat.
+  Future<void> _onForeground() async {
+    await reconcileNap(widget.api);
+    _syncHealth();
   }
 
   /// Hooguit één keer per kwartier; zonder toestemming gebeurt er niets (de knop daarvoor staat
@@ -101,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (_) => switch (shortcut) {
           AppShortcut.foodPhoto => MealCaptureScreen(api: widget.api),
           AppShortcut.checkIn => CheckInScreen(api: widget.api),
+          AppShortcut.nap => NapScreen(api: widget.api),
         },
       ),
     );
@@ -148,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               api: widget.api,
               source: 'MELDING',
             ),
+            DeepLinkTarget.nap => NapScreen(api: widget.api),
             _ => WatchesScreen(api: widget.api),
           },
         ),

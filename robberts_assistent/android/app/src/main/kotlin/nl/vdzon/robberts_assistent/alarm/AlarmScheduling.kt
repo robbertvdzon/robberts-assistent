@@ -28,8 +28,14 @@ object AlarmScheduling {
 
     const val SNOOZE_MINUTES = 5
 
+    /** Vast id van de wekker bij een dutje. Die staat los van de alarms die [scheduleAll] beheert. */
+    const val NAP_ID = 900001
+    private const val NAP_MESSAGE = "Dutje voorbij"
+
     private const val PREFS = "ra_alarms"
     private const val KEY_SCHEDULED = "scheduled"
+    private const val KEY_NAP_AT = "nap_at"
+    private const val KEY_NAP_DISMISSED_AT = "nap_dismissed_at"
 
     /** Wist alle vorige planningen en plant de meegegeven (toekomstige) voorkomens opnieuw in. */
     fun scheduleAll(context: Context, entries: List<AlarmEntry>) {
@@ -46,9 +52,37 @@ object AlarmScheduling {
         writeStore(context, emptyList())
     }
 
+    /** Zet de wekker voor het dutje (vervangt een eerdere). Blijft staan bij [scheduleAll]. */
+    fun scheduleNap(context: Context, triggerAtMillis: Long) {
+        cancel(context, NAP_ID)
+        scheduleOne(context, AlarmEntry(NAP_ID, NAP_MESSAGE, triggerAtMillis))
+        prefs(context).edit().putLong(KEY_NAP_AT, triggerAtMillis).remove(KEY_NAP_DISMISSED_AT).apply()
+    }
+
+    /** Haalt de wekker van het dutje weg, ook als die gesnoozed was. */
+    fun cancelNap(context: Context) {
+        cancel(context, NAP_ID)
+        prefs(context).edit().remove(KEY_NAP_AT).apply()
+    }
+
+    /** Onthoudt dat de dutjeswekker met Sluit is uitgezet: op dat moment was Robbert wakker. */
+    fun markNapDismissed(context: Context) {
+        prefs(context).edit().putLong(KEY_NAP_DISMISSED_AT, System.currentTimeMillis()).remove(KEY_NAP_AT).apply()
+    }
+
+    /** Het moment waarop de dutjeswekker is uitgezet, eenmalig uit te lezen door de Flutter-laag. */
+    fun takeNapDismissedAt(context: Context): Long? {
+        val at = prefs(context).getLong(KEY_NAP_DISMISSED_AT, 0L)
+        if (at == 0L) return null
+        prefs(context).edit().remove(KEY_NAP_DISMISSED_AT).apply()
+        return at
+    }
+
     /** Plant de persistente set opnieuw in na een reboot; verlopen voorkomens worden overgeslagen. */
     fun rescheduleFromStorage(context: Context) {
         val now = System.currentTimeMillis()
+        val napAt = prefs(context).getLong(KEY_NAP_AT, 0L)
+        if (napAt > now) scheduleOne(context, AlarmEntry(NAP_ID, NAP_MESSAGE, napAt))
         val future = readStore(context).filter { it.triggerAtMillis > now }
         future.forEach { scheduleOne(context, it) }
         writeStore(context, future)
@@ -58,7 +92,12 @@ object AlarmScheduling {
     fun snooze(context: Context, id: Int, message: String) {
         val entry = AlarmEntry(id, message, System.currentTimeMillis() + SNOOZE_MINUTES * 60_000L)
         scheduleOne(context, entry)
-        upsertStore(context, entry)
+        // De dutjeswekker hoort niet in de set van scheduleAll: die zou hem bij de volgende sync wissen.
+        if (id == NAP_ID) {
+            prefs(context).edit().putLong(KEY_NAP_AT, entry.triggerAtMillis).apply()
+        } else {
+            upsertStore(context, entry)
+        }
     }
 
     /** Markeert een afgegaan alarm als verwerkt (uit de persistente set). */

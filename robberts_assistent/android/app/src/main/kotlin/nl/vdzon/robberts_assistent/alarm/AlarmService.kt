@@ -52,7 +52,10 @@ class AlarmService : Service() {
                 vibrationHandler.postDelayed(startVibrationRunnable, VIBRATION_DELAY_MS)
                 launchAlarmActivity()
             }
-            ACTION_DISMISS -> stopEverything()
+            ACTION_DISMISS -> {
+                if (currentId == AlarmScheduling.NAP_ID) AlarmScheduling.markNapDismissed(this)
+                stopEverything()
+            }
             ACTION_SNOOZE -> {
                 AlarmScheduling.snooze(this, currentId, currentMessage)
                 stopEverything()

@@ -14,6 +14,8 @@ import nl.vdzon.robbertsassistent.nutrition.MealService
 import nl.vdzon.robbertsassistent.nutrition.MealStatus
 import nl.vdzon.robbertsassistent.wellbeing.CheckIn
 import nl.vdzon.robbertsassistent.wellbeing.CheckInService
+import nl.vdzon.robbertsassistent.wellbeing.Nap
+import nl.vdzon.robbertsassistent.wellbeing.NapService
 import org.springframework.stereotype.Service
 
 /** Eén groep in een vergelijking: het gemiddelde en op hoeveel waarnemingen het rust. */
@@ -78,6 +80,7 @@ class InsightService(
     private val meals: MealService,
     private val checkIns: CheckInService,
     private val activity: ActivityService,
+    private val naps: NapService,
     private val clock: Clock = Clock.systemUTC(),
 ) {
     fun week(end: LocalDate): WeekOverview {
@@ -153,6 +156,7 @@ class InsightService(
             .sortedBy { it.eatenAt }
         val checkInList = checkIns.between(fromInstant, now).sortedBy { it.at }
         val days = activity.between(from, today).associateBy { it.date }
+        val napList = naps.between(fromInstant, now).filter { it.end != null }
         return listOfNotNull(
             sleepAndEnergy(checkInList, days),
             faintAndGap(checkInList, mealList),
@@ -160,6 +164,8 @@ class InsightService(
             proteinAndSatiety(mealList, checkInList),
             workoutAndMorningHunger(checkInList, days),
             lunchAndAfternoonEnergy(mealList, checkInList),
+            napAndEveningEnergy(napList, checkInList, today),
+            shortNightAndNap(napList, days, today),
         )
     }
 
@@ -293,6 +299,57 @@ class InsightService(
             b = "na een kleinere lunch" to small,
             unit = "energie",
             minDiff = 0.4,
+        )
+    }
+
+    /**
+     * Dagen vanaf het eerste vastgelegde dutje tot en met gisteren. Daarvoor bestonden dutjes nog
+     * niet in de app, dus die dagen zeggen niets over "geen dutje"; vandaag is nog niet af.
+     */
+    private fun napEra(naps: List<Nap>, today: LocalDate): List<LocalDate> {
+        val first = naps.minOfOrNull { it.start.atZone(ZONE).toLocalDate() } ?: return emptyList()
+        return generateSequence(first) { it.plusDays(1) }.takeWhile { it.isBefore(today) }.toList()
+    }
+
+    private fun napAndEveningEnergy(naps: List<Nap>, checkIns: List<CheckIn>, today: LocalDate): Insight? {
+        val napEndByDate = naps.groupBy { it.start.atZone(ZONE).toLocalDate() }.mapValues { (_, list) -> list.maxOf { it.end!! } }
+        val withNap = mutableListOf<Double>()
+        val without = mutableListOf<Double>()
+        napEra(naps, today).forEach { date ->
+            val napEnd = napEndByDate[date]
+            val energy = checkIns.filter {
+                it.energy != null && it.at.atZone(ZONE).toLocalDate() == date &&
+                    !it.at.atZone(ZONE).toLocalTime().isBefore(LocalTime.of(16, 0)) && (napEnd == null || it.at.isAfter(napEnd))
+            }.map { it.energy!!.toDouble() }
+            if (energy.isEmpty()) return@forEach
+            if (napEnd != null) withNap += energy.average() else without += energy.average()
+        }
+        return compare(
+            key = "dutje-avondenergie",
+            title = "Dutje en energie later op de dag",
+            a = "op dagen met een dutje (na 16:00)" to withNap,
+            b = "op dagen zonder dutje (na 16:00)" to without,
+            unit = "energie",
+            minDiff = 0.4,
+        )
+    }
+
+    private fun shortNightAndNap(naps: List<Nap>, days: Map<LocalDate, ActivityDay>, today: LocalDate): Insight? {
+        val napDates = naps.map { it.start.atZone(ZONE).toLocalDate() }.toSet()
+        val short = mutableListOf<Double>()
+        val long = mutableListOf<Double>()
+        napEra(naps, today).forEach { date ->
+            val minutes = days[date]?.sleep?.minutes ?: return@forEach
+            val napped = if (date in napDates) 100.0 else 0.0
+            if (minutes < 390) short += napped else long += napped
+        }
+        return compare(
+            key = "korte-nacht-dutje",
+            title = "Korte nacht en een dutje",
+            a = "na minder dan 6,5 uur slaap" to short,
+            b = "na 6,5 uur slaap of meer" to long,
+            unit = "% van de dagen een dutje",
+            minDiff = 15.0,
         )
     }
 

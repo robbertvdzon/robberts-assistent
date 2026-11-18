@@ -31,6 +31,20 @@ object AlarmChannel {
                     AlarmScheduling.cancelAll(context.applicationContext)
                     result.success(null)
                 }
+                "scheduleNap" -> {
+                    val at = (call.argument<Number>("triggerAtMillis"))?.toLong()
+                    if (at == null) {
+                        result.error("bad-args", "triggerAtMillis ontbreekt", null)
+                    } else {
+                        AlarmScheduling.scheduleNap(context.applicationContext, at)
+                        result.success(null)
+                    }
+                }
+                "cancelNap" -> {
+                    AlarmScheduling.cancelNap(context.applicationContext)
+                    result.success(null)
+                }
+                "takeNapDismissedAt" -> result.success(AlarmScheduling.takeNapDismissedAt(context.applicationContext))
                 else -> result.notImplemented()
             }
         }

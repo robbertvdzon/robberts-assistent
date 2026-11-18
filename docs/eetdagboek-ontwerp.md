@@ -15,6 +15,20 @@ Gebouwd:
   in de briefing, chat-tools, avondherinnering om 20:45.
 - Stap 6: backendmodule `insights` met zes verbanden, scherm Verbanden.
 
+- Na stap 6 (18 november 2026): **tijdlijn en dutjes.** Het scherm Eten toont de dag op volgorde
+  van tijd: nachtslaap, wandelingen en trainingen (van Garmin), eetmomenten, check-ins en dutjes.
+  Een dutje start Robbert zelf, eventueel met een wekker (dezelfde native wekker als de alarms,
+  met een eigen plek zodat het herplannen van alarms hem niet wist), en meldt hij af met "nu" of
+  "zoveel minuten geleden"; achteraf invullen kan ook. De wekker uitzetten met Sluit sluit het
+  dutje af. Meldt hij zich niet af, dan schat de backend het eind (`insights.NapEstimator`) uit
+  het vroegste teken dat hij weer wakker was: de eerste minuut met stappen na het begin (de app
+  haalt die uit Health Connect, van horloge of telefoon), het begin van een wandeling, een foto
+  van eten, een check-in of de wekkertijd. Garmin levert stappen per minuut, alleen voor minuten
+  waarin gelopen is; een schatting schuift nog naar voren als die gegevens later binnenkomen.
+  Verder dan drie uur na het begin zegt een teken niets meer en wordt het de wekkertijd of een
+  half uur. Dutjesherkenning van het horloge wordt niet gebruikt (de Venu 3 herkent ze zelden).
+  Twee verbanden erbij: dutje tegen energie later op de dag, en korte nacht tegen een dutje.
+
 Bewust anders of niet gebouwd:
 
 - **Vaste gerechten, recepten en producten staan niet in eigen collecties** maar in het
@@ -26,7 +40,7 @@ Bewust anders of niet gebouwd:
   een halve minuut wachttijd per foto.
 - **Verbanden zonder AI-weektekst en zonder proefjes.** De bevindingen zijn uitgerekende zinnen.
 - **Snelkoppelingen in plaats van een widget:** ingedrukt houden op het app-icoon geeft "Foto van
-  eten" en "Hoe voel je je?" (`lib/app_shortcuts.dart`); ze zijn los op het startscherm te zetten.
+  eten", "Hoe voel je je?" en "Dutje" (`lib/app_shortcuts.dart`); ze zijn los op het startscherm te zetten.
 - **Garmin-sync bij het openen van de app en bij terugkeer**, hooguit één keer per kwartier, in
   plaats van een taak op de achtergrond. Elke sync haalt zeven dagen op.
 - **Niet gebouwd:** antwoordknoppen ín de melding (Android toont er hooguit drie, een check-in
@@ -37,7 +51,8 @@ Getest: backend- en app-tests; de schermen lokaal in de browser; en op Robberts 
 testversie naast de echte app (tegen een lokale backend met nagebootste AI): snelkoppelingen,
 vastleggen met de camera, check-ins en de Garmin-sync van zeven dagen.
 **Nog niet getest:** de echte AI-analyse met een foto (dus ook niet of referentiefoto's en
-recepten het voorstel verbeteren) en de meldingen op de telefoon.
+recepten het voorstel verbeteren), de meldingen op de telefoon, en van de dutjes alles wat alleen
+op de telefoon bestaat: de wekker, de doorlopende melding en het schatten uit echte stappen.
 
 Testen op de telefoon zonder de echte app te raken: zet tijdelijk `applicationIdSuffix = ".test"`
 in het debug-buildtype, een `src/debug/google-services.json` met die pakketnaam en

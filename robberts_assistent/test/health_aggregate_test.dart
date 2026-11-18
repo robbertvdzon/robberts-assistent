@@ -121,4 +121,41 @@ void main() {
     expect(workout['kcal'], 654);
     expect(workout['distanceM'], isNull);
   });
+
+  test(
+    'eerste beweging na een dutje: eerste echte stappen, van horloge of telefoon',
+    () {
+      final start = DateTime(2026, 11, 18, 13, 10);
+      HcSample steps(
+        int hour,
+        int minute,
+        double value, {
+        bool garmin = true,
+      }) => HcSample(
+        kind: HcKind.steps,
+        from: DateTime(2026, 11, 18, hour, minute),
+        to: DateTime(2026, 11, 18, hour, minute + 1),
+        value: value,
+        garmin: garmin,
+      );
+      final samples = [
+        steps(13, 5, 40), // voor het dutje
+        steps(13, 11, 30), // nog aan het gaan liggen
+        steps(13, 25, 2, garmin: false), // de telefoon die even bewoog
+        steps(13, 52, 25, garmin: false),
+        steps(13, 55, 30),
+        HcSample(
+          kind: HcKind.distance,
+          from: DateTime(2026, 11, 18, 13, 20),
+          to: DateTime(2026, 11, 18, 13, 21),
+          value: 500,
+        ),
+      ];
+      expect(
+        firstMovementAfter(samples, start),
+        DateTime(2026, 11, 18, 13, 52),
+      );
+      expect(firstMovementAfter(const [], start), isNull);
+    },
+  );
 }

@@ -575,6 +575,60 @@ class ApiClient {
         .toList();
   }
 
+  // -- Dutjes --------------------------------------------------------------------
+  /// Start een dutje (zonder [end]) of vult er achteraf een in (met [end]).
+  Future<Nap> createNap({
+    DateTime? start,
+    DateTime? end,
+    DateTime? alarmAt,
+  }) async => Nap.fromJson(
+    await postJson('/api/v1/naps', {
+      if (start != null) 'start': start.toUtc().toIso8601String(),
+      if (end != null) 'end': end.toUtc().toIso8601String(),
+      if (alarmAt != null) 'alarmAt': alarmAt.toUtc().toIso8601String(),
+    }),
+  );
+
+  /// Past begin en/of eind aan. Een opgegeven eind sluit een lopend dutje af.
+  Future<Nap> updateNap(
+    String id, {
+    DateTime? start,
+    DateTime? end,
+    bool clearAlarm = false,
+  }) async => Nap.fromJson(
+    await putJson('/api/v1/naps/$id', {
+      if (start != null) 'start': start.toUtc().toIso8601String(),
+      if (end != null) 'end': end.toUtc().toIso8601String(),
+      if (clearAlarm) 'clearAlarm': true,
+    }),
+  );
+
+  Future<void> deleteNap(String id) => _delete('/api/v1/naps/$id');
+
+  /// De dutjes van één dag plus het dutje dat nu loopt.
+  Future<NapDay> getNaps(DateTime date) async {
+    final d =
+        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return NapDay.fromJson(await getJson('/api/v1/naps?date=$d'));
+  }
+
+  /// Dutjes waarvan het eind nog ontbreekt of geschat is.
+  Future<List<Nap>> getPendingNaps() async {
+    final body = await getJson('/api/v1/naps/pending');
+    return ((body['naps'] as List?) ?? const [])
+        .map((e) => Nap.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  /// Laat de backend het eind schatten; [movementAt] is de eerste minuut met stappen na het begin.
+  Future<Nap> estimateNap(String id, {DateTime? movementAt}) async =>
+      Nap.fromJson(
+        await postJson('/api/v1/naps/$id/estimate', {
+          if (movementAt != null)
+            'movementAt': movementAt.toUtc().toIso8601String(),
+        }),
+      );
+
   // -- Bewegen, verbruik en slaap (Garmin via Health Connect) ---------------------
   /// Stuurt de laatste dagen uit Health Connect naar de backend (`POST /api/v1/activity/days`).
   Future<void> syncActivityDays(List<Map<String, dynamic>> days) => postJson(
@@ -1338,12 +1392,66 @@ class CheckIn {
   );
 }
 
+/// Een dutje overdag. Zonder [end] loopt het nog; [endEstimated] zegt dat het eind door de app
+/// is geschat omdat Robbert zich niet heeft afgemeld.
+class Nap {
+  final String id;
+  final DateTime start;
+  final DateTime? end;
+  final bool endEstimated;
+  final DateTime? alarmAt;
+
+  const Nap({
+    required this.id,
+    required this.start,
+    this.end,
+    this.endEstimated = false,
+    this.alarmAt,
+  });
+
+  bool get open => end == null;
+
+  static Nap fromJson(Map<String, dynamic> m) => Nap(
+    id: m['id'] as String,
+    start: DateTime.parse(m['start'] as String).toLocal(),
+    end: DateTime.tryParse(m['end'] as String? ?? '')?.toLocal(),
+    endEstimated: m['endEstimated'] as bool? ?? false,
+    alarmAt: DateTime.tryParse(m['alarmAt'] as String? ?? '')?.toLocal(),
+  );
+}
+
+class NapDay {
+  final List<Nap> naps;
+
+  /// Het dutje dat nu loopt, ook als dat op een andere dag begon.
+  final Nap? open;
+
+  const NapDay({this.naps = const [], this.open});
+
+  static NapDay fromJson(Map<String, dynamic> m) => NapDay(
+    naps: ((m['naps'] as List?) ?? const [])
+        .map((e) => Nap.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
+    open: m['open'] == null
+        ? null
+        : Nap.fromJson(Map<String, dynamic>.from(m['open'] as Map)),
+  );
+}
+
 class ActivityWorkout {
   final String type;
   final int minutes;
   final int? kcal;
+  final DateTime? start;
+  final DateTime? end;
 
-  const ActivityWorkout({required this.type, required this.minutes, this.kcal});
+  const ActivityWorkout({
+    required this.type,
+    required this.minutes,
+    this.kcal,
+    this.start,
+    this.end,
+  });
 
   /// Nederlandse naam voor de soorten die Garmin het vaakst aanlevert.
   String get label => switch (type) {
@@ -1362,12 +1470,16 @@ class ActivityDay {
   final int? steps;
   final int? totalKcal;
   final int? sleepMinutes;
+  final DateTime? sleepStart;
+  final DateTime? sleepEnd;
   final List<ActivityWorkout> workouts;
 
   const ActivityDay({
     this.steps,
     this.totalKcal,
     this.sleepMinutes,
+    this.sleepStart,
+    this.sleepEnd,
     this.workouts = const [],
   });
 
@@ -1375,6 +1487,12 @@ class ActivityDay {
     steps: (m['steps'] as num?)?.toInt(),
     totalKcal: (m['totalKcal'] as num?)?.toInt(),
     sleepMinutes: ((m['sleep'] as Map?)?['minutes'] as num?)?.toInt(),
+    sleepStart: DateTime.tryParse(
+      (m['sleep'] as Map?)?['start'] as String? ?? '',
+    )?.toLocal(),
+    sleepEnd: DateTime.tryParse(
+      (m['sleep'] as Map?)?['end'] as String? ?? '',
+    )?.toLocal(),
     workouts: ((m['workouts'] as List?) ?? const []).map((e) {
       final w = Map<String, dynamic>.from(e as Map);
       final start = DateTime.tryParse(w['start'] as String? ?? '');
@@ -1385,6 +1503,8 @@ class ActivityDay {
             ? 0
             : end.difference(start).inMinutes,
         kcal: (w['kcal'] as num?)?.toInt(),
+        start: start?.toLocal(),
+        end: end?.toLocal(),
       );
     }).toList(),
   );

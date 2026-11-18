@@ -8,6 +8,7 @@ import 'api_client.dart';
 import 'checkin_screen.dart';
 import 'food_week_screen.dart';
 import 'health_sync.dart';
+import 'nap_screen.dart';
 
 const _monthNames = [
   'jan', 'feb', 'mrt', 'apr', 'mei', 'jun',
@@ -43,7 +44,8 @@ Future<List<AssistantAttachment>> _toAttachments(List<XFile> files) async {
   return result;
 }
 
-/// Dagoverzicht van het eetdagboek: totalen bovenaan, daaronder de eetmomenten als tijdlijn.
+/// Dagoverzicht van het eetdagboek: totalen bovenaan, daaronder de dag als tijdlijn: slaap,
+/// eetmomenten, check-ins, wandelingen en trainingen (van Garmin) en dutjes, op volgorde van tijd.
 /// Zolang er een analyse loopt wordt de dag elke paar seconden opnieuw opgehaald.
 class FoodScreen extends StatefulWidget {
   const FoodScreen({
@@ -71,6 +73,7 @@ class _FoodScreenState extends State<FoodScreen> {
   DateTime _date = DateUtils.dateOnly(DateTime.now());
   NutritionDay? _day;
   List<CheckIn> _checkIns = const [];
+  NapDay _naps = const NapDay();
   ActivityDay? _activity;
   HealthSyncStatus? _health;
   String? _error;
@@ -112,10 +115,14 @@ class _FoodScreenState extends State<FoodScreen> {
       final activity = await widget.api
           .getActivityDay(_date)
           .catchError((_) => null);
+      final naps = await widget.api
+          .getNaps(_date)
+          .catchError((_) => const NapDay());
       if (!mounted) return;
       setState(() {
         _day = day;
         _checkIns = checkIns;
+        _naps = naps;
         _activity = activity;
         _error = null;
         _loading = false;
@@ -158,6 +165,80 @@ class _FoodScreenState extends State<FoodScreen> {
     if (saved == true) _load(silent: true);
   }
 
+  /// Dutje starten of afmelden (zonder [nap]), of een bestaand dutje aanpassen.
+  Future<void> _nap([Nap? nap]) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => NapScreen(api: widget.api, nap: nap, date: _date),
+      ),
+    );
+    if (changed == true) _load(silent: true);
+  }
+
+  /// Alles van deze dag op volgorde van tijd. Slaap staat op het moment van inslapen en komt
+  /// daardoor bovenaan.
+  List<Widget> _timeline() {
+    final entries = <(DateTime, Widget)>[];
+    final a = _activity;
+    if (a?.sleepStart != null && a?.sleepEnd != null) {
+      entries.add((
+        a!.sleepStart!,
+        _TimelineRow(
+          icon: Icons.bedtime_outlined,
+          time: _time(a.sleepStart!),
+          text:
+              'Geslapen tot ${_time(a.sleepEnd!)} · ${napDuration(a.sleepEnd!.difference(a.sleepStart!))}',
+        ),
+      ));
+    }
+    for (final w in a?.workouts ?? const <ActivityWorkout>[]) {
+      final start = w.start;
+      final end = w.end;
+      if (start == null || end == null) continue;
+      entries.add((
+        start,
+        _TimelineRow(
+          icon: Icons.directions_walk,
+          time: _time(start),
+          text: [
+            '${w.label.replaceFirstMapped(RegExp('^.'), (m) => m[0]!.toUpperCase())} tot ${_time(end)}',
+            napDuration(end.difference(start)),
+            if (w.kcal != null) '${w.kcal} kcal',
+          ].join(' · '),
+        ),
+      ));
+    }
+    for (final nap in _naps.naps) {
+      entries.add((
+        nap.start,
+        _TimelineRow(
+          icon: Icons.airline_seat_flat_outlined,
+          time: _time(nap.start),
+          text: describeNap(nap),
+          onTap: () => _nap(nap.open ? null : nap),
+        ),
+      ));
+    }
+    for (final c in _checkIns) {
+      entries.add((
+        c.at,
+        _TimelineRow(
+          icon: Icons.mood_outlined,
+          time: _time(c.at),
+          text: [describeCheckIn(c), if (c.note.isNotEmpty) c.note].join(' — '),
+        ),
+      ));
+    }
+    for (final meal in _day!.meals) {
+      entries.add((
+        meal.eatenAt,
+        _MealCard(api: widget.api, meal: meal, onTap: () => _open(meal)),
+      ));
+    }
+    entries.sort((x, y) => x.$1.compareTo(y.$1));
+    return [for (final e in entries) e.$2];
+  }
+
   Future<void> _open(Meal meal) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -174,6 +255,11 @@ class _FoodScreenState extends State<FoodScreen> {
       appBar: AppBar(
         title: const Text('Eten'),
         actions: [
+          IconButton(
+            tooltip: 'Dutje',
+            icon: const Icon(Icons.airline_seat_flat_outlined),
+            onPressed: _nap,
+          ),
           IconButton(
             tooltip: 'Hoe voel je je?',
             icon: const Icon(Icons.mood_outlined),
@@ -262,7 +348,7 @@ class _FoodScreenState extends State<FoodScreen> {
                     : null,
               ),
               const SizedBox(height: 12),
-              if (_day!.meals.isEmpty)
+              if (_timeline().isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
@@ -275,59 +361,16 @@ class _FoodScreenState extends State<FoodScreen> {
                     ),
                   ),
                 ),
-              for (final meal in _day!.meals)
-                _MealCard(
-                  api: widget.api,
-                  meal: meal,
-                  onTap: () => _open(meal),
+              // Een dutje dat nog loopt hoort bovenaan, ook als het op een andere dag begon.
+              if (_naps.open != null &&
+                  !_naps.naps.any((n) => n.id == _naps.open!.id))
+                _TimelineRow(
+                  icon: Icons.airline_seat_flat_outlined,
+                  time: _time(_naps.open!.start),
+                  text: describeNap(_naps.open!),
+                  onTap: _nap,
                 ),
-              if (_checkIns.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hoe je je voelde',
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        for (final c in _checkIns)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 48,
-                                  child: Text(
-                                    _time(c.at),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    [
-                                      describeCheckIn(c),
-                                      if (c.note.isNotEmpty) c.note,
-                                    ].join(' — '),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ..._timeline(),
             ],
           ],
         ),
@@ -451,6 +494,54 @@ class _TotalsCard extends StatelessWidget {
             row('Vezels', 'richtwaarde 30–40', '${totals.fiberG.round()} g'),
             row('Groente', 'richtwaarde 250', '${totals.vegetableG} g'),
             row('Fruit', '', '${totals.fruitG} g'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Eén regel in de tijdlijn die geen eetmoment is: slaap, een training, een dutje of een check-in.
+class _TimelineRow extends StatelessWidget {
+  const _TimelineRow({
+    required this.icon,
+    required this.time,
+    required this.text,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String time;
+  final String text;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 48,
+              child: Text(
+                time,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Expanded(child: Text(text)),
+            if (onTap != null)
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
           ],
         ),
       ),
