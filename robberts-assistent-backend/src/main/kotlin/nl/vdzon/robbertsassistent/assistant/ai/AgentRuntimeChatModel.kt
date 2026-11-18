@@ -38,6 +38,8 @@ class AgentRuntimeChatModel(
     private val toolCallingManager: ToolCallingManager,
     private val mapper: ObjectMapper,
     private val maxRounds: Int = MAX_ROUNDS,
+    /** Het model voor deze toepassing; wordt bij elke job opnieuw gevraagd, zodat een wijziging direct geldt. */
+    private val execution: () -> RuntimeExecution? = { null },
 ) : ChatModel {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -67,7 +69,7 @@ class AgentRuntimeChatModel(
         val tools = (prompt.options as? ToolCallingChatOptions)?.let { toolCallingManager.resolveToolDefinitions(it) }.orEmpty()
         val attachments = mutableListOf<RuntimeAttachment>()
         val instruction = buildInstruction(prompt.instructions, tools, attachments)
-        val result = gateway.runStructured(instruction, RESULT_SCHEMA, attachments)
+        val result = gateway.runStructured(instruction, RESULT_SCHEMA, attachments, execution())
         return toResponse(result)
     }
 

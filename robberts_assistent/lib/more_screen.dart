@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'ai_models_screen.dart';
 import 'api_client.dart';
 import 'couplings_screen.dart';
 import 'food_screen.dart';
@@ -63,6 +64,13 @@ class MoreScreen extends StatelessWidget {
             onTap: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => MemoryScreen(api: api))),
+          ),
+          ListTile(
+            leading: const Icon(Icons.tune_outlined),
+            title: const Text('AI-modellen'),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => AiModelsScreen(api: api))),
           ),
           ListTile(
             leading: const Icon(Icons.system_update_outlined),

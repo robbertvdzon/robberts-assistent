@@ -607,6 +607,27 @@ class ApiClient {
   Future<void> setWeight(double weightKg) =>
       putJson('/api/v1/activity/weight', {'weightKg': weightKg});
 
+  // -- AI-modellen (beheer) -------------------------------------------------------
+  Future<AiModels> getAiModels() async =>
+      AiModels.fromJson(await getJson('/api/v1/ai-models'));
+
+  Future<AiModels> setAiModel(String role, AiExecution execution) async =>
+      AiModels.fromJson(
+        await putJson('/api/v1/ai-models/$role', execution.toJson()),
+      );
+
+  /// Terug naar het standaardmodel (`DELETE /api/v1/ai-models/{role}`).
+  Future<AiModels> resetAiModel(String role) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/v1/ai-models/$role'),
+      headers: authHeaders(),
+    );
+    await _throwOnError(response);
+    return AiModels.fromJson(
+      Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+    );
+  }
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -1471,5 +1492,101 @@ class Insight {
     title: m['title'] as String? ?? '',
     text: m['text'] as String? ?? '',
     clear: m['strength'] == 'DUIDELIJK',
+  );
+}
+
+/// Leverancier, model en uitvoeringswijze bij de Agent Runtime.
+class AiExecution {
+  final String vendorId;
+  final String model;
+  final String mode;
+
+  const AiExecution({
+    required this.vendorId,
+    required this.model,
+    required this.mode,
+  });
+
+  String get key => '$vendorId|$model|$mode';
+  String get label => '$vendorId · $model · ${mode.toLowerCase()}';
+
+  static AiExecution fromJson(Map<String, dynamic> m) => AiExecution(
+    vendorId: m['vendorId'] as String? ?? '',
+    model: m['model'] as String? ?? '',
+    mode: m['mode'] as String? ?? '',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'vendorId': vendorId,
+    'model': model,
+    'mode': mode,
+  };
+}
+
+/// Eén toepassing (assistent, eetdagboek, overig) met het model dat er nu voor geldt.
+class AiRoleSetting {
+  final String role;
+  final String label;
+  final String description;
+  final AiExecution execution;
+
+  /// `true` als er een eigen keuze is; anders geldt het standaardmodel.
+  final bool custom;
+
+  const AiRoleSetting({
+    required this.role,
+    required this.label,
+    required this.description,
+    required this.execution,
+    required this.custom,
+  });
+}
+
+class AiOption {
+  final AiExecution execution;
+  final bool available;
+
+  const AiOption({required this.execution, required this.available});
+}
+
+class AiModels {
+  final List<AiRoleSetting> roles;
+  final AiExecution defaultExecution;
+  final List<AiOption> options;
+  final String? optionsError;
+
+  const AiModels({
+    required this.roles,
+    required this.defaultExecution,
+    required this.options,
+    this.optionsError,
+  });
+
+  static AiModels fromJson(Map<String, dynamic> m) => AiModels(
+    roles: ((m['roles'] as List?) ?? const []).map((e) {
+      final r = Map<String, dynamic>.from(e as Map);
+      return AiRoleSetting(
+        role: r['role'] as String? ?? '',
+        label: r['label'] as String? ?? '',
+        description: r['description'] as String? ?? '',
+        execution: AiExecution.fromJson(
+          Map<String, dynamic>.from(r['execution'] as Map? ?? const {}),
+        ),
+        custom: r['custom'] as bool? ?? false,
+      );
+    }).toList(),
+    defaultExecution: AiExecution.fromJson(
+      Map<String, dynamic>.from(m['default'] as Map? ?? const {}),
+    ),
+    options: ((m['options'] as List?) ?? const []).map((e) {
+      final o = Map<String, dynamic>.from(e as Map);
+      return AiOption(
+        execution: AiExecution.fromJson(
+          Map<String, dynamic>.from(o['execution'] as Map? ?? const {}),
+        ),
+        available: o['available'] as bool? ?? false,
+      );
+    }).toList(),
+    optionsError: m['optionsError'] as String?,
   );
 }

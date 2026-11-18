@@ -5,6 +5,7 @@ import nl.vdzon.robbertsassistent.config.AppSecrets
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.model.tool.ToolCallingManager
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
@@ -94,18 +95,41 @@ class AiConfig {
             mapper = mapper,
         )
 
+    /**
+     * Drie [ChatModel]s, één per toepassing ([AiRole]), elk met zijn eigen modelkeuze uit
+     * [AiModelSettings]. `chatModel` is `@Primary`: alles wat geen eigen model vraagt (briefing,
+     * zoekopdrachten, geheugen, moestuin) krijgt het model voor "overig".
+     */
     @Bean
-    fun chatModel(secrets: AppSecrets, gateway: AgentRuntimeGateway, mapper: ObjectMapper): ChatModel =
+    @Primary
+    fun chatModel(secrets: AppSecrets, gateway: AgentRuntimeGateway, mapper: ObjectMapper, models: AiModelSettings): ChatModel =
+        roleModel(AiRole.BACKGROUND, secrets, gateway, mapper, models)
+
+    @Bean
+    fun assistantChatModel(secrets: AppSecrets, gateway: AgentRuntimeGateway, mapper: ObjectMapper, models: AiModelSettings): ChatModel =
+        roleModel(AiRole.CHAT, secrets, gateway, mapper, models)
+
+    @Bean
+    fun nutritionChatModel(secrets: AppSecrets, gateway: AgentRuntimeGateway, mapper: ObjectMapper, models: AiModelSettings): ChatModel =
+        roleModel(AiRole.NUTRITION, secrets, gateway, mapper, models)
+
+    private fun roleModel(
+        role: AiRole,
+        secrets: AppSecrets,
+        gateway: AgentRuntimeGateway,
+        mapper: ObjectMapper,
+        models: AiModelSettings,
+    ): ChatModel =
         if (secrets.effectiveMockAi) {
             MockChatModel()
         } else {
-            AgentRuntimeChatModel(gateway, ToolCallingManager.builder().build(), mapper)
+            AgentRuntimeChatModel(gateway, ToolCallingManager.builder().build(), mapper, execution = { models.execution(role) })
         }
 
     @Bean
     @Primary
     fun assistantChatClient(
-        chatModel: ChatModel,
+        @Qualifier("assistantChatModel") chatModel: ChatModel,
         notesTools: NotesTools,
         windTools: WindTools,
         weatherTools: WeatherTools,

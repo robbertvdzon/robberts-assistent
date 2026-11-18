@@ -35,9 +35,26 @@ interface AgentRuntimeGateway {
     /** Voert [instruction] uit en geeft het `result`-object (conform [resultSchema]) terug. */
     fun runStructured(instruction: String, resultSchema: JsonNode, attachments: List<RuntimeAttachment> = emptyList()): JsonNode
 
+    /**
+     * Zelfde als hierboven, maar met een eigen modelkeuze voor deze aanroep (zie [AiModelSettings]).
+     * Zonder [execution] geldt het standaardmodel uit de configuratie.
+     */
+    fun runStructured(
+        instruction: String,
+        resultSchema: JsonNode,
+        attachments: List<RuntimeAttachment>,
+        execution: RuntimeExecution?,
+    ): JsonNode = runStructured(instruction, resultSchema, attachments)
+
     /** Lichte controle (geen job): bereikbaar en token geldig. */
     fun ping(): Pair<Boolean, String>
+
+    /** De modellen die de runtime nu kan uitvoeren, met of er een worker voor online is. */
+    fun executionOptions(): List<RuntimeExecutionOption> = emptyList()
 }
+
+/** Een keuze uit de catalogus van de runtime. */
+data class RuntimeExecutionOption(val execution: RuntimeExecution, val available: Boolean, val onlineWorkers: Int)
 
 /** Welk model de runtime voor deze applicatie gebruikt. `SUBSCRIPTION` = op het abonnement, geen API-kosten. */
 data class RuntimeExecution(val vendorId: String, val model: String, val mode: String) {
@@ -62,13 +79,22 @@ class HttpAgentRuntimeGateway(
     private val log = LoggerFactory.getLogger(javaClass)
     private val http: HttpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build()
 
-    override fun runStructured(instruction: String, resultSchema: JsonNode, attachments: List<RuntimeAttachment>): JsonNode {
+    override fun runStructured(instruction: String, resultSchema: JsonNode, attachments: List<RuntimeAttachment>): JsonNode =
+        runStructured(instruction, resultSchema, attachments, null)
+
+    override fun runStructured(
+        instruction: String,
+        resultSchema: JsonNode,
+        attachments: List<RuntimeAttachment>,
+        execution: RuntimeExecution?,
+    ): JsonNode {
+        val chosen = execution ?: this.execution
         // De Claude-worker stopt soms zonder eigen oorzaak (ENGINE_FAILED, exit code 1); een
         // tweede poging met een nieuwe job lost dat meestal op.
         var attempt = 1
         while (true) {
             try {
-                return runOnce(instruction, resultSchema, attachments)
+                return runOnce(instruction, resultSchema, attachments, chosen)
             } catch (e: EngineFailedException) {
                 if (attempt >= MAX_ATTEMPTS) throw IOException(e.message, e)
                 log.warn("[AgentRuntime] poging {} mislukt ({}), opnieuw proberen", attempt, e.message)
@@ -79,7 +105,7 @@ class HttpAgentRuntimeGateway(
 
     private class EngineFailedException(message: String) : IOException(message)
 
-    private fun runOnce(instruction: String, resultSchema: JsonNode, attachments: List<RuntimeAttachment>): JsonNode {
+    private fun runOnce(instruction: String, resultSchema: JsonNode, attachments: List<RuntimeAttachment>, execution: RuntimeExecution): JsonNode {
         require(token.isNotBlank()) { "RA_AGENT_RUNTIME_TOKEN ontbreekt" }
         val started = Instant.now()
         val allAttachments = attachments.toMutableList()
@@ -123,6 +149,23 @@ class HttpAgentRuntimeGateway(
         if (token.isBlank()) return false to "geen token (mock actief)"
         val response = send(HttpRequest.newBuilder(uri("/v2/execution-options")).GET().timeout(Duration.ofSeconds(10)))
         return if (response.statusCode() in 200..299) true to "token geldig ($execution)" else false to "HTTP ${response.statusCode()}"
+    }
+
+    override fun executionOptions(): List<RuntimeExecutionOption> {
+        if (token.isBlank()) return emptyList()
+        val response = send(
+            HttpRequest.newBuilder(uri("/v2/execution-options?taskType=STRUCTURED_GENERATION")).GET().timeout(Duration.ofSeconds(15)),
+        )
+        if (response.statusCode() !in 200..299) throw IOException("Modellen ophalen gaf HTTP ${response.statusCode()}")
+        return mapper.readTree(response.body()).map { node ->
+            val e = node.path("execution")
+            RuntimeExecutionOption(
+                RuntimeExecution(e.path("vendorId").asText(), e.path("model").asText(), e.path("mode").asText()),
+                available = node.path("available").asBoolean(false),
+                onlineWorkers = node.path("matchingOnlineWorkers").asInt(0),
+            )
+        }.filter { it.execution.vendorId.isNotBlank() && it.execution.model.isNotBlank() }
+            .sortedWith(compareBy({ it.execution.vendorId }, { it.execution.model }, { it.execution.mode }))
     }
 
     private fun await(jobId: String): Pair<String, String> {

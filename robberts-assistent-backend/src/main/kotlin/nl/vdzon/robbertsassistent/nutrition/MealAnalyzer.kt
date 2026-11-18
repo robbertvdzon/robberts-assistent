@@ -103,15 +103,18 @@ private val FOOD_MEMORY_SYSTEM_PROMPT = """
     {"geheugen": "de volledige nieuwe geheugentekst", "geleerd": "één korte zin over wat erbij kwam, of leeg als er niets verandert"}
 """.trimIndent()
 
-/** Eigen tool-loze clients: vision voor de analyse, tekst voor het geheugen. */
+/**
+ * Eigen tool-loze clients: vision voor de analyse, tekst voor het geheugen. Beide draaien op het
+ * model dat in het beheerscherm voor het eetdagboek is gekozen (`nutritionChatModel`).
+ */
 @Configuration
 class NutritionAiConfig {
     @Bean
-    fun nutritionChatClient(chatModel: ChatModel): ChatClient =
+    fun nutritionChatClient(@Qualifier("nutritionChatModel") chatModel: ChatModel): ChatClient =
         ChatClient.builder(chatModel).defaultSystem(NUTRITION_SYSTEM_PROMPT).build()
 
     @Bean
-    fun foodMemoryChatClient(chatModel: ChatModel): ChatClient =
+    fun foodMemoryChatClient(@Qualifier("nutritionChatModel") chatModel: ChatModel): ChatClient =
         ChatClient.builder(chatModel).defaultSystem(FOOD_MEMORY_SYSTEM_PROMPT).build()
 }
 

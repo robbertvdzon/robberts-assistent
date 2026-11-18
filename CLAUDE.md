@@ -118,6 +118,17 @@ hun detailtekst het gunstigste dagdeel (groen vóór geel vóór rood, bij gelij
 zonder extra broncalls. Afval leidt tekst en tegel uit dezelfde planning af en rekent vandaag/
 morgen expliciet volgens `Europe/Amsterdam`; een bronfout levert bij alle drie geen tegelvelden.
 
+Het AI-model is **per toepassing in de app te kiezen** (Meer → AI-modellen, `lib/ai_models_screen.dart`),
+zonder uitrol. `assistant/ai/AiModelSettings` kent drie rollen (`AiRole`): `CHAT` (assistent),
+`NUTRITION` (eetdagboek) en `BACKGROUND` (al het overige). De keuze (leverancier, model, modus)
+staat in de Firestore-collectie `ai-models` (document-id = rol; in-memory fallback) en wordt 30
+seconden gecachet; zonder keuze, of als de opslag niet bereikbaar is, geldt
+`RA_AI_VENDOR`/`_MODEL`/`_MODE`. Er zijn daarom drie `ChatModel`-beans: `chatModel` (`@Primary`,
+rol BACKGROUND), `assistantChatModel` en `nutritionChatModel`; elk vraagt bij elke runtime-job
+opnieuw het model op. `GET /api/v1/ai-models` geeft de rollen, het standaardmodel en de
+keuzelijst, die live uit de Agent Runtime komt (`GET /v2/execution-options?taskType=STRUCTURED_GENERATION`);
+`PUT`/`DELETE /api/v1/ai-models/{role}` zet een keuze of zet terug naar standaard.
+
 De gedeelde `ChatModel` voedt meerdere doelgerichte `ChatClient`-beans.
 `assistantChatClient` is `@Primary` en heeft alle tools; `gardenChatClient`
 ondersteunt vision met een eigen prompt. Andere modules gebruiken gekwalificeerde,
