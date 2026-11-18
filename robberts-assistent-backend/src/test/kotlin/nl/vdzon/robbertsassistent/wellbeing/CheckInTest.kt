@@ -23,14 +23,14 @@ class CheckInTest {
         assertEquals(4, both.energy)
         assertEquals("na het fietsen", both.note)
 
-        val onlyHunger = service.record(hunger = 3, energy = null)
+        val onlyHunger = service.record(hunger = 4, energy = null)
         assertEquals(null, onlyHunger.energy)
     }
 
     @Test
     fun `waarden buiten de schaal en een lege check-in worden geweigerd`() {
         assertFailsWith<IllegalArgumentException> { service.record(null, null) }
-        assertFailsWith<IllegalArgumentException> { service.record(4, null) }
+        assertFailsWith<IllegalArgumentException> { service.record(5, null) }
         assertFailsWith<IllegalArgumentException> { service.record(null, 0) }
         assertFailsWith<IllegalArgumentException> { service.record(null, 6) }
     }
@@ -59,5 +59,12 @@ class CheckInTest {
         service.record(1, 3, at = now.minusSeconds(20 * 60))
         scheduler.prompt()
         Mockito.verifyNoInteractions(push)
+    }
+
+    @Test
+    fun `check-ins van de oude schaal schuiven bij het lezen op, nieuwe blijven staan`() {
+        // Oud: 0 geen, 1 trek, 2 honger, 3 slap. Nieuw: 2 is beetje honger, 3 honger, 4 slap.
+        assertEquals(listOf(0, 1, 3, 4), listOf(0, 1, 2, 3).map { FirestoreCheckInRepository.upgradeHunger(it, null) })
+        assertEquals(listOf(0, 1, 2, 3, 4), listOf(0, 1, 2, 3, 4).map { FirestoreCheckInRepository.upgradeHunger(it, 2) })
     }
 }

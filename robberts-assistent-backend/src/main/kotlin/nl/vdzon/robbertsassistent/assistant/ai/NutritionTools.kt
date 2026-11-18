@@ -28,12 +28,12 @@ class NutritionTools(
     }
 
     @Tool(
-        description = "Leg vast hoe Robbert zich voelt: honger (0 = geen, 1 = trek, 2 = honger, 3 = slap van de " +
-            "honger) en/of energie (1 = moe tot 5 = fit). Gebruik dit als hij zegt dat hij trek of honger heeft, " +
+        description = "Leg vast hoe Robbert zich voelt: honger (0 = geen, 1 = trek, 2 = beetje honger, 3 = echt honger, " +
+            "4 = slap van de honger) en/of energie (1 = moe tot 5 = fit). Gebruik dit als hij zegt dat hij trek of honger heeft, " +
             "slap is, moe is of zich fit voelt.",
     )
     fun logCheckIn(
-        @ToolParam(description = "Honger 0–3, of leeg als hij daar niets over zei", required = false) hunger: Int?,
+        @ToolParam(description = "Honger 0–4, of leeg als hij daar niets over zei", required = false) hunger: Int?,
         @ToolParam(description = "Energie 1–5, of leeg als hij daar niets over zei", required = false) energy: Int?,
         @ToolParam(description = "Korte toelichting in zijn woorden, mag leeg", required = false) note: String?,
     ): String = try {

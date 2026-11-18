@@ -49,7 +49,7 @@ void main() {
     await tester.pump();
 
     expect(api.recorded, {
-      'hunger': 3,
+      'hunger': 4,
       'energy': 1,
       'note': '',
       'source': 'MELDING',
@@ -87,5 +87,30 @@ void main() {
     );
     expect(describeCheckIn(CheckIn(id: 'b', at: at, hunger: 0)), 'geen honger');
     expect(describeCheckIn(CheckIn(id: 'c', at: at, energy: 2)), 'energie 2');
+    expect(
+      describeCheckIn(CheckIn(id: 'd', at: at, hunger: 2)),
+      'beetje honger',
+    );
+    expect(describeCheckIn(CheckIn(id: 'e', at: at, hunger: 3)), 'honger');
+    expect(
+      describeCheckIn(CheckIn(id: 'f', at: at, hunger: 4)),
+      'slap van de honger',
+    );
+  });
+
+  testWidgets('beetje honger is een eigen keuze tussen trek en honger', (
+    tester,
+  ) async {
+    final api = _FakeApiClient();
+    await tester.pumpWidget(MaterialApp(home: CheckInScreen(api: api)));
+
+    expect(find.text('Trek'), findsOneWidget);
+    expect(find.text('Honger'), findsNWidgets(2)); // het kopje en de keuze
+    await tester.tap(find.text('Beetje honger'));
+    await tester.pump();
+    await tester.tap(find.text('Klaar'));
+    await tester.pump();
+
+    expect(api.recorded!['hunger'], 2);
   });
 }

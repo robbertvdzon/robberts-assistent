@@ -36,7 +36,7 @@ class CheckInService(private val repository: CheckInRepository) {
         at: Instant? = null,
     ): CheckIn {
         require(hunger != null || energy != null) { "Geef honger en/of energie op" }
-        require(hunger == null || hunger in 0..3) { "Honger loopt van 0 (geen) tot 3 (slap van de honger)" }
+        require(hunger == null || hunger in 0..MAX_HUNGER) { "Honger loopt van 0 (geen) tot $MAX_HUNGER (slap van de honger)" }
         require(energy == null || energy in 1..5) { "Energie loopt van 1 (moe) tot 5 (fit)" }
         return repository.save(
             CheckIn(
@@ -60,6 +60,9 @@ class CheckInService(private val repository: CheckInRepository) {
 
     companion object {
         val ZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
+
+        /** Hoogste waarde van de hongerschaal: slap van de honger. */
+        const val MAX_HUNGER = 4
     }
 }
 

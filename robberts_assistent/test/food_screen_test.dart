@@ -262,7 +262,7 @@ void main() {
         CheckIn(
           id: 'c1',
           at: DateTime(2026, 11, 17, 15, 30),
-          hunger: 3,
+          hunger: 4,
           energy: 2,
           note: 'na het fietsen',
         ),

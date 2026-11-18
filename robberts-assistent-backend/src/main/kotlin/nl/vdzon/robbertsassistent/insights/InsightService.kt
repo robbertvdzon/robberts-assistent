@@ -189,8 +189,8 @@ class InsightService(
         fun hoursSinceMeal(c: CheckIn): Double? =
             meals.lastOrNull { it.eatenAt.isBefore(c.at) && Duration.between(it.eatenAt, c.at) < Duration.ofHours(16) }
                 ?.let { Duration.between(it.eatenAt, c.at).toMinutes() / 60.0 }
-        val faint = checkIns.filter { it.hunger == 3 }.mapNotNull(::hoursSinceMeal)
-        val others = checkIns.filter { it.hunger != null && it.hunger < 3 }.mapNotNull(::hoursSinceMeal)
+        val faint = checkIns.filter { it.hunger == CheckInService.MAX_HUNGER }.mapNotNull(::hoursSinceMeal)
+        val others = checkIns.filter { it.hunger != null && it.hunger < CheckInService.MAX_HUNGER }.mapNotNull(::hoursSinceMeal)
         if (faint.isEmpty()) return null
         val late = faint.count { it > 4.5 }
         return Insight(
@@ -269,7 +269,7 @@ class InsightService(
             title = "De ochtend na een training",
             a = "de ochtend na een training" to after,
             b = "andere ochtenden" to notAfter,
-            unit = "honger (0–3)",
+            unit = "honger (0–4)",
             minDiff = 0.3,
         )
     }

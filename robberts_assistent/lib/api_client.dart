@@ -1306,7 +1306,7 @@ class NutritionDay {
   );
 }
 
-/// Hoe Robbert zich op één moment voelde. [hunger] 0 = geen … 3 = slap van de honger,
+/// Hoe Robbert zich op één moment voelde. [hunger] 0 = geen … 4 = slap van de honger,
 /// [energy] 1 = moe … 5 = fit; elk mag ontbreken.
 class CheckIn {
   final String id;

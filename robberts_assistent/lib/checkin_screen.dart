@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 
-const hungerLabels = ['Geen', 'Trek', 'Honger', 'Slap'];
+/// De hongerschaal, van 0 (geen) tot 4 (slap van de honger). Moet gelijk lopen met de backend
+/// (`wellbeing.CheckIn`).
+const hungerLabels = ['Geen', 'Trek', 'Beetje honger', 'Honger', 'Slap'];
 const energyLabels = ['1 moe', '2', '3', '4', '5 fit'];
 
 /// Korte omschrijving van een check-in voor in een tijdlijn, bv. "trek · energie 4".
@@ -10,7 +12,7 @@ String describeCheckIn(CheckIn c) => [
   if (c.hunger != null)
     c.hunger == 0
         ? 'geen honger'
-        : c.hunger == 3
+        : c.hunger == hungerLabels.length - 1
         ? 'slap van de honger'
         : hungerLabels[c.hunger!].toLowerCase(),
   if (c.energy != null) 'energie ${c.energy}',

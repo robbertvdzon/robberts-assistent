@@ -97,7 +97,7 @@ referentie → geschat. Bij twee bronnen wint de hoogste.
    vezels, groente, en de eetmomenten als tijdlijn. Compacte versie als Vandaag-tegel.
 5. **Wat ik van je weet** — vaste gerechten (met aantal keer gegeten en gewogen),
    vuistregels, servies. Alles leesbaar, wijzigbaar, verwijderbaar.
-6. **Check-in** — honger (geen · trek · honger · slap) en energie (1 moe – 5 fit). Twee
+6. **Check-in** — honger (geen · trek · beetje honger · honger · slap) en energie (1 moe – 5 fit). Twee
    tikken. De app zet er zelf context bij (tijd sinds laatste maaltijd, slaap, training).
 7. **Verbanden** — elke bevinding met de getallen erachter en het aantal dagen waarop ze
    steunt; wat te dun is staat als zodanig gemarkeerd.

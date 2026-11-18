@@ -14,7 +14,8 @@ enum class CheckInSource { FOTO, APP, MELDING, CHAT }
 
 /**
  * Hoe Robbert zich op één moment voelt. Twee losse schalen: [hunger] 0 = geen, 1 = trek,
- * 2 = honger, 3 = slap van de honger; [energy] 1 = moe … 5 = fit. Elk mag ontbreken.
+ * 2 = beetje honger, 3 = honger, 4 = slap van de honger; [energy] 1 = moe … 5 = fit. Elk mag
+ * ontbreken.
  */
 data class CheckIn(
     val id: String,
@@ -71,6 +72,7 @@ class FirestoreCheckInRepository(private val firestore: Firestore) : CheckInRepo
     private fun CheckIn.toMap(): Map<String, Any> = buildMap {
         put(FIELD_AT, at.toEpochMilli())
         hunger?.let { put("hunger", it) }
+        put(FIELD_SCALE, CURRENT_SCALE)
         energy?.let { put("energy", it) }
         put("note", note)
         put("source", source.name)
@@ -82,7 +84,7 @@ class FirestoreCheckInRepository(private val firestore: Firestore) : CheckInRepo
         return CheckIn(
             id = id,
             at = Instant.ofEpochMilli(at),
-            hunger = getLong("hunger")?.toInt(),
+            hunger = getLong("hunger")?.toInt()?.let { upgradeHunger(it, getLong(FIELD_SCALE)?.toInt()) },
             energy = getLong("energy")?.toInt(),
             note = getString("note").orEmpty(),
             source = runCatching { CheckInSource.valueOf(getString("source").orEmpty()) }.getOrDefault(CheckInSource.APP),
@@ -90,8 +92,19 @@ class FirestoreCheckInRepository(private val firestore: Firestore) : CheckInRepo
         )
     }
 
-    private companion object {
-        const val FIELD_AT = "atEpochMillis"
+    companion object {
+        private const val FIELD_AT = "atEpochMillis"
+        private const val FIELD_SCALE = "hungerScale"
+
+        /** Versie van de hongerschaal. Versie 2 (18 nov 2026) voegde "beetje honger" toe tussen trek en honger. */
+        const val CURRENT_SCALE = 2
+
+        /**
+         * Check-ins van vóór versie 2 kenden 0 = geen, 1 = trek, 2 = honger, 3 = slap. Die worden bij
+         * het lezen omgezet naar de huidige schaal; de opgeslagen documenten blijven ongewijzigd.
+         */
+        fun upgradeHunger(stored: Int, scale: Int?): Int =
+            if ((scale ?: 1) < CURRENT_SCALE && stored >= 2) stored + 1 else stored
     }
 }
 

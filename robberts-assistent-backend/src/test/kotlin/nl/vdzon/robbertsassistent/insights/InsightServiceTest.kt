@@ -163,7 +163,7 @@ class InsightServiceTest {
         (1L..5L).forEach { i ->
             meal(today.minusDays(i), 12, "Lunch", 500)
             // Vier keer slap om 17:30 (5,5 uur na de lunch), één keer al om 14:00.
-            checkIns.record(3, null, at = at(today.minusDays(i), if (i == 5L) 14 else 17, if (i == 5L) 0 else 30))
+            checkIns.record(4, null, at = at(today.minusDays(i), if (i == 5L) 14 else 17, if (i == 5L) 0 else 30))
             checkIns.record(1, null, at = at(today.minusDays(i), 13))
         }
         val insight = service.insights().single { it.key == "slap-tijd-sinds-eten" }
