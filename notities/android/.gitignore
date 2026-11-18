@@ -12,3 +12,5 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+# Gradle 9 schrijft hier een problemenrapport na elke build.
+/build/

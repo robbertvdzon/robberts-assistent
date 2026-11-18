@@ -33,7 +33,14 @@ class MealServiceTest {
     private val memory = InMemoryFoodMemoryRepository()
     private val analyzer = FakeAnalyzer(MealAnalysis("Ontbijt", "", listOf(item)))
     private val push = Mockito.mock(PushService::class.java)
-    private val service = MealService(repository, InMemoryMealPhotoStorage(), memory, analyzer, push)
+    private val fetched = mutableListOf<String>()
+    private val recipeFetcher = object : RecipeFetcher {
+        override fun fetch(url: String): String? {
+            fetched += url
+            return if (url.contains("kapot")) null else "Ingrediënten voor 4 personen: 400 g pasta, 2 el olijfolie"
+        }
+    }
+    private val service = MealService(repository, InMemoryMealPhotoStorage(), memory, analyzer, push, recipeFetcher)
 
     private fun awaitStatus(id: String, vararg statuses: MealStatus): Meal {
         val deadline = System.currentTimeMillis() + 5000
@@ -155,4 +162,50 @@ class MealServiceTest {
 
     @Suppress("unused")
     private val unusedFirebase: FirebaseProvider? = null
+
+    @Test
+    fun `gewogen maaltijden met foto gaan als referentie mee, dichtst bij het tijdstip eerst`() {
+        fun weighedMeal(at: String, grams: Int): Meal {
+            val created = service.create(listOf(MealPhotoUpload(byteArrayOf(grams.toByte()), "image/jpeg")), "", Instant.parse(at))
+            awaitStatus(created.id, MealStatus.VOORSTEL)
+            return service.confirm(created.id, listOf(item.copy(grams = grams, basis = ItemBasis.GEWOGEN)))
+        }
+        weighedMeal("2026-11-10T06:30:00Z", 58) // ontbijt
+        weighedMeal("2026-11-11T17:30:00Z", 200) // avondeten
+        weighedMeal("2026-11-12T06:40:00Z", 62) // ontbijt
+        // Zonder foto: telt wel mee voor de gewogen porties, niet als referentiefoto.
+        val textOnly = awaitStatus(service.create(emptyList(), "ontbijt", Instant.parse("2026-11-13T06:35:00Z")).id, MealStatus.VOORSTEL)
+        service.confirm(textOnly.id, listOf(item.copy(grams = 60, basis = ItemBasis.GEWOGEN)))
+
+        val breakfast = service.create(listOf(MealPhotoUpload(byteArrayOf(1), "image/jpeg")), "", Instant.parse("2026-11-17T06:35:00Z"))
+        awaitStatus(breakfast.id, MealStatus.VOORSTEL)
+
+        val request = analyzer.requests.last()
+        assertEquals(mapOf("Havermout" to listOf(58, 200, 62, 60)), request.weighedPortions)
+        assertEquals(3, request.references.size)
+        // De twee ontbijten staan voor het avondeten; bij gelijke afstand in tijd de nieuwste eerst.
+        assertTrue(request.references[0].description.contains("2026-11-12") && request.references[0].description.contains("62 g (gewogen)"))
+        assertTrue(request.references[1].description.contains("2026-11-10"))
+        assertTrue(request.references[2].description.contains("2026-11-11"))
+        assertEquals(62, request.references[0].photo.bytes.single().toInt())
+    }
+
+    @Test
+    fun `link in de notitie levert de tekst van het recept, een kapotte link houdt niets tegen`() {
+        val meal = service.create(emptyList(), "pasta van https://voorbeeld.nl/recept/pasta. En https://kapot.nl/x", null)
+        awaitStatus(meal.id, MealStatus.VOORSTEL)
+
+        assertEquals(listOf("https://voorbeeld.nl/recept/pasta", "https://kapot.nl/x"), fetched)
+        val recipes = analyzer.requests.last().recipes
+        assertEquals(setOf("https://voorbeeld.nl/recept/pasta"), recipes.keys)
+        assertTrue(recipes.values.single().contains("400 g pasta"))
+    }
+
+    @Test
+    fun `receptpagina wordt leesbare tekst zonder scripts en opmaak`() {
+        val html = "<html><head><title>x</title><style>p{}</style></head><body><script>alert(1)</script>" +
+            "<h1>Pasta</h1><ul><li>400&nbsp;g pasta</li><li>2 el olie &amp; zout</li></ul></body></html>"
+        assertEquals("Pasta\n400 g pasta\n2 el olie & zout", RecipeLinks.toText(html))
+        assertEquals(emptyList(), RecipeLinks.find("geen link hier"))
+    }
 }

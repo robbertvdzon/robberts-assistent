@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'api_client.dart';
 import 'checkin_screen.dart';
+import 'food_week_screen.dart';
 import 'health_sync.dart';
 
 const _monthNames = [
@@ -178,14 +179,25 @@ class _FoodScreenState extends State<FoodScreen> {
             icon: const Icon(Icons.mood_outlined),
             onPressed: _checkIn,
           ),
-          IconButton(
-            tooltip: 'Wat ik van je weet',
-            icon: const Icon(Icons.psychology_outlined),
-            onPressed: () => Navigator.of(context).push(
+          PopupMenuButton<String>(
+            tooltip: 'Meer',
+            onSelected: (choice) => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => FoodMemoryScreen(api: widget.api),
+                builder: (_) => switch (choice) {
+                  'week' => FoodWeekScreen(api: widget.api),
+                  'verbanden' => InsightsScreen(api: widget.api),
+                  _ => FoodMemoryScreen(api: widget.api),
+                },
               ),
             ),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'week', child: Text('Deze week')),
+              PopupMenuItem(value: 'verbanden', child: Text('Verbanden')),
+              PopupMenuItem(
+                value: 'geheugen',
+                child: Text('Wat ik van je weet'),
+              ),
+            ],
           ),
         ],
       ),
@@ -716,6 +728,7 @@ class _MealCaptureScreenState extends State<MealCaptureScreen> {
         children: [
           Text(
             'Foto van je bord, en als je wilt ook van het etiket, het recept of een tweede bord. '
+            'Een link naar een recept kun je in het tekstvak plakken. '
             'Bestek of je hand in beeld helpt bij de portie.',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,

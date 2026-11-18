@@ -32,7 +32,16 @@ class AnalysisRequest(
     val previous: List<MealItem> = emptyList(),
     /** Wat de gebruiker in woorden heeft verbeterd, in volgorde. */
     val corrections: List<String> = emptyList(),
+    /** Eerdere maaltijden met gewogen onderdelen en hun foto, om mee te vergelijken. */
+    val references: List<ReferenceExample> = emptyList(),
+    /** Per product de eerder gewogen porties in gram, bv. "Havermout" → [58, 60, 62]. */
+    val weighedPortions: Map<String, List<Int>> = emptyMap(),
+    /** Tekst van receptpagina's waar Robbert in zijn notitie naar linkte, per link. */
+    val recipes: Map<String, String> = emptyMap(),
 )
+
+/** Een eerdere maaltijd waarvan (een deel van) de gewichten gemeten zijn, met de foto erbij. */
+class ReferenceExample(val photo: StoredMealPhoto, val description: String)
 
 /** Uitkomst van de leerstap: het nieuwe geheugen en één zin over wat er bijkwam. */
 data class LearnResult(val memory: String, val learned: String)
@@ -56,6 +65,11 @@ private val NUTRITION_SYSTEM_PROMPT = """
     - Bij een recept: reken het hele recept door en bepaal met de bordfoto welk deel hij at.
       Vergeet olie, boter, room en suiker uit het recept niet.
     - Schat porties aan de hand van bord, bestek, hand of verpakking in beeld.
+    - Referentiefoto's: na de foto's van dit eetmoment kunnen foto's van eerdere maaltijden volgen
+      waarvan de gewichten gemeten zijn. Vergelijk de hoeveelheid op de nieuwe foto daarmee en zet
+      "basis" op VERGELEKEN als je schatting daarop rust. Eet hij duidelijk hetzelfde als op een
+      referentie, neem dan de gewogen hoeveelheden over.
+    - Staat er de tekst van een receptpagina bij, gebruik die dan als recept.
     - Volg de vuistregels en eerdere maaltijden van Robbert als die van toepassing zijn; lijkt het
       eetmoment op een eerdere maaltijd, neem dan die hoeveelheden over tenzij de foto iets anders
       laat zien.
@@ -70,7 +84,7 @@ private val NUTRITION_SYSTEM_PROMPT = """
      "items": [{"naam": "Gekookte aardappelen", "gram": 200, "kcal": 170, "eiwit": 4.0,
                 "koolhydraten": 38.0, "vet": 0.2, "vezels": 3.6, "groente_gram": 0,
                 "fruit_gram": 0, "twijfel": false,
-                "basis": "GEWOGEN|ETIKET|RECEPT|GESCHAT"}]}
+                "basis": "GEWOGEN|ETIKET|RECEPT|VERGELEKEN|GESCHAT"}]}
 """.trimIndent()
 
 private val FOOD_MEMORY_SYSTEM_PROMPT = """
@@ -148,7 +162,8 @@ class ChatMealAnalyzer(
     override fun analyze(request: AnalysisRequest): MealAnalysis {
         if (secrets.effectiveMockAi) return mockAnalysis(request)
         val text = promptText(request)
-        val media = request.photos.map { Media(MimeTypeUtils.parseMimeType(it.contentType), ByteArrayResource(it.bytes)) }
+        val media = (request.photos + request.references.map { it.photo })
+            .map { Media(MimeTypeUtils.parseMimeType(it.contentType), ByteArrayResource(it.bytes)) }
         var lastError: Exception? = null
         // Eén herkansing: een enkel antwoord dat geen geldige JSON is komt voor.
         repeat(2) { attempt ->
@@ -203,7 +218,10 @@ class ChatMealAnalyzer(
 
     private fun promptText(request: AnalysisRequest): String = buildString {
         appendLine("Tijdstip van eten: ${request.eatenAtLocal.format(TIME_FORMAT)}")
-        appendLine("Aantal foto's: ${request.photos.size}")
+        appendLine("Aantal foto's van dit eetmoment: ${request.photos.size} (de eerste ${request.photos.size} foto's)")
+        request.references.forEachIndexed { index, reference ->
+            appendLine("Foto ${request.photos.size + index + 1} is een referentie, niet van dit eetmoment: ${reference.description}")
+        }
         appendLine("Notitie van Robbert: ${request.note.ifBlank { "(geen)" }}")
         if (request.memory.isNotBlank()) {
             appendLine()
@@ -216,6 +234,16 @@ class ChatMealAnalyzer(
             request.recent.forEach { meal ->
                 appendLine("- ${meal.title}: ${describe(meal.items)}")
             }
+        }
+        if (request.weighedPortions.isNotEmpty()) {
+            appendLine()
+            appendLine("Porties die Robbert eerder heeft gewogen (gram):")
+            request.weighedPortions.forEach { (name, grams) -> appendLine("- $name: ${grams.joinToString(", ")}") }
+        }
+        request.recipes.forEach { (url, text) ->
+            appendLine()
+            appendLine("Tekst van de receptpagina $url:")
+            appendLine(text)
         }
         if (request.previous.isNotEmpty()) {
             appendLine()

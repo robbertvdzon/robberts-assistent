@@ -1,24 +1,40 @@
 # Eetdagboek met foto's — ontwerp
 
-Status (17 november 2026): **stap 1, het grootste deel van stap 2 en stap 3 zijn gebouwd.**
+Status (18 november 2026): **alle zes stappen zijn gebouwd, op de onderdelen hieronder na.**
+
+Gebouwd:
 
 - Stap 1: backendmodule `nutrition`, scherm Eten onder Meer (`lib/food_screen.dart`).
-- Stap 2: backendmodule `wellbeing`, check-in-scherm (`lib/checkin_screen.dart`), de vraag onder
-  het vastleggen en drie meldingen per dag. Nog niet: de widget op het startscherm en
-  antwoordknoppen ín de melding (een tik op de melding opent het check-in-scherm).
-- Stap 3: backendmodule `activity`, uitlezen van Health Connect in de app (`lib/health_sync*.dart`),
-  en verbruik, stappen, trainingen en slaap op het scherm Eten. Nog niet: sync op de achtergrond
-  (er wordt gesynct bij het openen van het scherm Eten) en een invoerveld voor gewicht in de app
-  (het endpoint bestaat).
-- Getest: backend- en app-tests, en de schermen lokaal in de browser met een nagebootste AI.
-  **Nog niet getest:** de echte AI-analyse met een foto, en de Health Connect-koppeling van de
-  hoofdapp op de telefoon (het uitlezen zelf is wel met een losse test-app beproefd).
-- Stappen 4 t/m 6 zijn nog ontwerp.
+- Stap 2: backendmodule `wellbeing`, check-in-scherm, de vraag onder het vastleggen, drie
+  meldingen per dag.
+- Stap 3: backendmodule `activity`, uitlezen van Health Connect (`lib/health_sync*.dart`),
+  verbruik/stappen/trainingen/slaap op het scherm Eten.
+- Stap 4: gewogen maaltijden gaan als referentiefoto mee met een nieuwe analyse, samen met de
+  eerder gewogen porties; een receptlink in de notitie wordt opgehaald en meegegeven.
+- Stap 5: weekscherm met gewicht invoeren (`lib/food_week_screen.dart`), regel "Eten en bewegen"
+  in de briefing, chat-tools, avondherinnering om 20:45.
+- Stap 6: backendmodule `insights` met zes verbanden, scherm Verbanden.
 
-Eén foto per eetmoment. De assistent zegt wat hij ziet, Robbert tikt op Klopt of verbetert
-het, en de verbetering wordt onthouden. Garmin levert wat hij verbruikt. Daarnaast korte
-check-ins voor honger en energie, om op termijn verbanden te vinden tussen eten, slaap,
-bewegen en hoe hij zich voelt.
+Bewust anders of niet gebouwd:
+
+- **Vaste gerechten, recepten en producten staan niet in eigen collecties** maar in het
+  tekstgeheugen (`food-memory`), dat de leerstap na elke bevestiging bijwerkt. De collecties
+  `food-dishes`, `recipes`, `food-products`, `food-references`, `food-profile` en `insights` uit
+  §7 bestaan dus niet; referenties worden afgeleid uit bevestigde maaltijden met gewogen
+  onderdelen. Scherm 5 is daardoor één bewerkbaar tekstveld.
+- **De analyse is één AI-aanroep**, niet twee: de referentiefoto's gaan direct mee. Dat scheelt
+  een halve minuut wachttijd per foto.
+- **Verbanden zonder AI-weektekst en zonder proefjes.** De bevindingen zijn uitgerekende zinnen.
+- **Niet gebouwd:** de widget op het startscherm, antwoordknoppen ín de melding, sync van
+  Health Connect op de achtergrond (nu bij het openen van het scherm Eten), een receptlink
+  delen vanuit de browser (plakken in het tekstvak werkt), en de gewichts-ijking van de
+  schattingen. De eerste drie vragen Android-specifieke code die alleen op de telefoon te testen
+  is.
+
+Getest: backend- en app-tests, en de schermen lokaal in de browser met een nagebootste AI.
+**Nog niet getest:** de echte AI-analyse met een foto (dus ook niet of referentiefoto's en
+recepten het voorstel verbeteren) en de meldingen op de telefoon. De Garmin-koppeling werkt op
+Robberts telefoon.
 
 ## 1. Doelen en gemaakte keuzes
 

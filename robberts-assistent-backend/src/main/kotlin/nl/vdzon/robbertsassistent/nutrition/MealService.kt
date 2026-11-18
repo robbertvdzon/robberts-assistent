@@ -32,6 +32,7 @@ class MealService(
     private val memory: FoodMemoryRepository,
     private val analyzer: MealAnalyzer,
     private val push: PushService,
+    private val recipeFetcher: RecipeFetcher,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val executor: ExecutorService = Executors.newCachedThreadPool { runnable ->
@@ -133,6 +134,13 @@ class MealService(
         return NutritionDay(date, dayMeals, NutritionTotals.of(dayMeals))
     }
 
+    /** Maaltijden met `from <= eatenAt < to`, oplopend; voor het weekoverzicht en de verbanden. */
+    fun between(from: Instant, to: Instant): List<Meal> = meals.findBetween(from, to)
+
+    /** Of er vandaag vanaf [fromHour] uur (Nederlandse tijd) al iets is vastgelegd. */
+    fun hasMealSince(date: LocalDate, fromHour: Int): Boolean =
+        meals.findBetween(date.atTime(fromHour, 0).atZone(ZONE).toInstant(), date.plusDays(1).atStartOfDay(ZONE).toInstant()).isNotEmpty()
+
     fun memoryText(): String = memory.current()
     fun updateMemory(text: String): String = memory.update(text.trim())
 
@@ -151,8 +159,13 @@ class MealService(
 
     private fun analyse(id: String, notify: Boolean) {
         val meal = meals.findById(id) ?: return
+        val weighed = weighedMeals(meal)
         val analysis = analyzer.analyze(
             AnalysisRequest(
+                references = references(meal, weighed),
+                weighedPortions = weighedPortions(weighed),
+                recipes = RecipeLinks.find(meal.note)
+                    .mapNotNull { url -> recipeFetcher.fetch(url)?.let { url to it } }.toMap(),
                 photos = meal.photoIds.mapNotNull { photos.load(it) },
                 note = meal.note,
                 eatenAtLocal = meal.eatenAt.atZone(ZONE).toLocalDateTime(),
@@ -205,6 +218,39 @@ class MealService(
             .filter { it.id != meal.id && (it.status == MealStatus.BEVESTIGD || it.status == MealStatus.VERBETERD) }
             .takeLast(MAX_EXAMPLES)
 
+    /** Bevestigde maaltijden van de afgelopen twee maanden met minstens één gewogen onderdeel. */
+    private fun weighedMeals(meal: Meal): List<Meal> =
+        meals.findBetween(meal.eatenAt.minus(REFERENCE_WINDOW), meal.eatenAt)
+            .filter { it.id != meal.id && (it.status == MealStatus.BEVESTIGD || it.status == MealStatus.VERBETERD) }
+            .filter { m -> m.items.any { it.basis == ItemBasis.GEWOGEN } }
+
+    /**
+     * De gewogen maaltijden met foto die qua tijdstip het dichtst bij dit eetmoment liggen: wie om
+     * half acht eet, heeft het meest aan de gewogen ontbijten. Bij gelijke afstand wint de nieuwste.
+     */
+    private fun references(meal: Meal, weighed: List<Meal>): List<ReferenceExample> {
+        fun minuteOfDay(m: Meal) = m.eatenAt.atZone(ZONE).toLocalTime().toSecondOfDay() / 60
+        val target = minuteOfDay(meal)
+        fun distance(m: Meal) = kotlin.math.abs(minuteOfDay(m) - target).let { minOf(it, 1440 - it) }
+        return weighed
+            .filter { it.photoIds.isNotEmpty() }
+            .sortedWith(compareBy<Meal> { distance(it) }.thenByDescending { it.eatenAt })
+            .take(MAX_REFERENCES)
+            .mapNotNull { m ->
+                val photo = photos.load(m.photoIds.first()) ?: return@mapNotNull null
+                val date = m.eatenAt.atZone(ZONE).toLocalDate()
+                val items = m.items.joinToString("; ") {
+                    "${it.name} ${it.grams} g" + if (it.basis == ItemBasis.GEWOGEN) " (gewogen)" else " (geschat)"
+                }
+                ReferenceExample(photo, "${m.title} van $date: $items")
+            }
+    }
+
+    private fun weighedPortions(weighed: List<Meal>): Map<String, List<Int>> =
+        weighed.flatMap { it.items }.filter { it.basis == ItemBasis.GEWOGEN }
+            .groupBy({ it.name.trim() }, { it.grams })
+            .mapValues { it.value.takeLast(6) }
+
     /** Na een pod-herstart is een lopende analyse weg; markeer zo'n maaltijd als mislukt. */
     private fun expireIfStuck(meal: Meal): Meal =
         if (meal.status == MealStatus.ANALYSEREN && meal.updatedAt.isBefore(Instant.now().minus(STUCK_AFTER))) {
@@ -222,5 +268,7 @@ class MealService(
         val ZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
         private val STUCK_AFTER: Duration = Duration.ofMinutes(10)
         private const val MAX_EXAMPLES = 20
+        private const val MAX_REFERENCES = 3
+        private val REFERENCE_WINDOW: Duration = Duration.ofDays(60)
     }
 }

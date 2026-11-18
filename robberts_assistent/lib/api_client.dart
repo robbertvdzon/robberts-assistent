@@ -592,6 +592,21 @@ class ApiClient {
     return ActivityDay.fromJson(Map<String, dynamic>.from(days.first as Map));
   }
 
+  // -- Weekoverzicht, gewicht en verbanden ----------------------------------------
+  Future<WeekOverview> getWeekOverview() async =>
+      WeekOverview.fromJson(await getJson('/api/v1/insights/week'));
+
+  Future<List<Insight>> getInsights() async {
+    final body = await getJson('/api/v1/insights');
+    return ((body['insights'] as List?) ?? const [])
+        .map((e) => Insight.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  /// Gewicht van vandaag (`PUT /api/v1/activity/weight`).
+  Future<void> setWeight(double weightKg) =>
+      putJson('/api/v1/activity/weight', {'weightKg': weightKg});
+
   Future<void> _throwOnError(http.Response response) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
@@ -1351,5 +1366,110 @@ class ActivityDay {
         kcal: (w['kcal'] as num?)?.toInt(),
       );
     }).toList(),
+  );
+}
+
+class OverviewDay {
+  final DateTime date;
+  final int eatenKcal;
+  final int? burnedKcal;
+  final int? steps;
+  final int? sleepMinutes;
+  final int mealCount;
+
+  const OverviewDay({
+    required this.date,
+    required this.eatenKcal,
+    this.burnedKcal,
+    this.steps,
+    this.sleepMinutes,
+    this.mealCount = 0,
+  });
+
+  static OverviewDay fromJson(Map<String, dynamic> m) => OverviewDay(
+    date: DateTime.parse(m['date'] as String),
+    eatenKcal: (m['eatenKcal'] as num?)?.toInt() ?? 0,
+    burnedKcal: (m['burnedKcal'] as num?)?.toInt(),
+    steps: (m['steps'] as num?)?.toInt(),
+    sleepMinutes: (m['sleepMinutes'] as num?)?.toInt(),
+    mealCount: (m['mealCount'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class WeightPoint {
+  final DateTime date;
+  final double weightKg;
+
+  const WeightPoint({required this.date, required this.weightKg});
+}
+
+/// Zeven dagen eten en bewegen, met gemiddelden (`GET /api/v1/insights/week`).
+class WeekOverview {
+  final List<OverviewDay> days;
+  final int? avgEatenKcal;
+  final int? avgBurnedKcal;
+
+  /// Gemiddeld gegeten min verbruikt over afgeronde dagen; `null` zolang die er niet zijn.
+  final int? avgBalanceKcal;
+  final double? avgProteinG;
+  final double? avgFiberG;
+  final int? avgVegetableG;
+
+  /// Aandeel van de calorieën per onderbouwing (`GEWOGEN`, `GESCHAT`, …), in procenten.
+  final Map<String, int> basisShare;
+  final int? unchangedShare;
+  final List<WeightPoint> weights;
+
+  const WeekOverview({
+    required this.days,
+    this.avgEatenKcal,
+    this.avgBurnedKcal,
+    this.avgBalanceKcal,
+    this.avgProteinG,
+    this.avgFiberG,
+    this.avgVegetableG,
+    this.basisShare = const {},
+    this.unchangedShare,
+    this.weights = const [],
+  });
+
+  static WeekOverview fromJson(Map<String, dynamic> m) => WeekOverview(
+    days: ((m['days'] as List?) ?? const [])
+        .map((e) => OverviewDay.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
+    avgEatenKcal: (m['avgEatenKcal'] as num?)?.toInt(),
+    avgBurnedKcal: (m['avgBurnedKcal'] as num?)?.toInt(),
+    avgBalanceKcal: (m['avgBalanceKcal'] as num?)?.toInt(),
+    avgProteinG: (m['avgProteinG'] as num?)?.toDouble(),
+    avgFiberG: (m['avgFiberG'] as num?)?.toDouble(),
+    avgVegetableG: (m['avgVegetableG'] as num?)?.toInt(),
+    basisShare: ((m['basisShare'] as Map?) ?? const {}).map(
+      (k, v) => MapEntry(k as String, (v as num).toInt()),
+    ),
+    unchangedShare: (m['unchangedShare'] as num?)?.toInt(),
+    weights: ((m['weights'] as List?) ?? const []).map((e) {
+      final w = Map<String, dynamic>.from(e as Map);
+      return WeightPoint(
+        date: DateTime.parse(w['date'] as String),
+        weightKg: (w['weightKg'] as num).toDouble(),
+      );
+    }).toList(),
+  );
+}
+
+/// Eén verband uit Robberts eigen gegevens, met de getallen in [text].
+class Insight {
+  final String title;
+  final String text;
+
+  /// Of er genoeg waarnemingen zijn om er iets aan te hebben.
+  final bool clear;
+
+  const Insight({required this.title, required this.text, required this.clear});
+
+  static Insight fromJson(Map<String, dynamic> m) => Insight(
+    title: m['title'] as String? ?? '',
+    text: m['text'] as String? ?? '',
+    clear: m['strength'] == 'DUIDELIJK',
   );
 }

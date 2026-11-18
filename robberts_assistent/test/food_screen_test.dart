@@ -225,6 +225,8 @@ void main() {
     );
     await tester.enterText(find.byType(TextField), 'een appel en koffie');
     await tester.pump();
+    await tester.ensureVisible(find.text('Klaar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Klaar'));
     await tester.pump();
 
@@ -238,6 +240,7 @@ void main() {
     await _pump(tester, MealCaptureScreen(api: api, openCameraOnStart: false));
 
     await tester.enterText(find.byType(TextField), 'een appel');
+    await tester.ensureVisible(find.text('4'));
     await tester.tap(find.text('Trek'));
     await tester.tap(find.text('4'));
     await tester.pump();
