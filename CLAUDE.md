@@ -165,7 +165,8 @@ Preview-omgevingen blanken `RA_FIREBASE_PROJECT_ID` → schrijven niet naar de e
 
 ## 6. Apps
 
-- **`robberts_assistent/`** — bottom-navigatie met 4 tabs: **Vandaag**, **Assistent**,
+- **`robberts_assistent/`** — bottom-navigatie met 5 tabs: **Vandaag**, **Assistent**,
+  **Dagboek** (sinds 19 nov 2026; `lib/food_screen.dart`: vier acties Eten/Gevoel/Dutje/Gewicht, dagtotalen en de tijdlijn van de dag),
   **Taken** (het bestaande Herinneringen-scherm) en **Meer**. Vandaag
   (`summary_screen.dart`, was "Morgen"/"Samenvatting"): dagelijkse briefing met alle secties van
   `briefing` (weerkaart, kite/strandfiets, agenda komende 7 dagen met per-afspraak een

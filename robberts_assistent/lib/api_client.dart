@@ -657,9 +657,16 @@ class ApiClient {
         .toList();
   }
 
-  /// Gewicht van vandaag (`PUT /api/v1/activity/weight`).
-  Future<void> setWeight(double weightKg) =>
-      putJson('/api/v1/activity/weight', {'weightKg': weightKg});
+  /// Gewicht op [date] (standaard vandaag), `PUT /api/v1/activity/weight`.
+  Future<void> setWeight(
+    double weightKg, {
+    DateTime? date,
+  }) => putJson('/api/v1/activity/weight', {
+    'weightKg': weightKg,
+    if (date != null)
+      'date':
+          '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+  });
 
   // -- AI-modellen (beheer) -------------------------------------------------------
   Future<AiModels> getAiModels() async =>
@@ -1472,6 +1479,7 @@ class ActivityDay {
   final int? sleepMinutes;
   final DateTime? sleepStart;
   final DateTime? sleepEnd;
+  final double? weightKg;
   final List<ActivityWorkout> workouts;
 
   const ActivityDay({
@@ -1480,6 +1488,7 @@ class ActivityDay {
     this.sleepMinutes,
     this.sleepStart,
     this.sleepEnd,
+    this.weightKg,
     this.workouts = const [],
   });
 
@@ -1487,6 +1496,7 @@ class ActivityDay {
     steps: (m['steps'] as num?)?.toInt(),
     totalKcal: (m['totalKcal'] as num?)?.toInt(),
     sleepMinutes: ((m['sleep'] as Map?)?['minutes'] as num?)?.toInt(),
+    weightKg: (m['weightKg'] as num?)?.toDouble(),
     sleepStart: DateTime.tryParse(
       (m['sleep'] as Map?)?['start'] as String? ?? '',
     )?.toLocal(),

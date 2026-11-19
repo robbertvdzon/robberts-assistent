@@ -28,6 +28,12 @@ Gebouwd:
   Verder dan drie uur na het begin zegt een teken niets meer en wordt het de wekkertijd of een
   half uur. Dutjesherkenning van het horloge wordt niet gebruikt (de Venu 3 herkent ze zelden).
   Twee verbanden erbij: dutje tegen energie later op de dag, en korte nacht tegen een dutje.
+- 19 november 2026: **het scherm heet Dagboek en is een eigen tab** (Vandaag, Assistent,
+  Dagboek, Taken, Meer); "Eten" onder Meer is weg. Bovenaan staan vier acties naast elkaar: Eten
+  (foto), Gevoel, Dutje en Gewicht. Gewicht is een invoerblad voor de getoonde dag en staat daarna
+  bovenaan die dag (er is geen tijdstip bij bekend). De totalen zijn compacter; de richtwaarden
+  voor vezels en groente staan op Deze week. De tab laadt opnieuw als hij wordt gekozen en als de
+  app terugkomt.
 
 Bewust anders of niet gebouwd:
 

@@ -36,7 +36,7 @@ class _FakeApiClient extends ApiClient {
   );
 
   @override
-  Future<void> setWeight(double weightKg) async {
+  Future<void> setWeight(double weightKg, {DateTime? date}) async {
     savedWeight = weightKg;
     weights.add(WeightPoint(date: DateTime(2026, 11, 18), weightKg: weightKg));
   }

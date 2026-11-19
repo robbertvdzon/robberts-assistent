@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'ai_models_screen.dart';
 import 'api_client.dart';
 import 'couplings_screen.dart';
-import 'food_screen.dart';
 import 'health_check_screen.dart';
 import 'memory_screen.dart';
 import 'nightly_checks_screen.dart';
@@ -23,13 +22,6 @@ class MoreScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Meer')),
       body: ListView(
         children: [
-          ListTile(
-            leading: const Icon(Icons.restaurant_outlined),
-            title: const Text('Eten'),
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => FoodScreen(api: api))),
-          ),
           ListTile(
             leading: const Icon(Icons.health_and_safety_outlined),
             title: const Text('Health check'),

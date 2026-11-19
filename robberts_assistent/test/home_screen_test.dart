@@ -97,7 +97,7 @@ void main() {
       .setMockMethodCallHandler(updaterChannel, (call) async => -1);
 
   testWidgets(
-    'bottom-nav telt precies 4 tabs en Meer toont alle overige schermen',
+    'bottom-nav telt precies 5 tabs en Meer toont alle overige schermen',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -106,9 +106,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(NavigationDestination), findsNWidgets(4));
+      expect(find.byType(NavigationDestination), findsNWidgets(5));
       expect(find.text('Vandaag'), findsOneWidget);
       expect(find.text('Assistent'), findsOneWidget);
+      expect(find.text('Dagboek'), findsOneWidget);
       expect(find.text('Taken'), findsOneWidget);
       expect(find.text('Meer'), findsOneWidget);
       expect(tester.widget<AppLogo>(find.byType(AppLogo)).size, 30);
@@ -123,6 +124,13 @@ void main() {
       expect(find.text('Nachtchecks'), findsOneWidget);
       expect(find.text('Geheugen'), findsOneWidget);
       expect(find.text('Updates'), findsOneWidget);
+      expect(find.text('Eten'), findsNothing);
+
+      await tester.tap(find.text('Dagboek'));
+      await tester.pump();
+      for (final action in ['Eten', 'Gevoel', 'Dutje', 'Gewicht']) {
+        expect(find.text(action), findsOneWidget, reason: action);
+      }
     },
   );
 
@@ -397,9 +405,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(NavigationDestination), findsNWidgets(4));
+    expect(find.byType(NavigationDestination), findsNWidgets(5));
     expect(tester.takeException(), isNull);
-    for (final label in ['Vandaag', 'Assistent', 'Taken', 'Meer']) {
+    for (final label in ['Vandaag', 'Assistent', 'Dagboek', 'Taken', 'Meer']) {
       final text = tester.widget<Text>(find.text(label));
       expect(text.maxLines, anyOf(isNull, 1));
     }

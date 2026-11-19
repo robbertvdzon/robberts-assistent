@@ -62,6 +62,16 @@ class _FakeApiClient extends ApiClient {
   Future<ActivityDay?> getActivityDay(DateTime date) async => activity;
 
   NapDay naps = const NapDay();
+  ({double kg, DateTime? date})? savedWeight;
+
+  @override
+  Future<void> setWeight(double weightKg, {DateTime? date}) async {
+    savedWeight = (kg: weightKg, date: date);
+    activity = ActivityDay(weightKg: weightKg);
+  }
+
+  @override
+  Future<WeekOverview> getWeekOverview() async => throw Exception('niet nodig');
 
   @override
   Future<NapDay> getNaps(DateTime date) async => naps;
@@ -134,7 +144,10 @@ void main() {
     expect(find.text('Avondeten'), findsOneWidget);
     expect(find.text('Gekookte aardappelen, Rookworst'), findsOneWidget);
     expect(find.text('Nog niet bevestigd'), findsOneWidget);
-    expect(find.text('richtwaarde 30–40'), findsOneWidget);
+    expect(
+      find.text('Eiwit 16 g · vezels 4 g · groente 0 g · fruit 0 g'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Klopt neemt het voorstel ongewijzigd over', (tester) async {
@@ -396,5 +409,48 @@ void main() {
     expect(asked, 1);
     expect(find.text('Garmin koppelen'), findsNothing);
     expect(find.text('2100'), findsOneWidget);
+  });
+
+  testWidgets('gewicht invullen vanaf het dagboek en terugzien in de dag', (
+    tester,
+  ) async {
+    final api = _FakeApiClient();
+    await _pump(tester, FoodScreen(api: api));
+
+    await tester.tap(find.text('Gewicht'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'veel');
+    await tester.tap(find.text('Opslaan'));
+    await tester.pump();
+    expect(find.textContaining('bijvoorbeeld 81,4'), findsOneWidget);
+    expect(api.savedWeight, isNull);
+
+    await tester.enterText(find.byType(TextField), '81,4');
+    await tester.tap(find.text('Opslaan'));
+    await tester.pumpAndSettle();
+
+    expect(api.savedWeight?.kg, 81.4);
+    expect(api.savedWeight?.date, DateUtils.dateOnly(DateTime.now()));
+    expect(find.text('Gewicht 81,4 kg'), findsOneWidget);
+  });
+
+  testWidgets('de vier acties openen foto, gevoel en dutje', (tester) async {
+    await _pump(tester, FoodScreen(api: _FakeApiClient()));
+
+    await tester.tap(find.text('Gevoel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hoe voel je je?'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Dutje'));
+    await tester.pumpAndSettle();
+    expect(find.text('Start dutje'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Eten'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MealCaptureScreen), findsOneWidget);
   });
 }

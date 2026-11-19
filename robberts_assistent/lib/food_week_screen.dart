@@ -184,6 +184,10 @@ class _FoodWeekScreenState extends State<FoodWeekScreen> {
                           Text(
                             'Eiwit ${week.avgProteinG?.round() ?? 0} g · vezels ${week.avgFiberG?.round() ?? 0} g · groente ${week.avgVegetableG ?? 0} g',
                           ),
+                          Text(
+                            'Richtwaarde per dag: vezels 30–40 g, groente 250 g.',
+                            style: muted,
+                          ),
                           if (week.basisShare.isNotEmpty) ...[
                             const SizedBox(height: 14),
                             Text('Waar je calorieën op rusten', style: muted),

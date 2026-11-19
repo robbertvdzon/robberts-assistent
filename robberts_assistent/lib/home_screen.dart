@@ -19,7 +19,7 @@ import 'food_screen.dart';
 import 'health_sync.dart';
 import 'watches_screen.dart';
 
-/// App-shell na het inloggen: vier hoofdbestemmingen met de overige schermen onder 'Meer'.
+/// App-shell na het inloggen: vijf hoofdbestemmingen met de overige schermen onder 'Meer'.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.api, required this.onLoggedOut});
 
@@ -33,6 +33,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   var _tab = 1;
   DateTime? _lastHealthSync;
+
+  /// Laat het dagboek opnieuw laden als de tab wordt gekozen of de app terugkomt.
+  final _diaryReload = ValueNotifier<int>(0);
+
+  static const _diaryTab = 2;
 
   @override
   void initState() {
@@ -74,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     AppShortcuts.pending.removeListener(_onShortcut);
     WidgetsBinding.instance.removeObserver(this);
     LaunchSourceService.lastLaunch.removeListener(_onLaunch);
+    _diaryReload.dispose();
     super.dispose();
   }
 
@@ -87,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _onForeground() async {
     await reconcileNap(widget.api);
     _syncHealth();
+    _diaryReload.value++;
   }
 
   /// Hooguit één keer per kwartier; zonder toestemming gebeurt er niets (de knop daarvoor staat
@@ -143,9 +150,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (target == null) return;
     FcmService.deepLinkTarget.value = null;
     if (!mounted) return;
-    if (target == DeepLinkTarget.today) {
+    if (target == DeepLinkTarget.today || target == DeepLinkTarget.food) {
       Navigator.of(context).popUntil((route) => route.isFirst);
-      _selectTab(0);
+      _selectTab(target == DeepLinkTarget.today ? 0 : _diaryTab);
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -153,7 +160,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => switch (target) {
-            DeepLinkTarget.food => FoodScreen(api: widget.api),
             DeepLinkTarget.checkIn => CheckInScreen(
               api: widget.api,
               source: 'MELDING',
@@ -168,6 +174,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _selectTab(int tab) {
     setState(() => _tab = tab);
+    if (tab == _diaryTab) _diaryReload.value++;
   }
 
   @override
@@ -175,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final screens = [
       SummaryScreen(api: widget.api),
       ConversationsScreen(api: widget.api),
+      FoodScreen(api: widget.api, reload: _diaryReload),
       SchedulesScreen(api: widget.api),
       MoreScreen(api: widget.api),
     ];
@@ -203,6 +211,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             icon: Icon(Icons.assistant_outlined),
             selectedIcon: Icon(Icons.assistant),
             label: 'Assistent',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: 'Dagboek',
           ),
           NavigationDestination(
             icon: Icon(Icons.alarm_outlined),

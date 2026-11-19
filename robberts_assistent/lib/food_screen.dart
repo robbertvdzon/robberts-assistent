@@ -54,9 +54,13 @@ class FoodScreen extends StatefulWidget {
     this.pollInterval,
     this.healthSync = syncHealth,
     this.healthAccess = requestHealthAccess,
+    this.reload,
   });
 
   final ApiClient api;
+
+  /// Als het scherm als tab blijft bestaan: elke melding hierop haalt de dag opnieuw op.
+  final Listenable? reload;
 
   /// Aanpasbaar voor tests; standaard 3 seconden.
   final Duration? pollInterval;
@@ -85,10 +89,16 @@ class _FoodScreenState extends State<FoodScreen> {
     super.initState();
     _load();
     _syncHealth(widget.healthSync);
+    widget.reload?.addListener(_reload);
+  }
+
+  void _reload() {
+    if (mounted) _load(silent: true);
   }
 
   @override
   void dispose() {
+    widget.reload?.removeListener(_reload);
     _poll?.cancel();
     super.dispose();
   }
@@ -161,6 +171,16 @@ class _FoodScreenState extends State<FoodScreen> {
   Future<void> _checkIn() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => CheckInScreen(api: widget.api)),
+    );
+    if (saved == true) _load(silent: true);
+  }
+
+  /// Gewicht invoeren voor de getoonde dag.
+  Future<void> _weight() async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _WeightSheet(api: widget.api, date: _date),
     );
     if (saved == true) _load(silent: true);
   }
@@ -253,18 +273,8 @@ class _FoodScreenState extends State<FoodScreen> {
     final isToday = _date == DateUtils.dateOnly(DateTime.now());
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Eten'),
+        title: const Text('Dagboek'),
         actions: [
-          IconButton(
-            tooltip: 'Dutje',
-            icon: const Icon(Icons.airline_seat_flat_outlined),
-            onPressed: _nap,
-          ),
-          IconButton(
-            tooltip: 'Hoe voel je je?',
-            icon: const Icon(Icons.mood_outlined),
-            onPressed: _checkIn,
-          ),
           PopupMenuButton<String>(
             tooltip: 'Meer',
             onSelected: (choice) => Navigator.of(context).push(
@@ -287,15 +297,10 @@ class _FoodScreenState extends State<FoodScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _capture,
-        icon: const Icon(Icons.photo_camera_outlined),
-        label: const Text('Foto van eten'),
-      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             Row(
               children: [
@@ -319,6 +324,31 @@ class _FoodScreenState extends State<FoodScreen> {
               ],
             ),
             const SizedBox(height: 8),
+            Row(
+              children: [
+                _ActionButton(
+                  icon: Icons.photo_camera_outlined,
+                  label: 'Eten',
+                  onTap: _capture,
+                ),
+                _ActionButton(
+                  icon: Icons.mood_outlined,
+                  label: 'Gevoel',
+                  onTap: _checkIn,
+                ),
+                _ActionButton(
+                  icon: Icons.airline_seat_flat_outlined,
+                  label: 'Dutje',
+                  onTap: _nap,
+                ),
+                _ActionButton(
+                  icon: Icons.monitor_weight_outlined,
+                  label: 'Gewicht',
+                  onTap: _weight,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             if (_loading && _day == null)
               const Padding(
                 padding: EdgeInsets.all(32),
@@ -348,12 +378,12 @@ class _FoodScreenState extends State<FoodScreen> {
                     : null,
               ),
               const SizedBox(height: 12),
-              if (_timeline().isEmpty)
+              if (_timeline().isEmpty && _activity?.weightKg == null)
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     isToday
-                        ? 'Nog niets vastgelegd vandaag. Maak een foto van wat je eet.'
+                        ? 'Nog niets vastgelegd vandaag. Tik op Eten om een foto te maken.'
                         : 'Niets vastgelegd op deze dag.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -369,6 +399,14 @@ class _FoodScreenState extends State<FoodScreen> {
                   time: _time(_naps.open!.start),
                   text: describeNap(_naps.open!),
                   onTap: _nap,
+                ),
+              if (_activity?.weightKg != null)
+                _TimelineRow(
+                  icon: Icons.monitor_weight_outlined,
+                  time: '',
+                  text:
+                      'Gewicht ${_activity!.weightKg!.toStringAsFixed(1).replaceAll('.', ',')} kg',
+                  onTap: _weight,
                 ),
               ..._timeline(),
             ],
@@ -417,17 +455,6 @@ class _TotalsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = TextStyle(
       color: Theme.of(context).colorScheme.onSurfaceVariant,
-    );
-    Widget row(String label, String hint, String value) => Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Row(
-        children: [
-          Text(label),
-          const SizedBox(width: 8),
-          Expanded(child: Text(hint, style: muted)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
     );
     return Card(
       child: Padding(
@@ -489,16 +516,171 @@ class _TotalsCard extends StatelessWidget {
                   label: const Text('Garmin koppelen'),
                 ),
               ),
-            const Divider(height: 20),
-            row('Eiwit', '', '${totals.proteinG.round()} g'),
-            row('Vezels', 'richtwaarde 30–40', '${totals.fiberG.round()} g'),
-            row('Groente', 'richtwaarde 250', '${totals.vegetableG} g'),
-            row('Fruit', '', '${totals.fruitG} g'),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Eiwit ${totals.proteinG.round()} g · vezels ${totals.fiberG.round()} g · '
+                'groente ${totals.vegetableG} g · fruit ${totals.fruitG} g',
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+/// Een van de vier acties bovenaan het dagboek.
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon),
+            const SizedBox(height: 4),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Invoerblad voor het gewicht van één dag, met het vorige gewicht ter vergelijking.
+class _WeightSheet extends StatefulWidget {
+  const _WeightSheet({required this.api, required this.date});
+
+  final ApiClient api;
+  final DateTime date;
+
+  @override
+  State<_WeightSheet> createState() => _WeightSheetState();
+}
+
+class _WeightSheetState extends State<_WeightSheet> {
+  final _controller = TextEditingController();
+  String? _previous;
+  String? _error;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrevious();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Het laatst ingevulde gewicht; bijzaak, dus een fout laat het blad gewoon werken.
+  Future<void> _loadPrevious() async {
+    try {
+      final weights = (await widget.api.getWeekOverview()).weights;
+      if (!mounted || weights.isEmpty) return;
+      final last = weights.last;
+      setState(
+        () => _previous =
+            'Laatst ingevuld: ${last.weightKg.toStringAsFixed(1).replaceAll('.', ',')} kg '
+            'op ${last.date.day} ${_monthNames[last.date.month - 1]}',
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _save() async {
+    final kg = double.tryParse(_controller.text.trim().replaceAll(',', '.'));
+    if (kg == null || kg < 30 || kg > 250) {
+      setState(
+        () => _error = "Vul je gewicht in kilo's in, bijvoorbeeld 81,4.",
+      );
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.api.setWeight(kg, date: widget.date);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = 'Opslaan is mislukt.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      16,
+      16,
+      16,
+      16 + MediaQuery.of(context).viewInsets.bottom,
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Gewicht ${_dateLabel(widget.date).toLowerCase()}',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        if (_previous != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              _previous!,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controller,
+          autofocus: true,
+          enabled: !_saving,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: 'Gewicht (kg)',
+            errorText: _error,
+          ),
+          onSubmitted: (_) => _save(),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: const Text('Opslaan'),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Eén regel in de tijdlijn die geen eetmoment is: slaap, een training, een dutje of een check-in.
