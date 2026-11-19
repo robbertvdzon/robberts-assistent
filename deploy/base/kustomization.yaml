@@ -14,7 +14,7 @@ resources:
 images:
 - name: ghcr.io/robbertvdzon/groentetuin-frontend
   newName: ghcr.io/robbertvdzon/groentetuin-frontend
-  newTag: sha-81849b1
+  newTag: sha-64e5baa
 - name: ghcr.io/robbertvdzon/robberts-assistent-backend
   newName: ghcr.io/robbertvdzon/robberts-assistent-backend
   newTag: sha-a8eb7c6
