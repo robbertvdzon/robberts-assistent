@@ -131,7 +131,14 @@ class AgentRuntimeChatModel(
                         val extension = media.mimeType.subtype.substringBefore('+').ifBlank { "jpg" }
                         val name = "foto$index"
                         attachments += RuntimeAttachment(name, "$name.$extension", media.mimeType.toString(), media.dataAsByteArray)
-                        out.appendLine("(bijgevoegde foto: invoerobject '$name', /job/input/objects/$name/content — bekijk die afbeelding)")
+                        // De runtime zet een bijlage neer als bestand zonder extensie; de leestool herkent
+                        // een afbeelding aan de extensie. Daarom eerst kopiëren naar een naam met extensie.
+                        out.appendLine(
+                            "(bijgevoegde foto '$name': staat in /job/input/objects/$name/content, een afbeelding zonder " +
+                                "bestandsextensie. Kopieer hem eerst met je shell naar /tmp/$name.$extension " +
+                                "(`cp /job/input/objects/$name/content /tmp/$name.$extension`) en open /tmp/$name.$extension " +
+                                "daarna met je leestool (Read) om hem te bekijken.)",
+                        )
                     }
                 }
                 is AssistantMessage -> {
@@ -164,6 +171,9 @@ class AgentRuntimeChatModel(
               `reply`, in de taal en stijl die de systeeminstructies vragen.
             - Verzin geen toolresultaten en gebruik alleen tools uit de lijst. Gebruik zelf geen shell-,
               bestands- of webtools; de enige acties zijn de genoemde tools.
+            - Uitzondering: bijgevoegde foto's. Die MOET je bekijken voordat je antwoordt, op de manier die
+              bij de foto staat (kopiëren met je shell, openen met je leestool). Zeg nooit dat je een foto
+              niet kunt zien zonder dat je dat hebt geprobeerd; lukt het echt niet, noem dan de foutmelding.
         """.trimIndent()
 
         val RESULT_SCHEMA: JsonNode = ObjectMapper().readTree(

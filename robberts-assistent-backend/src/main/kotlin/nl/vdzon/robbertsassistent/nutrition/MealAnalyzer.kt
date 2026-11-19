@@ -77,6 +77,9 @@ private val NUTRITION_SYSTEM_PROMPT = """
     - "groente_gram" en "fruit_gram" zijn het deel van het onderdeel dat groente of fruit is.
     - Zet "twijfel" op true als je product of hoeveelheid niet goed kunt zien.
     - Water, thee en koffie zonder melk of suiker: laat ze weg.
+    - Foto's bekijk je altijd echt voordat je iets invult. Lukt het openen van een foto niet,
+      verzin dan niets: geef "items" als lege lijst en begin "opmerking" met "FOTO NIET GELEZEN:"
+      gevolgd door wat er misging.
 
     Antwoord uitsluitend met één JSON-object, zonder uitleg ervoor of erna en zonder codeblok:
     {"titel": "Ontbijt|Lunch|Avondeten|Tussendoor|Drinken",

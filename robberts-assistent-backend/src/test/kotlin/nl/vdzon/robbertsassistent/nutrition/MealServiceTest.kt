@@ -101,6 +101,18 @@ class MealServiceTest {
     }
 
     @Test
+    fun `een foto die het model niet kon openen wordt MISLUKT in plaats van een verzonnen voorstel`() {
+        analyzer.result = MealAnalysis("Tussendoor", "FOTO NIET GELEZEN: bestand niet gevonden", emptyList())
+        val meal = awaitStatus(service.create(listOf(MealPhotoUpload(byteArrayOf(1), "image/jpeg")), "", null).id, MealStatus.MISLUKT)
+        assertEquals("De foto kon niet worden bekeken. Probeer het opnieuw.", meal.error)
+        assertTrue(meal.items.isEmpty())
+
+        analyzer.result = MealAnalysis("Tussendoor", "", listOf(item))
+        service.retry(meal.id)
+        assertEquals(listOf(item), awaitStatus(meal.id, MealStatus.VOORSTEL).items)
+    }
+
+    @Test
     fun `mislukte analyse wordt MISLUKT en kan opnieuw`() {
         analyzer.fail = true
         val meal = awaitStatus(service.create(emptyList(), "iets", null).id, MealStatus.MISLUKT)

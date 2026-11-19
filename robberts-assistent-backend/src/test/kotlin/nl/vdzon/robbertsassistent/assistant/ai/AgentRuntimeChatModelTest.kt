@@ -113,6 +113,9 @@ class AgentRuntimeChatModelTest {
         assertEquals("image/jpeg", sent.mimeType)
         assertTrue(sent.bytes.contentEquals(bytes))
         assertTrue(gateway.instructions[0].contains("/job/input/objects/foto1/content"))
+        // De runtime levert de foto zonder extensie; het model moet hem kopiëren en dan pas openen.
+        assertTrue(gateway.instructions[0].contains("cp /job/input/objects/foto1/content /tmp/foto1.jpeg"))
+        assertTrue(gateway.instructions[0].contains("Die MOET je bekijken voordat je antwoordt"))
     }
 
     @Test

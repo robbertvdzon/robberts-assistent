@@ -181,6 +181,11 @@ class MealService(
                 corrections = meal.corrections,
             ),
         )
+        // Een voorstel zonder dat de foto bekeken is, is erger dan geen voorstel: dan zou er een
+        // verzonnen portie in het dagboek komen. Zo'n antwoord telt als mislukt en is opnieuw te proberen.
+        check(!(meal.photoIds.isNotEmpty() && analysis.remark.startsWith(PHOTO_NOT_READ))) {
+            "De foto kon niet worden bekeken. Probeer het opnieuw."
+        }
         // Opnieuw lezen: tijdens de analyse kan de maaltijd verwijderd of aangevuld zijn.
         val current = meals.findById(id) ?: return
         if (current.updatedAt != meal.updatedAt) {
@@ -271,6 +276,9 @@ class MealService(
     }
 
     companion object {
+        /** Zo begint de opmerking als het model de foto niet kon openen (zie de voedingsprompt). */
+        const val PHOTO_NOT_READ = "FOTO NIET GELEZEN"
+
         val ZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
         private val STUCK_AFTER: Duration = Duration.ofMinutes(10)
         private const val MAX_EXAMPLES = 20
