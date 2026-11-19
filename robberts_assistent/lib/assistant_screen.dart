@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import 'api_client.dart';
+import 'nap_alarm.dart';
 
 class ChatMessage {
   const ChatMessage({
@@ -435,6 +436,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
         });
       }
       _scrollToBottom();
+      // De assistent kan een dutje hebben gestart of afgemeld: wekker en melding bijwerken.
+      unawaited(reconcileNap(widget.api));
       if (speakReply && result.reply.isNotEmpty) {
         // Microfoon expliciet uit vóór het spreken: nooit luisteren terwijl de assistent praat.
         await _speech.stop();

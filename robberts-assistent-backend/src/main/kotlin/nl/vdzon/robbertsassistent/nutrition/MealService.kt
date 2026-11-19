@@ -117,6 +117,12 @@ class MealService(
         return confirmed
     }
 
+    /** Zet het eetmoment op een ander tijdstip; de rest (status, onderdelen) blijft zoals het was. */
+    fun move(id: String, eatenAt: Instant): Meal {
+        require(!eatenAt.isAfter(Instant.now().plusSeconds(300))) { "Dat tijdstip ligt in de toekomst" }
+        return meals.save(get(id).copy(eatenAt = eatenAt, updatedAt = Instant.now()))
+    }
+
     fun get(id: String): Meal = expireIfStuck(meals.findById(id) ?: throw MealNotFoundException(id))
 
     fun delete(id: String) {

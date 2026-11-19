@@ -99,7 +99,7 @@ class NutritionTools(
             appendLine("$day: ${t.kcal} kcal, eiwit ${t.proteinG.toInt()} g, vezels ${t.fiberG.toInt()} g, groente ${t.vegetableG} g, fruit ${t.fruitG} g.")
             result.meals.forEach { meal ->
                 val time = meal.eatenAt.atZone(MealService.ZONE).toLocalTime().toString().take(5)
-                appendLine("- $time ${meal.title.ifBlank { "Eetmoment" }} (${meal.kcal} kcal): ${meal.items.joinToString(", ") { it.name }}")
+                appendLine("- $time ${meal.title.ifBlank { "Eetmoment" }} (${meal.kcal} kcal): ${meal.items.joinToString(", ") { it.name }} [id ${meal.id.take(8)}]")
             }
         }.trim()
     }

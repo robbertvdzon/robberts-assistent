@@ -56,10 +56,31 @@ private val SYSTEM_PROMPT = """
     de Open-Meteo-tool en combineer beide in één antwoord: windfinder voor de dagen die het dekt,
     Open-Meteo voor de rest. Vermeld kort dat de dagen verder vooruit van een andere (minder
     kustspecifieke) bron komen.
-    Je hebt ook tools voor Robberts eetdagboek: vastleggen wat hij at of dronk (logMeal, ook
-    achteraf met een tijdstip), vastleggen hoe hij zich voelt qua honger en energie (logCheckIn),
-    zijn gewicht vastleggen (logWeight), en opvragen wat hij op een dag at, het
-    weekoverzicht van eten en bewegen, en de verbanden uit zijn eigen gegevens.
+    Je hebt ook tools voor Robberts dagboek. Vastleggen: wat hij at of dronk (logMeal, ook achteraf
+    met een tijdstip), hoe hij zich voelt qua honger en energie (logCheckIn), zijn gewicht
+    (logWeight) en dutjes (startNap, endNap, logNap). Opvragen: wat hij op een dag at
+    (getDayNutrition), de hele dag op tijd met slaap, wandelingen, trainingen, dutjes, check-ins,
+    eten en gewicht (getDayTimeline), het weekoverzicht en de verbanden uit zijn eigen gegevens.
+    Aanpassen: een eetmoment verbeteren in woorden (correctMeal), op een ander tijdstip zetten
+    (moveMeal) of verwijderen (deleteMeal), en een dutje verwijderen (deleteNap). Eetmomenten en
+    dutjes hebben een kort id dat je uit getDayNutrition of getDayTimeline haalt; vraag Robbert
+    nooit om een id. Verwijder alleen bij een duidelijk verzoek, en alleen dat ene ding.
+    Slaap, stappen, verbruik en trainingen komen van zijn Garmin-horloge; die kun je lezen maar
+    niet veranderen. Honger loopt van 0 (geen) via 1 trek, 2 beetje honger, 3 honger tot 4 slap.
+
+    Zo zit de app in elkaar, voor als Robbert vraagt waar iets staat of hoe iets werkt. Onderin
+    staan vijf tabs. Vandaag: de dagelijkse briefing (weerkaart, kiten, strandfietsen, agenda,
+    afval, weektaken). Assistent: deze gesprekken, typen of praten, met foto's. Dagboek: bovenaan
+    vier knoppen (Eten = foto of tekst van wat hij eet, Gevoel = honger en energie, Dutje = starten
+    met of zonder wekker en afmelden, Gewicht), daaronder de dagtotalen en de tijdlijn van de dag;
+    met de pijltjes naar een andere dag; onder de drie puntjes Deze week, Verbanden en "Wat ik van
+    je weet" (het eet-geheugen). Een eetmoment is eerst een voorstel van de AI; Robbert bevestigt
+    of verbetert het door erop te tikken. Een dutje waarbij hij zich niet afmeldt krijgt een
+    geschat eind. Taken: herinneringen en wekkers. Meer: Health check, Zoekopdrachten,
+    Koppelingen, Nachtchecks, Geheugen (wat jij over hem onthoudt), AI-modellen en Updates.
+    Lang drukken op het app-icoon geeft snelkoppelingen voor een foto van eten, een check-in en een
+    dutje. Drie keer per dag (10:30, 15:30, 20:30) vraagt de app hoe hij zich voelt.
+    Kun je iets niet met je tools, zeg dat dan eerlijk en vertel waar het in de app wel kan.
 """.trimIndent()
 
 /**
@@ -149,13 +170,14 @@ class AiConfig {
         pushTools: PushTools,
         watchTools: WatchTools,
         nutritionTools: NutritionTools,
+        diaryTools: DiaryTools,
     ): ChatClient =
         ChatClient.builder(chatModel)
             .defaultSystem(SYSTEM_PROMPT)
             .defaultTools(
                 notesTools, windTools, weatherTools, tideTools, airQualityTools, newsTools, wasteTools,
                 automowerTools, stravaTools, softwareFactoryTools, openShiftTools, reminderTools, alarmTools,
-                calendarTools, docsTools, pushTools, watchTools, nutritionTools,
+                calendarTools, docsTools, pushTools, watchTools, nutritionTools, diaryTools,
             )
             .build()
 

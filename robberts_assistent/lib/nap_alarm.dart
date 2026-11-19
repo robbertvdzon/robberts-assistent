@@ -33,7 +33,8 @@ class NapAlarm {
   }
 }
 
-/// Brengt de telefoon in lijn met het dutje dat bij de backend loopt, bij het openen van de app:
+/// Brengt de telefoon in lijn met het dutje dat bij de backend loopt, bij het openen van de app
+/// en na elk antwoord van de assistent (die kan een dutje starten of afmelden):
 /// is de wekker met "Sluit" uitgezet, dan eindigt het dutje op dat moment; loopt er geen dutje
 /// meer, dan verdwijnen de wekker en de melding. Mag de app nooit ophouden.
 Future<void> reconcileNap(ApiClient api) async {
@@ -49,6 +50,12 @@ Future<void> reconcileNap(ApiClient api) async {
       await api.updateNap(open.id, end: dismissedAt, clearAlarm: true);
       await FcmService.cancelNapNotification();
       return;
+    }
+    // Een dutje dat via de chat is gestart heeft de wekker nog niet op de telefoon staan. Opnieuw
+    // inplannen van dezelfde tijd is onschadelijk; een gesnoozede wekker ligt al na alarmAt.
+    final alarmAt = open.alarmAt;
+    if (alarmAt != null && alarmAt.isAfter(DateTime.now())) {
+      await NapAlarm.schedule(alarmAt);
     }
     await FcmService.showNapNotification(open.start);
   } catch (_) {
