@@ -74,8 +74,19 @@ class AgentRuntimeChatModel(
     }
 
     private fun toResponse(result: JsonNode): ChatResponse {
-        val reply = result.path("reply").asText("").trim()
-        val toolCalls = result.path("toolCalls").map { call ->
+        var reply = result.path("reply").asText("").trim()
+        var calls: JsonNode = result.path("toolCalls")
+        // Het model zet de tool-calls soms als JSON-tekst in `reply` in plaats van in het veld
+        // `toolCalls`. Zonder deze herkenning kreeg de gebruiker die JSON als antwoord te zien en
+        // werd de tool nooit uitgevoerd.
+        if (!calls.any()) {
+            embeddedToolCalls(reply)?.let {
+                log.warn("[AgentRuntimeChatModel] tool-calls stonden als tekst in reply; alsnog uitgevoerd")
+                calls = it
+                reply = ""
+            }
+        }
+        val toolCalls = calls.map { call ->
             val arguments = call.path("arguments")
             AssistantMessage.ToolCall(
                 "call_${UUID.randomUUID().toString().replace("-", "").take(16)}",
@@ -86,6 +97,15 @@ class AgentRuntimeChatModel(
         }.filter { it.name().isNotBlank() }
         val message = AssistantMessage.builder().content(reply).toolCalls(toolCalls).build()
         return ChatResponse(listOf(Generation(message)))
+    }
+
+    /** De `toolCalls` uit een `reply` die in zijn geheel een JSON-object met dat veld is, anders `null`. */
+    private fun embeddedToolCalls(reply: String): JsonNode? {
+        val text = reply.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+        if (!text.startsWith("{") || !text.contains("\"toolCalls\"")) return null
+        val parsed = runCatching { MAPPER.readTree(text) }.getOrNull() ?: return null
+        val calls = parsed.path("toolCalls")
+        return calls.takeIf { it.isArray && it.any { call -> call.path("name").asText().isNotBlank() } }
     }
 
     internal fun buildInstruction(messages: List<Message>, tools: List<ToolDefinition>, attachments: MutableList<RuntimeAttachment>): String {
@@ -131,6 +151,8 @@ class AgentRuntimeChatModel(
     companion object {
         /** Bovengrens voor tool-rondes per chat-beurt; voorkomt een oneindige loop. */
         const val MAX_ROUNDS = 8
+
+        private val MAPPER = ObjectMapper()
 
         private val PROTOCOL = """
             Je bent het taalmodel achter een chat-assistent. Je krijgt hieronder de systeeminstructies, het

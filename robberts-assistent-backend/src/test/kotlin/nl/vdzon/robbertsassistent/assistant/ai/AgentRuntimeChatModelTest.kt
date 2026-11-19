@@ -57,6 +57,27 @@ class AgentRuntimeChatModelTest {
     }
 
     @Test
+    fun `tool-calls die als tekst in reply staan worden alsnog uitgevoerd`() {
+        // Zo kwam het op 19 november 2026 terug: de JSON met de tool-call stond in `reply`.
+        val embedded = mapper.writeValueAsString(
+            mapOf("reply" to """{"toolCalls":[{"name":"weer","arguments":"{\"plaats\": \"Heemskerk\"}"}]}"""),
+        )
+        val tools = WeerTools()
+        val gateway = ScriptedGateway(mapper, listOf(embedded, """{"reply":"Het is zonnig in Heemskerk."}"""))
+
+        val reply = client(gateway, tools).prompt().user("Hoe is het weer in Heemskerk?").call().content()
+
+        assertEquals("Het is zonnig in Heemskerk.", reply)
+        assertEquals(1, tools.calls)
+    }
+
+    @Test
+    fun `een gewoon antwoord dat op JSON lijkt blijft een antwoord`() {
+        val gateway = ScriptedGateway(mapper, listOf(mapper.writeValueAsString(mapOf("reply" to """{"toolCalls":[]} is leeg"""))))
+        assertEquals("""{"toolCalls":[]} is leeg""", client(gateway, WeerTools()).prompt().user("Hoi").call().content())
+    }
+
+    @Test
     fun `tool-calls worden lokaal uitgevoerd en het resultaat gaat naar de volgende job`() {
         val tools = WeerTools()
         val gateway = ScriptedGateway(

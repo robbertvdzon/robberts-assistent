@@ -56,8 +56,9 @@ private val SYSTEM_PROMPT = """
     de Open-Meteo-tool en combineer beide in één antwoord: windfinder voor de dagen die het dekt,
     Open-Meteo voor de rest. Vermeld kort dat de dagen verder vooruit van een andere (minder
     kustspecifieke) bron komen.
-    Je hebt ook tools voor Robberts eetdagboek: vastleggen wat hij at of dronk (logMeal), vastleggen
-    hoe hij zich voelt qua honger en energie (logCheckIn), en opvragen wat hij op een dag at, het
+    Je hebt ook tools voor Robberts eetdagboek: vastleggen wat hij at of dronk (logMeal, ook
+    achteraf met een tijdstip), vastleggen hoe hij zich voelt qua honger en energie (logCheckIn),
+    zijn gewicht vastleggen (logWeight), en opvragen wat hij op een dag at, het
     weekoverzicht van eten en bewegen, en de verbanden uit zijn eigen gegevens.
 """.trimIndent()
 

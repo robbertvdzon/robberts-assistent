@@ -1,6 +1,9 @@
 package nl.vdzon.robbertsassistent.assistant.ai
 
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZonedDateTime
+import nl.vdzon.robbertsassistent.activity.ActivityService
 import nl.vdzon.robbertsassistent.insights.InsightService
 import nl.vdzon.robbertsassistent.nutrition.MealService
 import nl.vdzon.robbertsassistent.wellbeing.CheckInService
@@ -9,22 +12,59 @@ import org.springframework.ai.tool.annotation.Tool
 import org.springframework.ai.tool.annotation.ToolParam
 import org.springframework.stereotype.Component
 
-/** Geeft de chat-assistent toegang tot het eetdagboek, de check-ins en de overzichten. */
+/** Geeft de chat-assistent toegang tot het eetdagboek, de check-ins, het gewicht en de overzichten. */
 @Component
 class NutritionTools(
     private val meals: MealService,
     private val checkIns: CheckInService,
     private val insights: InsightService,
+    private val activity: ActivityService,
 ) {
     @Tool(
         description = "Leg vast wat Robbert heeft gegeten of gedronken, in zijn eigen woorden (bv. 'een appel en " +
             "een koffie met melk'). Het eetdagboek rekent de calorieën zelf uit; het voorstel staat daarna in " +
-            "de app onder Eten. Gebruik dit als hij zegt dat hij iets gegeten heeft en dat wil bijhouden.",
+            "de app in het dagboek. Gebruik dit als hij zegt dat hij iets gegeten heeft en dat wil bijhouden, " +
+            "ook achteraf: geef dan het tijdstip mee waarop hij at. Zegt hij 'hetzelfde als gisteren', zoek dan " +
+            "eerst met getDayNutrition op wat dat was en geef dat hier als omschrijving mee.",
     )
-    fun logMeal(@ToolParam(description = "Wat hij at of dronk, zo letterlijk mogelijk") description: String): String {
+    fun logMeal(
+        @ToolParam(description = "Wat hij at of dronk, zo letterlijk mogelijk") description: String,
+        @ToolParam(description = "Tijdstip waarop hij at als uu:mm (24 uur), of leeg voor nu", required = false) time: String?,
+        @ToolParam(description = "Datum waarop hij at als jjjj-mm-dd, of leeg voor vandaag", required = false) date: String?,
+    ): String {
         if (description.isBlank()) return "Ik heb een omschrijving nodig van wat je at."
-        meals.create(emptyList(), description, null)
-        return "Vastgelegd. Het voorstel met calorieën staat over een halve minuut in de app onder Eten."
+        val now = ZonedDateTime.now(MealService.ZONE)
+        val day = runCatching { date?.takeIf { it.isNotBlank() }?.let(LocalDate::parse) ?: now.toLocalDate() }
+            .getOrElse { return "Ongeldige datum; gebruik jjjj-mm-dd." }
+        val clock = runCatching { time?.takeIf { it.isNotBlank() }?.let { LocalTime.parse(it.trim().replace('.', ':').padStart(5, '0')) } }
+            .getOrElse { return "Ongeldig tijdstip; gebruik uu:mm." }
+        val eatenAt = when {
+            clock != null -> day.atTime(clock).atZone(MealService.ZONE)
+            day != now.toLocalDate() -> day.atTime(12, 0).atZone(MealService.ZONE)
+            else -> null
+        }
+        if (eatenAt != null && eatenAt.isAfter(now.plusMinutes(5))) return "Dat tijdstip ligt in de toekomst."
+        meals.create(emptyList(), description, eatenAt?.toInstant())
+        val moment = eatenAt?.let { " bij ${it.toLocalDate()} om ${it.toLocalTime().toString().take(5)}" }.orEmpty()
+        return "Vastgelegd$moment. Het voorstel met calorieën staat over een halve minuut in de app in het dagboek."
+    }
+
+    @Tool(
+        description = "Leg Robberts lichaamsgewicht vast in kilo's. Gebruik dit als hij zegt hoeveel hij weegt " +
+            "en dat wil opslaan. Zonder datum vandaag.",
+    )
+    fun logWeight(
+        @ToolParam(description = "Gewicht in kilo's, bv. 81.8") weightKg: Double,
+        @ToolParam(description = "Datum als jjjj-mm-dd, of leeg voor vandaag", required = false) date: String?,
+    ): String {
+        val day = runCatching { date?.takeIf { it.isNotBlank() }?.let(LocalDate::parse) ?: LocalDate.now(MealService.ZONE) }
+            .getOrElse { return "Ongeldige datum; gebruik jjjj-mm-dd." }
+        return try {
+            activity.setWeight(day, weightKg)
+            "Vastgelegd: $weightKg kg op $day. Het staat in het dagboek."
+        } catch (e: IllegalArgumentException) {
+            e.message ?: "Dat gewicht kon ik niet vastleggen."
+        }
     }
 
     @Tool(
