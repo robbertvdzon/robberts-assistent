@@ -112,7 +112,11 @@ class AgentRuntimeChatModel(
         val out = StringBuilder()
         out.appendLine(PROTOCOL)
         if (tools.isEmpty()) {
-            out.appendLine("\nEr zijn in deze stap GEEN tools beschikbaar: laat `toolCalls` volledig weg (schrijf het veld nooit zonder waarde).")
+            out.appendLine(
+                "\nEr zijn in deze stap geen assistent-tools om via `toolCalls` aan te roepen: laat `toolCalls` volledig weg " +
+                    "(schrijf het veld nooit zonder waarde). Dit gaat alleen over `toolCalls`: je eigen leestool en shell " +
+                    "heb je wel, en die gebruik je om bijgevoegde foto's te bekijken.",
+            )
         } else {
             out.appendLine("\n## Beschikbare tools")
             tools.forEach { tool ->
@@ -172,8 +176,10 @@ class AgentRuntimeChatModel(
             - Verzin geen toolresultaten en gebruik alleen tools uit de lijst. Gebruik zelf geen shell-,
               bestands- of webtools; de enige acties zijn de genoemde tools.
             - Uitzondering: bijgevoegde foto's. Die MOET je bekijken voordat je antwoordt, op de manier die
-              bij de foto staat (kopiëren met je shell, openen met je leestool). Zeg nooit dat je een foto
-              niet kunt zien zonder dat je dat hebt geprobeerd; lukt het echt niet, noem dan de foutmelding.
+              bij de foto staat: kopiëren met je eigen shell (Bash) en openen met je eigen leestool (Read).
+              Die twee heb je altijd, ook als er hieronder geen assistent-tools staan. Zeg nooit dat je een
+              foto niet kunt zien zonder dat je de kopieer- en leesstap echt hebt uitgevoerd; lukt het dan
+              niet, noem de letterlijke foutmelding.
         """.trimIndent()
 
         val RESULT_SCHEMA: JsonNode = ObjectMapper().readTree(
