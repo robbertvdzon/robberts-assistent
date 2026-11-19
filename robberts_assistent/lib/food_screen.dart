@@ -297,120 +297,123 @@ class _FoodScreenState extends State<FoodScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  tooltip: 'Vorige dag',
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: () => _shiftDay(-1),
-                ),
-                Expanded(
-                  child: Text(
-                    _dateLabel(_date),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium,
+      // Tekst is te selecteren en te kopiëren door lang te drukken.
+      body: SelectionArea(
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Vorige dag',
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: () => _shiftDay(-1),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Volgende dag',
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: isToday ? null : () => _shiftDay(1),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _ActionButton(
-                  icon: Icons.photo_camera_outlined,
-                  label: 'Eten',
-                  onTap: _capture,
-                ),
-                _ActionButton(
-                  icon: Icons.mood_outlined,
-                  label: 'Gevoel',
-                  onTap: _checkIn,
-                ),
-                _ActionButton(
-                  icon: Icons.airline_seat_flat_outlined,
-                  label: 'Dutje',
-                  onTap: _nap,
-                ),
-                _ActionButton(
-                  icon: Icons.monitor_weight_outlined,
-                  label: 'Gewicht',
-                  onTap: _weight,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (_loading && _day == null)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null && _day == null)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Text(_error!, textAlign: TextAlign.center),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _load,
-                      child: const Text('Opnieuw proberen'),
+                  Expanded(
+                    child: Text(
+                      _dateLabel(_date),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                  ],
-                ),
-              )
-            else ...[
-              _TotalsCard(
-                totals: _day!.totals,
-                activity: _activity,
-                today: isToday,
-                onConnect: _health == HealthSyncStatus.needsPermission
-                    ? () => _syncHealth(widget.healthAccess)
-                    : null,
+                  ),
+                  IconButton(
+                    tooltip: 'Volgende dag',
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: isToday ? null : () => _shiftDay(1),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _ActionButton(
+                    icon: Icons.photo_camera_outlined,
+                    label: 'Eten',
+                    onTap: _capture,
+                  ),
+                  _ActionButton(
+                    icon: Icons.mood_outlined,
+                    label: 'Gevoel',
+                    onTap: _checkIn,
+                  ),
+                  _ActionButton(
+                    icon: Icons.airline_seat_flat_outlined,
+                    label: 'Dutje',
+                    onTap: _nap,
+                  ),
+                  _ActionButton(
+                    icon: Icons.monitor_weight_outlined,
+                    label: 'Gewicht',
+                    onTap: _weight,
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
-              if (_timeline().isEmpty && _activity?.weightKg == null)
+              if (_loading && _day == null)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_error != null && _day == null)
                 Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text(
-                    isToday
-                        ? 'Nog niets vastgelegd vandaag. Tik op Eten om een foto te maken.'
-                        : 'Niets vastgelegd op deze dag.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  child: Column(
+                    children: [
+                      Text(_error!, textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _load,
+                        child: const Text('Opnieuw proberen'),
+                      ),
+                    ],
+                  ),
+                )
+              else ...[
+                _TotalsCard(
+                  totals: _day!.totals,
+                  activity: _activity,
+                  today: isToday,
+                  onConnect: _health == HealthSyncStatus.needsPermission
+                      ? () => _syncHealth(widget.healthAccess)
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                if (_timeline().isEmpty && _activity?.weightKg == null)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      isToday
+                          ? 'Nog niets vastgelegd vandaag. Tik op Eten om een foto te maken.'
+                          : 'Niets vastgelegd op deze dag.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-              // Een dutje dat nog loopt hoort bovenaan, ook als het op een andere dag begon.
-              if (_naps.open != null &&
-                  !_naps.naps.any((n) => n.id == _naps.open!.id))
-                _TimelineRow(
-                  icon: Icons.airline_seat_flat_outlined,
-                  time: _time(_naps.open!.start),
-                  text: describeNap(_naps.open!),
-                  onTap: _nap,
-                ),
-              if (_activity?.weightKg != null)
-                _TimelineRow(
-                  icon: Icons.monitor_weight_outlined,
-                  time: '',
-                  text:
-                      'Gewicht ${_activity!.weightKg!.toStringAsFixed(1).replaceAll('.', ',')} kg',
-                  onTap: _weight,
-                ),
-              ..._timeline(),
+                // Een dutje dat nog loopt hoort bovenaan, ook als het op een andere dag begon.
+                if (_naps.open != null &&
+                    !_naps.naps.any((n) => n.id == _naps.open!.id))
+                  _TimelineRow(
+                    icon: Icons.airline_seat_flat_outlined,
+                    time: _time(_naps.open!.start),
+                    text: describeNap(_naps.open!),
+                    onTap: _nap,
+                  ),
+                if (_activity?.weightKg != null)
+                  _TimelineRow(
+                    icon: Icons.monitor_weight_outlined,
+                    time: '',
+                    text:
+                        'Gewicht ${_activity!.weightKg!.toStringAsFixed(1).replaceAll('.', ',')} kg',
+                    onTap: _weight,
+                  ),
+                ..._timeline(),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -1339,183 +1342,186 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
             ),
         ],
       ),
-      body: meal == null
-          ? Center(
-              child: _error != null
-                  ? Text(_error!)
-                  : const CircularProgressIndicator(),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (meal.photoIds.isNotEmpty)
-                  SizedBox(
-                    height: 120,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: meal.photoIds.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (_, i) => MealPhoto(
-                        api: widget.api,
-                        photoId: meal.photoIds[i],
-                        size: 120,
-                      ),
-                    ),
-                  ),
-                if (meal.note.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text('"${meal.note}"', style: muted),
-                  ),
-                const SizedBox(height: 16),
-                if (meal.analysing) ...[
-                  const Center(child: CircularProgressIndicator()),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Ik bekijk wat je eet. Dit duurt meestal een halve minuut; je mag dit scherm sluiten.',
-                    textAlign: TextAlign.center,
-                    style: muted,
-                  ),
-                ] else if (meal.failed) ...[
-                  Text(
-                    'Het bekijken is mislukt.',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  if (meal.error.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(meal.error, style: muted),
-                    ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _run(
-                            () => widget.api.retryMeal(widget.mealId),
-                            'Opnieuw proberen is mislukt.',
-                          ),
-                    child: const Text('Opnieuw proberen'),
-                  ),
-                ] else ...[
-                  Text(
-                    meal.confirmed && !_edited
-                        ? 'Dit staat in je dagboek:'
-                        : 'Volgens mij is dit:',
-                    style: muted,
-                  ),
-                  const SizedBox(height: 8),
-                  Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < _items.length; i++)
-                          _ItemRow(
-                            item: _items[i],
-                            onTap: _busy ? null : () => _editItem(i),
-                          ),
-                        ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.add),
-                          title: const Text('Iets toevoegen'),
-                          onTap: _busy ? null : () => _editItem(null),
+      // Tekst is te selecteren en te kopiëren door lang te drukken.
+      body: SelectionArea(
+        child: meal == null
+            ? Center(
+                child: _error != null
+                    ? Text(_error!)
+                    : const CircularProgressIndicator(),
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (meal.photoIds.isNotEmpty)
+                    SizedBox(
+                      height: 120,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: meal.photoIds.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) => MealPhoto(
+                          api: widget.api,
+                          photoId: meal.photoIds[i],
+                          size: 120,
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  if (meal.remark.isNotEmpty && !_edited)
+                  if (meal.note.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(meal.remark, style: muted),
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text('"${meal.note}"', style: muted),
                     ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Expanded(child: Text('Samen', style: muted)),
-                      Text(
-                        '${_items.fold<int>(0, (sum, i) => sum + i.kcal)} kcal',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                  const SizedBox(height: 16),
+                  if (meal.analysing) ...[
+                    const Center(child: CircularProgressIndicator()),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Ik bekijk wat je eet. Dit duurt meestal een halve minuut; je mag dit scherm sluiten.',
+                      textAlign: TextAlign.center,
+                      style: muted,
+                    ),
+                  ] else if (meal.failed) ...[
+                    Text(
+                      'Het bekijken is mislukt.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (meal.error.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(meal.error, style: muted),
                       ),
-                    ],
-                  ),
-                  if (meal.learned.isNotEmpty && !_edited)
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: scheme.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _run(
+                              () => widget.api.retryMeal(widget.mealId),
+                              'Opnieuw proberen is mislukt.',
+                            ),
+                      child: const Text('Opnieuw proberen'),
+                    ),
+                  ] else ...[
+                    Text(
+                      meal.confirmed && !_edited
+                          ? 'Dit staat in je dagboek:'
+                          : 'Volgens mij is dit:',
+                      style: muted,
+                    ),
+                    const SizedBox(height: 8),
+                    Card(
+                      clipBehavior: Clip.antiAlias,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Onthouden',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                          for (var i = 0; i < _items.length; i++)
+                            _ItemRow(
+                              item: _items[i],
+                              onTap: _busy ? null : () => _editItem(i),
+                            ),
+                          ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.add),
+                            title: const Text('Iets toevoegen'),
+                            onTap: _busy ? null : () => _editItem(null),
                           ),
-                          const SizedBox(height: 2),
-                          Text(meal.learned),
                         ],
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  if (_edited)
-                    FilledButton(
-                      onPressed: _busy ? null : _confirm,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('Opslaan'),
+                    if (meal.remark.isNotEmpty && !_edited)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(meal.remark, style: muted),
                       ),
-                    )
-                  else if (meal.proposal)
-                    FilledButton(
-                      onPressed: _busy ? null : _confirm,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('Klopt'),
-                      ),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Expanded(child: Text('Samen', style: muted)),
+                        Text(
+                          '${_items.fold<int>(0, (sum, i) => sum + i.kcal)} kcal',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 20),
-                  Text('Klopt er iets niet?', style: muted),
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _correction,
-                          enabled: !_busy,
-                          minLines: 1,
-                          maxLines: 4,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText:
-                                'Zeg het gewoon: "het was kwark en er zat geen jus bij"',
-                          ),
+                    if (meal.learned.isNotEmpty && !_edited)
+                      Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: scheme.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Onthouden',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(meal.learned),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        tooltip: 'Versturen',
-                        onPressed: _busy ? null : _sendCorrection,
-                        icon: const Icon(Icons.send),
+                    const SizedBox(height: 16),
+                    if (_edited)
+                      FilledButton(
+                        onPressed: _busy ? null : _confirm,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text('Opslaan'),
+                        ),
+                      )
+                    else if (meal.proposal)
+                      FilledButton(
+                        onPressed: _busy ? null : _confirm,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text('Klopt'),
+                        ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _addPhoto,
-                    icon: const Icon(Icons.add_a_photo_outlined),
-                    label: const Text(
-                      'Foto toevoegen (tweede bord, etiket, recept)',
+                    const SizedBox(height: 20),
+                    Text('Klopt er iets niet?', style: muted),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _correction,
+                            enabled: !_busy,
+                            minLines: 1,
+                            maxLines: 4,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              hintText:
+                                  'Zeg het gewoon: "het was kwark en er zat geen jus bij"',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          tooltip: 'Versturen',
+                          onPressed: _busy ? null : _sendCorrection,
+                          icon: const Icon(Icons.send),
+                        ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _addPhoto,
+                      icon: const Icon(Icons.add_a_photo_outlined),
+                      label: const Text(
+                        'Foto toevoegen (tweede bord, etiket, recept)',
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
+              ),
+      ),
     );
   }
 }

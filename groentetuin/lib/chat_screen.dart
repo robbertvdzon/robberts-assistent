@@ -10,7 +10,11 @@ class _ChatMessage {
   final bool fromUser;
   final String text;
   final List<Uint8List> images;
-  _ChatMessage({required this.fromUser, required this.text, this.images = const []});
+  _ChatMessage({
+    required this.fromUser,
+    required this.text,
+    this.images = const [],
+  });
 }
 
 /// De moestuin-AI-chat: tekst + foto's sturen, antwoord tonen, en blijven doorpraten.
@@ -35,7 +39,10 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _error;
 
   Future<void> _addFromCamera() async {
-    final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+    final file = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70,
+    );
     if (file != null) await _attach([file]);
   }
 
@@ -47,9 +54,18 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _attach(List<XFile> files) async {
     for (final file in files) {
       final bytes = await file.readAsBytes();
-      final contentType = file.mimeType ??
-          (file.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
-      _pending.add(GardenAttachment(bytes: bytes, filename: file.name, contentType: contentType));
+      final contentType =
+          file.mimeType ??
+          (file.name.toLowerCase().endsWith('.png')
+              ? 'image/png'
+              : 'image/jpeg');
+      _pending.add(
+        GardenAttachment(
+          bytes: bytes,
+          filename: file.name,
+          contentType: contentType,
+        ),
+      );
     }
     if (mounted) setState(() {});
   }
@@ -88,11 +104,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final attachments = List<GardenAttachment>.from(_pending);
     setState(() {
-      _messages.add(_ChatMessage(
-        fromUser: true,
-        text: text,
-        images: attachments.map((a) => a.bytes).toList(),
-      ));
+      _messages.add(
+        _ChatMessage(
+          fromUser: true,
+          text: text,
+          images: attachments.map((a) => a.bytes).toList(),
+        ),
+      );
       _pending.clear();
       _controller.clear();
       _sending = true;
@@ -164,11 +182,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _messages.length,
-                    itemBuilder: (_, i) => _bubble(_messages[i]),
+                : SelectionArea(
+                    child: ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _messages.length,
+                      itemBuilder: (_, i) => _bubble(_messages[i]),
+                    ),
                   ),
           ),
           if (_error != null)
@@ -184,7 +204,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _bubble(_ChatMessage m) {
-    final align = m.fromUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final align = m.fromUser
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start;
     final color = m.fromUser ? Colors.green.shade100 : Colors.grey.shade200;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -197,10 +219,17 @@ class _ChatScreenState extends State<ChatScreen> {
               spacing: 6,
               runSpacing: 6,
               children: m.images
-                  .map((b) => ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(b, width: 96, height: 96, fit: BoxFit.cover),
-                      ))
+                  .map(
+                    (b) => ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        b,
+                        width: 96,
+                        height: 96,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           if (m.text.isNotEmpty)
@@ -208,7 +237,10 @@ class _ChatScreenState extends State<ChatScreen> {
               margin: const EdgeInsets.only(top: 4),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               constraints: const BoxConstraints(maxWidth: 320),
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Text(m.text),
             ),
         ],
@@ -217,68 +249,83 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _pendingPreview() => Container(
-        height: 76,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: _pending.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 6),
-          itemBuilder: (_, i) => Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.memory(_pending[i].bytes, width: 64, height: 64, fit: BoxFit.cover),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: GestureDetector(
-                  onTap: () => setState(() => _pending.removeAt(i)),
-                  child: Container(
-                    decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                    child: const Icon(Icons.close, size: 16, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
+    height: 76,
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: _pending.length,
+      separatorBuilder: (_, __) => const SizedBox(width: 6),
+      itemBuilder: (_, i) => Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              _pending[i].bytes,
+              width: 64,
+              height: 64,
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-      );
+          Positioned(
+            right: 0,
+            top: 0,
+            child: GestureDetector(
+              onTap: () => setState(() => _pending.removeAt(i)),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 16, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _inputBar() => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: _sending ? null : _showAttachSheet,
-                icon: const Icon(Icons.add_a_photo),
-                tooltip: 'Foto toevoegen',
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  minLines: 1,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.send,
-                  decoration: const InputDecoration(
-                    hintText: 'Typ een bericht...',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _send(),
-                ),
-              ),
-              const SizedBox(width: 6),
-              _sending
-                  ? const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                    )
-                  : IconButton.filled(onPressed: _send, icon: const Icon(Icons.send)),
-            ],
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _sending ? null : _showAttachSheet,
+            icon: const Icon(Icons.add_a_photo),
+            tooltip: 'Foto toevoegen',
           ),
-        ),
-      );
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.send,
+              decoration: const InputDecoration(
+                hintText: 'Typ een bericht...',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) => _send(),
+            ),
+          ),
+          const SizedBox(width: 6),
+          _sending
+              ? const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton.filled(
+                  onPressed: _send,
+                  icon: const Icon(Icons.send),
+                ),
+        ],
+      ),
+    ),
+  );
 }

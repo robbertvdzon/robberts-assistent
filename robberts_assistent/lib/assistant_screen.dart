@@ -533,11 +533,14 @@ class _AssistantScreenState extends State<AssistantScreen> {
     ),
   );
 
-  Widget _historyList() => ListView.builder(
-    controller: _scrollController,
-    padding: const EdgeInsets.all(16),
-    itemCount: _history.length,
-    itemBuilder: (context, index) => _bubble(context, _history[index]),
+  /// De berichten zijn te selecteren en te kopiëren door lang te drukken.
+  Widget _historyList() => SelectionArea(
+    child: ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: _history.length,
+      itemBuilder: (context, index) => _bubble(context, _history[index]),
+    ),
   );
 
   Widget _bubble(BuildContext context, ChatMessage message) => Align(
