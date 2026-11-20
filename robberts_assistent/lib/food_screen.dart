@@ -177,11 +177,7 @@ class _FoodScreenState extends State<FoodScreen> {
 
   /// Gewicht invoeren voor de getoonde dag.
   Future<void> _weight() async {
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _WeightSheet(api: widget.api, date: _date),
-    );
+    final saved = await showWeightSheet(context, widget.api, _date);
     if (saved == true) _load(silent: true);
   }
 
@@ -571,6 +567,18 @@ class _ActionButton extends StatelessWidget {
 }
 
 /// Invoerblad voor het gewicht van één dag, met het vorige gewicht ter vergelijking.
+/// Het invoerblad voor het gewicht van [date]; geeft `true` terug als er is opgeslagen. Ook te
+/// openen via de snelkoppeling 'Gewicht' op het app-icoon.
+Future<bool?> showWeightSheet(
+  BuildContext context,
+  ApiClient api,
+  DateTime date,
+) => showModalBottomSheet<bool>(
+  context: context,
+  isScrollControlled: true,
+  builder: (_) => _WeightSheet(api: api, date: date),
+);
+
 class _WeightSheet extends StatefulWidget {
   const _WeightSheet({required this.api, required this.date});
 

@@ -39,6 +39,8 @@ class AgendaSectionProvider(
         val reminders = remindersService.list()
         val formatter = DateTimeFormatter.ofPattern("EEE d MMM HH:mm").withZone(ZONE)
         val items = events.map { event ->
+            // Voor de sportschool hoeft geen herinnering: de afspraak staat er, zonder aansporing.
+            if (isGym(event)) return@map BriefingItem(text = "${formatter.format(event.start)} — ${event.summary}")
             val hasReminder = hasReminderFor(event, reminders)
             val status = if (hasReminder) "✅ reminder staat" else "⚠️ nog geen reminder"
             BriefingItem(
@@ -61,12 +63,18 @@ class AgendaSectionProvider(
     /** Voor de 18:00-push: alleen de afspraken van morgen; zonder afspraken geen regel. */
     override fun shortSummary(): String? {
         val (from, to) = tomorrow()
-        val count = calendarClient.eventsInRange(from, to).count { !it.start.isBefore(from) && it.start.isBefore(to) }
+        val count = calendarClient.eventsInRange(from, to).count { !it.start.isBefore(from) && it.start.isBefore(to) && !isGym(it) }
         return if (count == 0) null else "$count afspra${if (count == 1) "ak" else "ken"}"
     }
 
     internal companion object {
         private val ZONE = ZoneId.of("Europe/Amsterdam")
+
+        private val GYM_WORDS = listOf("sportschool", "fitness", "gym")
+
+        /** Sportschoolafspraken tellen niet mee in de push en krijgen geen reminder-aansporing. */
+        internal fun isGym(event: CalendarEvent): Boolean =
+            GYM_WORDS.any { event.summary.contains(it, ignoreCase = true) }
 
         /** Begin en eind van morgen in Nederlandse tijd. */
         internal fun tomorrow(now: Instant = Instant.now()): Pair<Instant, Instant> {

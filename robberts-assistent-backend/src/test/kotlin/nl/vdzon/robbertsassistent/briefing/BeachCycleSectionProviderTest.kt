@@ -148,12 +148,14 @@ class BeachCycleSectionProviderTest {
     }
 
     @Test
-    fun `shortSummary is altijd null`() {
+    fun `shortSummary zwijgt als morgen geen vrije dag is`() {
         val provider = BeachCycleSectionProvider(
             windForecastClient = StubWindForecastClient(speedKn = 10.0, directionDeg = 270.0),
             weatherClient = DryWeatherClient(),
             tideClient = StubTideClient(),
             calendarClient = EmptyCalendarClient(),
+            // Een maandag: morgen is dinsdag.
+            clock = java.time.Clock.fixed(java.time.Instant.parse("2026-11-23T17:00:00Z"), java.time.ZoneOffset.UTC),
         )
 
         assertNull(provider.shortSummary())

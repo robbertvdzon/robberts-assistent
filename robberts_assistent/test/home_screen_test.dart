@@ -435,6 +435,22 @@ void main() {
     expect(AppShortcuts.pending.value, isNull);
   });
 
+  testWidgets('snelkoppeling Gewicht opent het dagboek met het invoerblad', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {}),
+      ),
+    );
+    await tester.pump();
+    AppShortcuts.pending.value = AppShortcut.weight;
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gewicht (kg)'), findsOneWidget);
+    expect(AppShortcuts.pending.value, isNull);
+  });
+
   test('dezelfde snelkoppeling binnen twee seconden telt maar één keer', () {
     final t = DateTime(2026, 11, 18, 8);
     AppShortcuts.pending.value = null;

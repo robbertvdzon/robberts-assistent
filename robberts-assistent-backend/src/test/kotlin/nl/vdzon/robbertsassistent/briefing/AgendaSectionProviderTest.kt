@@ -95,4 +95,20 @@ class AgendaSectionProviderTest {
         assertEquals("1 afspraak", AgendaSectionProvider(FixedCalendarClient(events.take(2)), reminders).shortSummary())
         assertEquals(null, AgendaSectionProvider(FixedCalendarClient(events.take(1)), reminders).shortSummary())
     }
+
+    @Test
+    fun `sportschool telt niet mee in de push en krijgt geen reminder-aansporing`() {
+        val (from, _) = AgendaSectionProvider.tomorrow()
+        val events = listOf(
+            CalendarEvent("Sportschool", from.plusSeconds(3600), from.plusSeconds(7200)),
+            CalendarEvent("Tandarts", from.plusSeconds(10800), from.plusSeconds(14400)),
+        )
+        val provider = AgendaSectionProvider(FixedCalendarClient(events), RemindersService(InMemoryReminderRepository()))
+
+        assertEquals("1 afspraak", provider.shortSummary())
+        val items = provider.section().items
+        assertEquals(null, items[0].action)
+        assertEquals(false, items[0].text.contains("reminder"))
+        assertEquals(true, items[1].text.contains("nog geen reminder"))
+    }
 }

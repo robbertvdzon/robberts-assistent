@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:quick_actions/quick_actions.dart';
 
-/// De drie snelkoppelingen van de app (ingedrukt houden op het app-icoon; ze zijn ook los op het
-/// startscherm te zetten). Zo is een foto, een check-in of een dutje één tik vanaf het startscherm.
+/// De vier snelkoppelingen van de app (ingedrukt houden op het app-icoon; ze zijn ook los op het
+/// startscherm te zetten). Zo is een foto, een check-in, een dutje of het gewicht één tik vanaf het startscherm.
 enum AppShortcut {
   foodPhoto('food_photo', 'Foto van eten'),
   checkIn('check_in', 'Hoe voel je je?'),
-  nap('nap', 'Dutje');
+  nap('nap', 'Dutje'),
+  weight('weight', 'Gewicht');
 
   const AppShortcut(this.type, this.label);
 

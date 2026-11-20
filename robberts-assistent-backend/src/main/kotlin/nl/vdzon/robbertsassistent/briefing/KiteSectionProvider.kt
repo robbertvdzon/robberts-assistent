@@ -9,6 +9,7 @@ import nl.vdzon.robbertsassistent.weather.WeatherForecast
 import nl.vdzon.robbertsassistent.weather.WindForecast
 import nl.vdzon.robbertsassistent.weather.WindForecastClient
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
@@ -131,11 +132,116 @@ internal class SlotAssessmentProvider(
         )
     }
 
+    /** Kiten morgen, alleen op een vrije dag (vr/za/zo) en alleen als het kan. */
+    fun kiteOutlook(today: LocalDate): String? {
+        val tomorrow = today.plusDays(1)
+        if (!FreeDayOutlook.isFreeDay(tomorrow)) return null
+        val wind = windForecastClient.hourlyForecast(72)
+        val weather = weatherClient.hourlyForecast(72)
+        if (wind.error != null || weather.error != null) return null
+        return FreeDayOutlook.kiteWindow(tomorrow, ZONE, wind, weather)?.let(FreeDayOutlook::kiteSummary)
+    }
+
+    /** Strandfietsen morgen, alleen op een vrije dag en alleen als het kan, met het beste moment. */
+    fun beachOutlook(today: LocalDate): String? {
+        val tomorrow = today.plusDays(1)
+        if (!FreeDayOutlook.isFreeDay(tomorrow)) return null
+        val wind = windForecastClient.hourlyForecast(72)
+        val weather = weatherClient.hourlyForecast(72)
+        val tide = tideClient.forecast(72)
+        if (wind.error != null || weather.error != null || tide.error != null) return null
+        return FreeDayOutlook.beachMoments(tomorrow, ZONE, wind, weather, tide)
+            .takeIf { it.isNotEmpty() }?.let { FreeDayOutlook.beachSummary(it, ZONE) }
+    }
+
     private data class Slot(val label: String, val at: Instant)
 
     internal companion object {
         private val WORKDAYS = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY)
+        internal val ZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
     }
+}
+
+/** Een aaneengesloten stuk van de dag waarop kiten kan. */
+internal data class KiteWindow(val fromHour: Int, val toHour: Int, val windKn: Int, val direction: String, val color: RatingColor)
+
+/**
+ * Wat er morgen buiten kan op een vrije dag, voor de 18:00-push. Robbert kan alleen op vrijdag,
+ * zaterdag en zondag kiten en strandfietsen, en dan de hele dag; de push noemt het alleen als het
+ * kan. Voor het fietsen is het beste moment 3,5 uur vóór hoogwater.
+ */
+internal object FreeDayOutlook {
+    private val FREE_DAYS = setOf(DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+    private val KITE_HOURS = 9..17
+    private val BEACH_HOURS = 8..19
+    private const val MIN_KITE_HOURS = 2
+    private val BEFORE_HIGH_WATER: Duration = Duration.ofMinutes(210)
+    private val NEAREST_HOUR: Duration = Duration.ofMinutes(90)
+    private val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+    fun isFreeDay(date: LocalDate): Boolean = date.dayOfWeek in FREE_DAYS
+
+    /**
+     * Het langste aaneengesloten stuk van minstens twee uur waarop kiten goed kan (groen); is dat
+     * er niet, dan het langste stuk waarop het met ander materiaal kan (geel of groen).
+     */
+    fun kiteWindow(date: LocalDate, zone: ZoneId, wind: WindForecast, weather: WeatherForecast): KiteWindow? {
+        val hours = KITE_HOURS.mapNotNull { hour ->
+            val at = date.atTime(hour, 0).atZone(zone).toInstant()
+            val w = wind.hours.nearest(at) { it.time } ?: return@mapNotNull null
+            val rain = weather.hours.nearest(at) { it.time } ?: return@mapNotNull null
+            Triple(hour, w, KiteSectionProvider.assessKite(w.speedKn, w.directionDeg, rain.precipitationMm))
+        }
+        fun longest(accept: Set<RatingColor>): List<Triple<Int, nl.vdzon.robbertsassistent.weather.HourlyWind, RatingColor>> {
+            var best = emptyList<Triple<Int, nl.vdzon.robbertsassistent.weather.HourlyWind, RatingColor>>()
+            var run = mutableListOf<Triple<Int, nl.vdzon.robbertsassistent.weather.HourlyWind, RatingColor>>()
+            for (hour in hours) {
+                if (hour.third in accept && (run.isEmpty() || run.last().first + 1 == hour.first)) {
+                    run += hour
+                } else {
+                    run = if (hour.third in accept) mutableListOf(hour) else mutableListOf()
+                }
+                if (run.size > best.size) best = run.toList()
+            }
+            return best
+        }
+        val green = longest(setOf(RatingColor.GREEN))
+        val run = if (green.size >= MIN_KITE_HOURS) green else longest(setOf(RatingColor.GREEN, RatingColor.YELLOW))
+        if (run.size < MIN_KITE_HOURS) return null
+        val strongest = run.maxBy { it.second.speedKn }.second
+        return KiteWindow(
+            fromHour = run.first().first,
+            toHour = run.last().first + 1,
+            windKn = run.map { it.second.speedKn }.average().toInt(),
+            direction = KiteSectionProvider.compassPoint(strongest.directionDeg),
+            color = if (run === green) RatingColor.GREEN else RatingColor.YELLOW,
+        )
+    }
+
+    /** De momenten 3,5 uur vóór hoogwater die op [date] overdag vallen en waarop het droog en rustig is. */
+    fun beachMoments(date: LocalDate, zone: ZoneId, wind: WindForecast, weather: WeatherForecast, tide: TideForecast): List<Instant> =
+        tide.extremes.filter { it.type == TideType.HOOGWATER }
+            .map { it.time.minus(BEFORE_HIGH_WATER) }
+            .filter { at ->
+                val local = at.atZone(zone)
+                local.toLocalDate() == date && local.hour in BEACH_HOURS
+            }
+            .filter { at ->
+                val w = wind.hours.nearest(at) { it.time } ?: return@filter false
+                val rain = weather.hours.nearest(at) { it.time } ?: return@filter false
+                KiteSectionProvider.assessBeachCycle(w.speedKn, rain.precipitationMm, nearLowTide = true) == RatingColor.GREEN
+            }
+            .sorted()
+
+    fun kiteSummary(window: KiteWindow): String =
+        "kiten kan${if (window.color == RatingColor.YELLOW) " misschien" else ""} " +
+            "${window.fromHour}–${window.toHour} uur (${window.windKn} kn ${window.direction})"
+
+    fun beachSummary(moments: List<Instant>, zone: ZoneId): String =
+        "strandfietsen kan, beste moment " + moments.joinToString(" of ") { TIME.format(it.atZone(zone)) }
+
+    private fun <T> List<T>.nearest(at: Instant, time: (T) -> Instant): T? =
+        minByOrNull { Duration.between(time(it), at).abs() }?.takeIf { Duration.between(time(it), at).abs() <= NEAREST_HOUR }
 }
 
 internal data class SlotAssessment(
@@ -171,6 +277,7 @@ class KiteSectionProvider(
     weatherClient: WeatherClient,
     tideClient: TideClient,
     calendarClient: CalendarClient,
+    private val clock: Clock = Clock.systemUTC(),
 ) : BriefingSectionProvider {
 
     private val assessmentProvider = SlotAssessmentProvider(windForecastClient, weatherClient, tideClient, calendarClient)
@@ -200,12 +307,9 @@ class KiteSectionProvider(
         }
     }
 
-    /** Compacte one-liner voor de 18:00-push, gebaseerd op de laatste beoordeelde tijdsslot (avond, of het enige slot). */
-    override fun shortSummary(): String? {
-        val result = assessmentProvider.buildAssessments() as? AssessmentResult.Ok ?: return null
-        val slot = result.slots.lastOrNull() ?: return null
-        return "kiten ${slot.kite.emoji} ${slot.label.lowercase()} ${slot.windKn}kn"
-    }
+    /** Voor de 18:00-push: alleen als morgen vrijdag, zaterdag of zondag is én kiten dan kan. */
+    override fun shortSummary(): String? =
+        assessmentProvider.kiteOutlook(LocalDate.now(clock.withZone(SlotAssessmentProvider.ZONE)))
 
     internal companion object {
 

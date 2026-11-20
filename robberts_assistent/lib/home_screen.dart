@@ -112,12 +112,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final shortcut = AppShortcuts.pending.value;
     if (shortcut == null || !mounted) return;
     AppShortcuts.pending.value = null;
+    if (shortcut == AppShortcut.weight) {
+      // Het gewicht van vandaag: het dagboek tonen met het invoerblad erboven.
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      _selectTab(_diaryTab);
+      showWeightSheet(context, widget.api, DateTime.now()).then((saved) {
+        if (saved == true) _diaryReload.value++;
+      });
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => switch (shortcut) {
           AppShortcut.foodPhoto => MealCaptureScreen(api: widget.api),
           AppShortcut.checkIn => CheckInScreen(api: widget.api),
           AppShortcut.nap => NapScreen(api: widget.api),
+          AppShortcut.weight => throw StateError('hierboven afgehandeld'),
         },
       ),
     );

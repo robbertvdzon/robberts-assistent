@@ -5,6 +5,8 @@ import nl.vdzon.robbertsassistent.tides.TideClient
 import nl.vdzon.robbertsassistent.weather.WeatherClient
 import nl.vdzon.robbertsassistent.weather.WindForecastClient
 import org.springframework.stereotype.Component
+import java.time.Clock
+import java.time.LocalDate
 
 /**
  * Strandfiets-briefingsectie voor morgen: per dagdeel een bolletje (🟢/🟡/🔴) MET onderbouwing
@@ -18,6 +20,7 @@ class BeachCycleSectionProvider(
     weatherClient: WeatherClient,
     tideClient: TideClient,
     calendarClient: CalendarClient,
+    private val clock: Clock = Clock.systemUTC(),
 ) : BriefingSectionProvider {
 
     private val assessmentProvider = SlotAssessmentProvider(windForecastClient, weatherClient, tideClient, calendarClient)
@@ -47,6 +50,10 @@ class BeachCycleSectionProvider(
             }
         }
     }
+
+    /** Voor de 18:00-push: alleen als morgen vrijdag, zaterdag of zondag is én fietsen dan kan. */
+    override fun shortSummary(): String? =
+        assessmentProvider.beachOutlook(LocalDate.now(clock.withZone(SlotAssessmentProvider.ZONE)))
 
     private fun tileLabel(color: RatingColor): String = when (color) {
         RatingColor.GREEN -> "goed"
