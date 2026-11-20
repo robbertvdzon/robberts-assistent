@@ -17,6 +17,7 @@ import 'self_update_prompt.dart';
 import 'summary_screen.dart';
 import 'food_screen.dart';
 import 'health_sync.dart';
+import 'jobs_screen.dart';
 import 'watches_screen.dart';
 
 /// App-shell na het inloggen: vijf hoofdbestemmingen met de overige schermen onder 'Meer'.
@@ -175,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               source: 'MELDING',
             ),
             DeepLinkTarget.nap => NapScreen(api: widget.api),
+            DeepLinkTarget.jobs => JobsScreen(api: widget.api),
             _ => WatchesScreen(api: widget.api),
           },
         ),

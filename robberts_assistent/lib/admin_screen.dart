@@ -5,6 +5,7 @@ import 'api_client.dart';
 import 'couplings_screen.dart';
 import 'garden_screen.dart';
 import 'health_check_screen.dart';
+import 'jobs_screen.dart';
 import 'memory_screen.dart';
 import 'nightly_checks_screen.dart';
 import 'reference_meals_screen.dart';
@@ -39,6 +40,7 @@ class _AdminScreenState extends State<AdminScreen> {
     ),
     ('AI-modellen', Icons.tune_outlined, 760, AiModelsScreen(api: widget.api)),
     ('Moestuin', Icons.yard_outlined, 900, GardenScreen(api: widget.api)),
+    ('Vacatures', Icons.work_outline, 900, JobsScreen(api: widget.api)),
     (
       'Health check',
       Icons.health_and_safety_outlined,

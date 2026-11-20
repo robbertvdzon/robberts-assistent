@@ -17,7 +17,7 @@ const _checkInPushType = 'checkin';
 // Payload van de doorlopende melding bij een lopend dutje (zie [FcmService.showNapNotification]).
 const _napPushType = 'nap';
 
-enum DeepLinkTarget { today, watches, food, checkIn, nap }
+enum DeepLinkTarget { today, watches, food, checkIn, nap, jobs }
 
 /// Achtergrond-handler (verplicht top-level voor firebase_messaging). Als de app op de achtergrond
 /// of gesloten is toont Android de FCM-notification-payload zelf op het opgegeven kanaal.
@@ -56,6 +56,9 @@ class FcmService {
       deepLinkTarget.value = DeepLinkTarget.checkIn;
     } else if (data['type'] == _napPushType) {
       deepLinkTarget.value = DeepLinkTarget.nap;
+    } else if (data['type'] == 'jobs') {
+      // Moet gelijk zijn aan het `type` dat `jobs.JobSearchService` meestuurt.
+      deepLinkTarget.value = DeepLinkTarget.jobs;
     }
   }
 

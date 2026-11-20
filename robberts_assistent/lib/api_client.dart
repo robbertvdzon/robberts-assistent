@@ -652,6 +652,35 @@ class ApiClient {
     return response.bodyBytes;
   }
 
+  // -- Vacatures ------------------------------------------------------------------
+  Future<JobOverview> getJobs() async =>
+      JobOverview.fromJson(await getJson('/api/v1/jobs'));
+
+  /// Start een zoekronde op de achtergrond; het overzicht meldt `running` tot hij klaar is.
+  Future<JobOverview> runJobSearch() async =>
+      JobOverview.fromJson(await postJson('/api/v1/jobs/run'));
+
+  /// Oordeel over een vacature: `INTERESSANT` of `NIET`, met de reden waarvan geleerd wordt.
+  Future<JobOverview> rateJob(String id, String verdict, String reason) async =>
+      JobOverview.fromJson(
+        await putJson('/api/v1/jobs/$id/verdict', {
+          'verdict': verdict,
+          'reason': reason,
+        }),
+      );
+
+  Future<JobOverview> saveJobSettings({
+    required String description,
+    required String preferences,
+    required List<String> blockedCompanies,
+  }) async => JobOverview.fromJson(
+    await putJson('/api/v1/jobs/settings', {
+      'description': description,
+      'preferences': preferences,
+      'blockedCompanies': blockedCompanies,
+    }),
+  );
+
   /// Dagopbrengst van de zonnepanelen naast de verwachting bij het weer.
   Future<SolarOverview> getSolar() async =>
       SolarOverview.fromJson(await getJson('/api/v1/solar'));
@@ -1493,6 +1522,77 @@ class Meal {
     referenceDescription: m['referenceDescription'] as String? ?? '',
     referencePhotoId: m['referencePhotoId'] as String? ?? '',
     referenceManual: m['referenceManual'] as bool? ?? false,
+  );
+}
+
+/// Eén gevonden vacature met het oordeel (NIEUW, INTERESSANT of NIET) en de reden.
+class JobLead {
+  final String id;
+  final String title;
+  final String company;
+  final String location;
+  final String url;
+  final String summary;
+  final DateTime foundAt;
+  final String verdict;
+  final String reason;
+  const JobLead({
+    required this.id,
+    required this.title,
+    required this.company,
+    this.location = '',
+    this.url = '',
+    this.summary = '',
+    required this.foundAt,
+    this.verdict = 'NIEUW',
+    this.reason = '',
+  });
+
+  static JobLead fromJson(Map<String, dynamic> m) => JobLead(
+    id: m['id'] as String,
+    title: m['title'] as String? ?? '',
+    company: m['company'] as String? ?? '',
+    location: m['location'] as String? ?? '',
+    url: m['url'] as String? ?? '',
+    summary: m['summary'] as String? ?? '',
+    foundAt: DateTime.parse(m['foundAt'] as String).toLocal(),
+    verdict: m['verdict'] as String? ?? 'NIEUW',
+    reason: m['reason'] as String? ?? '',
+  );
+}
+
+/// De zoekopdracht voor werk: de zoekvraag, wat er geleerd is en de gevonden vacatures.
+class JobOverview {
+  final String description;
+  final String preferences;
+  final List<String> blockedCompanies;
+  final DateTime? lastRunAt;
+  final String lastRunNote;
+  final bool running;
+  final List<JobLead> leads;
+  const JobOverview({
+    this.description = '',
+    this.preferences = '',
+    this.blockedCompanies = const [],
+    this.lastRunAt,
+    this.lastRunNote = '',
+    this.running = false,
+    this.leads = const [],
+  });
+
+  static JobOverview fromJson(Map<String, dynamic> m) => JobOverview(
+    description: m['description'] as String? ?? '',
+    preferences: m['preferences'] as String? ?? '',
+    blockedCompanies: ((m['blockedCompanies'] as List?) ?? const [])
+        .cast<String>(),
+    lastRunAt: m['lastRunAt'] == null
+        ? null
+        : DateTime.parse(m['lastRunAt'] as String).toLocal(),
+    lastRunNote: m['lastRunNote'] as String? ?? '',
+    running: m['running'] as bool? ?? false,
+    leads: ((m['leads'] as List?) ?? const [])
+        .map((e) => JobLead.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
   );
 }
 

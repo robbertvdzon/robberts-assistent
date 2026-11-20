@@ -5,6 +5,7 @@ import 'api_client.dart';
 import 'couplings_screen.dart';
 import 'garden_screen.dart';
 import 'health_check_screen.dart';
+import 'jobs_screen.dart';
 import 'memory_screen.dart';
 import 'nightly_checks_screen.dart';
 import 'reference_meals_screen.dart';
@@ -44,6 +45,13 @@ class MoreScreen extends StatelessWidget {
             onTap: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => WatchesScreen(api: api))),
+          ),
+          ListTile(
+            leading: const Icon(Icons.work_outline),
+            title: const Text('Vacatures'),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => JobsScreen(api: api))),
           ),
           ListTile(
             leading: const Icon(Icons.hub_outlined),

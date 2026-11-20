@@ -124,12 +124,14 @@ void main() {
       expect(find.text('Nachtchecks'), findsOneWidget);
       expect(find.text('Geheugen'), findsOneWidget);
       // Onder 'Beheer' staan de instellingen; de lijst is langer dan het testscherm.
-      expect(find.text('AI-modellen'), findsOneWidget);
+      expect(find.text('Moestuin'), findsOneWidget);
+      expect(find.text('Vacatures'), findsOneWidget);
       await tester.dragUntilVisible(
         find.text('Updates'),
         find.byType(MoreScreen),
         const Offset(0, -200),
       );
+      expect(find.text('AI-modellen'), findsOneWidget);
       expect(find.text('Modelgerechten'), findsOneWidget);
       expect(find.text('Updates'), findsOneWidget);
       expect(find.text('Eten'), findsNothing);
