@@ -177,6 +177,8 @@ class AgentRuntimeChatModel(
               bestands- of webtools; de enige acties zijn de genoemde tools.
             - Uitzondering: bijgevoegde foto's. Die MOET je bekijken voordat je antwoordt, op de manier die
               bij de foto staat: kopiëren met je eigen shell (Bash) en openen met je eigen leestool (Read).
+              Alleen een foto die in de opdracht een referentie uit de bibliotheek heet, mag je overslaan
+              als zijn beschrijving niet lijkt op wat je op de andere foto's ziet.
               Die twee heb je altijd, ook als er hieronder geen assistent-tools staan. Zeg nooit dat je een
               foto niet kunt zien zonder dat je de kopieer- en leesstap echt hebt uitgevoerd; lukt het dan
               niet, noem de letterlijke foutmelding.

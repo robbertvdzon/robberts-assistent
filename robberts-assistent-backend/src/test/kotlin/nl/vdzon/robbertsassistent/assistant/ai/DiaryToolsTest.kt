@@ -133,6 +133,11 @@ class DiaryToolsTest {
         assertEquals(at(9, 30), meals.get("cccc3333-meal").eatenAt)
         assertEquals(MealStatus.BEVESTIGD, meals.get("cccc3333-meal").status, "verzetten verandert de status niet")
 
+        val full = meals.get("cccc3333-meal").kcal
+        assertTrue(tools.setMealEaten("cccc3333", 75).contains("telt nu voor 75% mee: ${full * 75 / 100} kcal"))
+        assertEquals(75, meals.get("cccc3333-meal").eatenPercent)
+        assertEquals("Kies een percentage van 1 tot 100", tools.setMealEaten("cccc3333", 0))
+
         assertTrue(tools.correctMeal("dddd4444", "het was soep").startsWith("Dat eetmoment wordt nog uitgerekend"))
         assertTrue(tools.correctMeal("cccc3333", "het was volkorenbrood").startsWith("Doorgegeven"))
         assertEquals(listOf("het was volkorenbrood"), meals.get("cccc3333-meal").corrections)

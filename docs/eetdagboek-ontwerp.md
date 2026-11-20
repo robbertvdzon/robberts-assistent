@@ -2,6 +2,8 @@
 
 Status (18 november 2026): **alle zes stappen zijn gebouwd, op de onderdelen hieronder na.**
 
+Aanvulling 20 november 2026: de referentiefoto's komen uit een **referentiebibliotheek** (elke unieke combinatie van gerecht, servies en hoeveelheid één keer; dubbelen worden gemarkeerd en niet opnieuw gebruikt) in plaats van drie gewogen maaltijden op kloktijd, en bij een eetmoment is vast te leggen welk **deel is opgegeten**: de portie blijft heel voor de referenties, de dag telt minder.
+
 Gebouwd:
 
 - Stap 1: backendmodule `nutrition`, scherm Eten onder Meer (`lib/food_screen.dart`).

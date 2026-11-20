@@ -56,6 +56,19 @@ class _FakeApiClient extends ApiClient {
   @override
   Future<Meal> getMeal(String id) async => meal;
 
+  @override
+  Future<Meal> setMealEaten(String id, int percent) async => meal = Meal(
+    id: meal.id,
+    eatenAt: meal.eatenAt,
+    title: meal.title,
+    photoIds: meal.photoIds,
+    note: meal.note,
+    status: meal.status,
+    kcal: meal.items.fold(0, (sum, i) => sum + i.kcal) * percent ~/ 100,
+    items: meal.items,
+    eatenPercent: percent,
+  );
+
   ActivityDay? activity;
 
   @override
@@ -221,6 +234,8 @@ void main() {
         find.byType(TextField),
         'het was een hele vegaworst',
       );
+      await tester.ensureVisible(find.byTooltip('Versturen'));
+      await tester.pump();
       await tester.tap(find.byTooltip('Versturen'));
       await tester.pump();
       await tester.pump();
@@ -230,6 +245,54 @@ void main() {
       await tester.pumpWidget(const SizedBox()); // ruimt de poll-timer op
     },
   );
+
+  testWidgets('bevestigd eetmoment toont zijn rol als referentie of dubbel', (
+    tester,
+  ) async {
+    final api = _FakeApiClient();
+    final base = _meal(status: 'BEVESTIGD');
+    Meal withRole(String role, String description) => Meal(
+      id: base.id,
+      eatenAt: base.eatenAt,
+      title: base.title,
+      photoIds: base.photoIds,
+      note: base.note,
+      status: base.status,
+      kcal: base.kcal,
+      items: base.items,
+      referenceRole: role,
+      referenceDescription: description,
+    );
+    api.meal = withRole('REFERENTIE', 'klein blauw kopje, tot de rand gevuld');
+    await _pump(tester, MealDetailScreen(api: api, mealId: 'm1'));
+    expect(
+      find.text('Referentiefoto: klein blauw kopje, tot de rand gevuld'),
+      findsOneWidget,
+    );
+
+    expect(withRole('DUBBEL', 'kopje').referenceLabel, startsWith('Dubbel'));
+    expect(withRole('GEEN', '').referenceLabel, isEmpty);
+    expect(base.referenceLabel, isEmpty);
+  });
+
+  testWidgets('deel opgegeten telt minder mee, de portie blijft staan', (
+    tester,
+  ) async {
+    final api = _FakeApiClient()..meal = _meal(status: 'BEVESTIGD');
+    await _pump(tester, MealDetailScreen(api: api, mealId: 'm1'));
+    expect(find.text('Samen'), findsOneWidget);
+    expect(find.text('560 kcal'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('opgegeten-75')));
+    await tester.tap(find.byKey(const ValueKey('opgegeten-75')));
+    await tester.pumpAndSettle();
+
+    expect(api.meal.eatenPercent, 75);
+    expect(find.text('75% opgegeten'), findsOneWidget);
+    expect(find.text('420 kcal'), findsOneWidget);
+    // De onderdelen zelf blijven de hele, gewogen portie.
+    expect(api.meal.items.first.grams, _potatoes.grams);
+  });
 
   testWidgets('vastleggen met alleen tekst stuurt de notitie in', (
     tester,

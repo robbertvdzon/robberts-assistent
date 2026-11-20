@@ -27,6 +27,15 @@ class MealServiceTest {
         }
 
         override fun learn(memory: String, meal: Meal): LearnResult? = learnResult
+
+        /** Oordeel over de referentiebibliotheek; standaard geen (dan blijft de maaltijd onbeoordeeld). */
+        var verdict: (Meal, List<Meal>) -> ReferenceVerdict? = { _, _ -> null }
+        val catalogued = mutableListOf<Pair<Meal, List<StoredMealPhoto>>>()
+
+        override fun catalogue(meal: Meal, photos: List<StoredMealPhoto>, existing: List<Meal>): ReferenceVerdict? {
+            catalogued += meal to photos
+            return verdict(meal, existing)
+        }
     }
 
     private val repository = InMemoryMealRepository()
@@ -200,6 +209,155 @@ class MealServiceTest {
         assertTrue(request.references[1].description.contains("2026-11-10"))
         assertTrue(request.references[2].description.contains("2026-11-11"))
         assertEquals(62, request.references[0].photo.bytes.single().toInt())
+    }
+
+    private fun awaitRole(id: String, role: ReferenceRole): Meal {
+        val deadline = System.currentTimeMillis() + 5000
+        while (System.currentTimeMillis() < deadline) {
+            val meal = service.get(id)
+            if (meal.referenceRole == role) return meal
+            Thread.sleep(10)
+        }
+        error("Rol $role niet bereikt, nu ${service.get(id).referenceRole}")
+    }
+
+    private fun confirmedMeal(at: String, grams: Int, vararg photos: Int): Meal {
+        val uploads = photos.map { MealPhotoUpload(byteArrayOf(it.toByte()), "image/jpeg") }
+        val created = service.create(uploads, if (uploads.isEmpty()) "ontbijt" else "", Instant.parse(at))
+        awaitStatus(created.id, MealStatus.VOORSTEL)
+        return service.confirm(created.id, listOf(item.copy(grams = grams)))
+    }
+
+    /** Zelfde aantal gram als een bestaande referentie is een dubbele; de tweede foto is de bordfoto. */
+    private val byGrams: (Meal, List<Meal>) -> ReferenceVerdict? = { meal, existing ->
+        val same = existing.firstOrNull { it.items == meal.items }
+        if (same != null) ReferenceVerdict(ReferenceRole.DUBBEL, "kom", 0, same.id)
+        else ReferenceVerdict(ReferenceRole.REFERENTIE, "kom met ${meal.items.single().grams} g", meal.photoIds.size - 1)
+    }
+
+    @Test
+    fun `bevestigde maaltijden vullen de bibliotheek, een dubbele gaat niet nog eens mee`() {
+        analyzer.verdict = byGrams
+        val small = awaitRole(confirmedMeal("2026-11-10T06:30:00Z", 30, 11, 12).id, ReferenceRole.REFERENTIE)
+        val again = awaitRole(confirmedMeal("2026-11-11T06:30:00Z", 30, 21).id, ReferenceRole.DUBBEL)
+        val large = awaitRole(confirmedMeal("2026-11-12T18:30:00Z", 85, 31).id, ReferenceRole.REFERENTIE)
+        val noPhoto = awaitRole(confirmedMeal("2026-11-13T06:30:00Z", 50).id, ReferenceRole.GEEN)
+
+        assertEquals("kom met 30 g", small.referenceDescription)
+        assertEquals(small.photoIds[1], small.referencePhotoId)
+        assertEquals(small.id, again.duplicateOf)
+        assertEquals("", again.referencePhotoId)
+        // Zonder foto valt er niets te beoordelen: de AI wordt er niet voor aangeroepen.
+        assertTrue(analyzer.catalogued.none { it.first.id == noPhoto.id })
+
+        val next = service.create(listOf(MealPhotoUpload(byteArrayOf(1), "image/jpeg")), "", Instant.parse("2026-11-17T06:35:00Z"))
+        awaitStatus(next.id, MealStatus.VOORSTEL)
+        val references = analyzer.requests.last().references
+        // Alle unieke referenties, nieuwste eerst, ongeacht het tijdstip van de dag en zonder weging.
+        assertEquals(listOf(31, 12), references.map { it.photo.bytes.single().toInt() })
+        assertTrue(references[0].description.contains("kom met 85 g") && references[0].description.contains("85 g (bevestigd)"))
+        assertTrue(references[1].description.contains("2026-11-10"))
+        assertEquals(large.id, service.get(large.id).id)
+    }
+
+    @Test
+    fun `onderdelen wijzigen beoordeelt opnieuw, ongewijzigd bevestigen niet`() {
+        analyzer.verdict = byGrams
+        val meal = awaitRole(confirmedMeal("2026-11-10T06:30:00Z", 30, 11).id, ReferenceRole.REFERENTIE)
+        service.confirm(meal.id)
+        assertEquals(ReferenceRole.REFERENTIE, service.get(meal.id).referenceRole)
+        assertEquals(1, analyzer.catalogued.size)
+
+        service.confirm(meal.id, listOf(item.copy(grams = 45)))
+        val changed = awaitRole(meal.id, ReferenceRole.REFERENTIE)
+        assertEquals(2, analyzer.catalogued.size)
+        assertEquals("kom met 45 g", changed.referenceDescription)
+    }
+
+    @Test
+    fun `na verwijderen van een referentie neemt de dubbele zijn plek over`() {
+        analyzer.verdict = byGrams
+        val first = awaitRole(confirmedMeal("2026-11-10T06:30:00Z", 30, 11).id, ReferenceRole.REFERENTIE)
+        val second = awaitRole(confirmedMeal("2026-11-11T06:30:00Z", 30, 21).id, ReferenceRole.DUBBEL)
+
+        service.delete(first.id)
+
+        val promoted = awaitRole(second.id, ReferenceRole.REFERENTIE)
+        assertEquals("", promoted.duplicateOf)
+        assertEquals(second.photoIds.single(), promoted.referencePhotoId)
+    }
+
+    @Test
+    fun `bij de start krijgen onbeoordeelde maaltijden alsnog een plek, oudste eerst`() {
+        val first = confirmedMeal("2026-11-10T06:30:00Z", 30, 11)
+        val second = confirmedMeal("2026-11-11T06:30:00Z", 30, 21)
+        val proposal = awaitStatus(service.create(listOf(MealPhotoUpload(byteArrayOf(5), "image/jpeg")), "", null).id, MealStatus.VOORSTEL)
+        Thread.sleep(100)
+        assertEquals(ReferenceRole.ONBEKEND, service.get(first.id).referenceRole)
+
+        analyzer.verdict = byGrams
+        service.catalogueBacklog()
+
+        awaitRole(second.id, ReferenceRole.DUBBEL)
+        assertEquals(ReferenceRole.REFERENTIE, service.get(first.id).referenceRole)
+        // Een voorstel is nog niet bevestigd en hoort niet in de bibliotheek.
+        assertEquals(ReferenceRole.ONBEKEND, service.get(proposal.id).referenceRole)
+    }
+
+    @Test
+    fun `oordeel over een referentie wordt gelezen en een onbekend origineel wordt een nieuwe referentie`() {
+        val mapper = ObjectMapper()
+        val existing = listOf(Meal(id = "abcdef12-3456", eatenAt = Instant.now(), createdAt = Instant.now(), updatedAt = Instant.now()))
+        fun parse(json: String) = ReferenceVerdictParser.parse(json, mapper, 3, existing)
+
+        assertEquals(
+            ReferenceVerdict(ReferenceRole.REFERENTIE, "blauw kopje", 1),
+            parse("""Hier: {"rol": "referentie", "foto": 2, "dubbel_van": "", "beschrijving": "blauw kopje"}"""),
+        )
+        assertEquals(
+            ReferenceVerdict(ReferenceRole.DUBBEL, "blauw kopje", 0, "abcdef12-3456"),
+            parse("""{"rol": "DUBBEL", "foto": 1, "dubbel_van": "abcdef12", "beschrijving": "blauw kopje"}"""),
+        )
+        assertEquals(
+            ReferenceVerdict(ReferenceRole.REFERENTIE, "blauw kopje", 2),
+            parse("""{"rol": "DUBBEL", "foto": 9, "dubbel_van": "zzzz9999", "beschrijving": "blauw kopje"}"""),
+        )
+        assertEquals(ReferenceVerdict(ReferenceRole.GEEN), parse("""{"rol": "GEEN", "foto": 1, "beschrijving": ""}"""))
+        assertEquals(null, parse("""{"rol": "weet ik niet"}"""))
+    }
+
+    @Test
+    fun `deels opgegeten telt minder voor de dag maar de portie en de referentie blijven heel`() {
+        analyzer.verdict = byGrams
+        val meal = awaitRole(confirmedMeal("2026-11-10T06:30:00Z", 60, 11).id, ReferenceRole.REFERENTIE)
+
+        val eaten = service.setEaten(meal.id, 75)
+
+        assertEquals(60, eaten.items.single().grams)
+        assertEquals(45, eaten.eatenItems.single().grams)
+        assertEquals(165, eaten.kcal)
+        assertEquals(ReferenceRole.REFERENTIE, eaten.referenceRole)
+        val day = service.day(LocalDate.parse("2026-11-10"))
+        assertEquals(165, day.totals.kcal)
+        assertEquals(6.0, day.totals.proteinG)
+        assertFailsWith<IllegalArgumentException> { service.setEaten(meal.id, 0) }
+
+        // De referentie voor een volgende foto noemt de hele portie.
+        val next = service.create(listOf(MealPhotoUpload(byteArrayOf(1), "image/jpeg")), "", Instant.parse("2026-11-12T06:35:00Z"))
+        awaitStatus(next.id, MealStatus.VOORSTEL)
+        assertTrue(analyzer.requests.last().references.single().description.contains("60 g"))
+    }
+
+    @Test
+    fun `de AI kan uit de notitie halen dat niet alles op is`() {
+        analyzer.result = MealAnalysis("Ontbijt", "", listOf(item), eatenPercent = 75)
+        val meal = awaitStatus(service.create(emptyList(), "havermout, kwart laten staan", null).id, MealStatus.VOORSTEL)
+        assertEquals(75, meal.eatenPercent)
+        assertEquals(listOf(item), meal.items)
+
+        val parsed = MealAnalysisParser.parse("""{"titel": "Lunch", "opgegeten_procent": 150, "items": []}""", ObjectMapper())
+        assertEquals(100, parsed.eatenPercent)
+        assertEquals(null, MealAnalysisParser.parse("""{"titel": "Lunch", "items": []}""", ObjectMapper()).eatenPercent)
     }
 
     @Test

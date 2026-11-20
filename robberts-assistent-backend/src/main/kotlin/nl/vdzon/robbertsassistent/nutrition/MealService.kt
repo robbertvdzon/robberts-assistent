@@ -10,6 +10,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import nl.vdzon.robbertsassistent.push.PushService
 import org.slf4j.LoggerFactory
+import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 
 class MealPhotoUpload(val bytes: ByteArray, val contentType: String)
@@ -37,6 +39,11 @@ class MealService(
     private val logger = LoggerFactory.getLogger(javaClass)
     private val executor: ExecutorService = Executors.newCachedThreadPool { runnable ->
         Thread(runnable, "meal-analysis").apply { isDaemon = true }
+    }
+
+    /** Eén tegelijk: twee gelijke maaltijden mogen niet allebei "nieuw" worden. */
+    private val catalogueExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "meal-reference").apply { isDaemon = true }
     }
 
     fun create(uploads: List<MealPhotoUpload>, note: String, eatenAt: Instant?): Meal {
@@ -103,8 +110,10 @@ class MealService(
         val meal = get(id)
         check(meal.status != MealStatus.ANALYSEREN) { "De analyse loopt nog" }
         val finalItems = items ?: meal.items
+        // Andere onderdelen betekent een andere referentie: dan opnieuw beoordelen.
+        val keepReference = finalItems == meal.items && meal.referenceRole != ReferenceRole.ONBEKEND
         val confirmed = meals.save(
-            meal.copy(
+            (if (keepReference) meal else meal.withoutReference()).copy(
                 items = finalItems,
                 title = title?.trim()?.takeIf { it.isNotEmpty() } ?: meal.title,
                 eatenAt = eatenAt ?: meal.eatenAt,
@@ -114,6 +123,7 @@ class MealService(
             ),
         )
         executor.submit { learnFrom(confirmed.id) }
+        if (!keepReference) catalogueExecutor.submit { catalogue(confirmed.id) }
         return confirmed
     }
 
@@ -123,12 +133,40 @@ class MealService(
         return meals.save(get(id).copy(eatenAt = eatenAt, updatedAt = Instant.now()))
     }
 
+    /** Legt vast welk deel van de portie is opgegeten; de portie zelf (en de referentie) blijft heel. */
+    fun setEaten(id: String, percent: Int): Meal {
+        require(percent in 1..100) { "Kies een percentage van 1 tot 100" }
+        return meals.save(get(id).copy(eatenPercent = percent))
+    }
+
     fun get(id: String): Meal = expireIfStuck(meals.findById(id) ?: throw MealNotFoundException(id))
 
     fun delete(id: String) {
         val meal = meals.findById(id) ?: return
         meals.delete(id)
         meal.photoIds.forEach { photoId -> runCatching { photos.delete(photoId) } }
+        if (meal.referenceRole == ReferenceRole.REFERENTIE) {
+            // De dubbelen van deze referentie hebben geen origineel meer: één ervan neemt de plek over.
+            val orphans = meals.findBetween(meal.eatenAt.minus(LIBRARY_WINDOW), Instant.now().plus(Duration.ofDays(1)))
+                .filter { it.duplicateOf == id }
+            orphans.forEach { meals.save(it.withoutReference()) }
+            orphans.forEach { orphan -> catalogueExecutor.submit { catalogue(orphan.id) } }
+        }
+    }
+
+    /**
+     * Beoordeelt bij de start de bevestigde maaltijden met foto die nog geen plek in de
+     * referentiebibliotheek hebben (van vóór de bibliotheek, of waarvan de beoordeling mislukte).
+     */
+    @EventListener(ApplicationReadyEvent::class)
+    fun catalogueBacklog() {
+        catalogueExecutor.submit {
+            runCatching {
+                libraryWindow(Instant.now())
+                    .filter { it.isConfirmed() && it.photoIds.isNotEmpty() && it.referenceRole == ReferenceRole.ONBEKEND }
+                    .forEach { catalogue(it.id) }
+            }.onFailure { logger.warn("Referentiebibliotheek bijwerken mislukt: {}", it.message) }
+        }
     }
 
     fun photo(id: String): StoredMealPhoto? = photos.load(id)
@@ -168,7 +206,8 @@ class MealService(
         val weighed = weighedMeals(meal)
         val analysis = analyzer.analyze(
             AnalysisRequest(
-                references = references(meal, weighed),
+                // Zolang de bibliotheek leeg is, vallen we terug op de gewogen maaltijden.
+                references = library(meal, meal.photoIds.sumOf { photos.load(it)?.bytes?.size ?: 0 }).ifEmpty { references(meal, weighed) },
                 weighedPortions = weighedPortions(weighed),
                 recipes = RecipeLinks.find(meal.note)
                     .mapNotNull { url -> recipeFetcher.fetch(url)?.let { url to it } }.toMap(),
@@ -197,6 +236,7 @@ class MealService(
                 title = analysis.title.ifEmpty { current.title.ifEmpty { "Eetmoment" } },
                 remark = analysis.remark,
                 items = analysis.items,
+                eatenPercent = analysis.eatenPercent ?: current.eatenPercent,
                 aiProposal = current.aiProposal.ifEmpty { analysis.items },
                 status = MealStatus.VOORSTEL,
                 error = "",
@@ -222,6 +262,69 @@ class MealService(
             meals.findById(id)?.let { meals.save(it.copy(learned = result.learned)) }
         }.onFailure { logger.warn("Leren van maaltijd {} mislukt: {}", id, it.message) }
     }
+
+    /** Geeft een bevestigde maaltijd zijn plek in de referentiebibliotheek: nieuw, dubbel of geen. */
+    private fun catalogue(id: String) {
+        runCatching {
+            val meal = meals.findById(id) ?: return
+            if (!meal.isConfirmed() || meal.referenceRole != ReferenceRole.ONBEKEND) return
+            val loaded = meal.photoIds.mapNotNull { photoId -> photos.load(photoId)?.let { photoId to it } }
+            if (loaded.isEmpty()) {
+                meals.save(meal.copy(referenceRole = ReferenceRole.GEEN))
+                return
+            }
+            val existing = libraryWindow(maxOf(meal.eatenAt, Instant.now()))
+                .filter { it.id != id && it.referenceRole == ReferenceRole.REFERENTIE }
+            val verdict = analyzer.catalogue(meal, loaded.map { it.second }, existing) ?: return
+            // Opnieuw lezen: tijdens de beoordeling kan de maaltijd veranderd of verwijderd zijn.
+            val current = meals.findById(id) ?: return
+            if (current.updatedAt != meal.updatedAt) return
+            meals.save(
+                current.copy(
+                    referenceRole = verdict.role,
+                    referenceDescription = verdict.description,
+                    referencePhotoId = if (verdict.role == ReferenceRole.REFERENTIE) loaded[verdict.photoIndex.coerceIn(loaded.indices)].first else "",
+                    duplicateOf = verdict.duplicateOf,
+                ),
+            )
+            logger.info("Maaltijd {} ({}) in de referentiebibliotheek: {}", id.take(8), meal.title, verdict.role)
+        }.onFailure { logger.warn("Referentie beoordelen van maaltijd {} mislukt: {}", id, it.message) }
+    }
+
+    private fun libraryWindow(until: Instant): List<Meal> =
+        meals.findBetween(until.minus(LIBRARY_WINDOW), until.plus(Duration.ofDays(1)))
+
+    /**
+     * De referentiebibliotheek voor dit eetmoment: alle unieke bevestigde maaltijden met bordfoto,
+     * nieuwste eerst. De AI krijgt van elk de beschrijving en opent alleen de foto's die lijken.
+     * De Agent Runtime neemt hooguit 10 MB aan bijlagen per job aan, vandaar het budget in bytes.
+     */
+    private fun library(meal: Meal, ownBytes: Int): List<ReferenceExample> {
+        var budget = MAX_JOB_BYTES - ownBytes
+        return meals.findBetween(meal.eatenAt.minus(LIBRARY_WINDOW), meal.eatenAt)
+            .filter { it.id != meal.id && it.isConfirmed() && it.referenceRole == ReferenceRole.REFERENTIE }
+            .sortedByDescending { it.eatenAt }
+            .take(MAX_LIBRARY)
+            .mapNotNull { m ->
+                val photo = photos.load(m.referencePhotoId) ?: return@mapNotNull null
+                if (photo.bytes.size > budget) return@mapNotNull null
+                budget -= photo.bytes.size
+                val date = m.eatenAt.atZone(ZONE).toLocalDate()
+                val items = m.items.joinToString("; ") {
+                    "${it.name} ${it.grams} g" + if (it.basis == ItemBasis.GEWOGEN) " (gewogen)" else " (bevestigd)"
+                }
+                ReferenceExample(photo, "${m.title} van $date, ${m.referenceDescription}. Hoeveelheden: $items")
+            }
+    }
+
+    private fun Meal.isConfirmed() = status == MealStatus.BEVESTIGD || status == MealStatus.VERBETERD
+
+    private fun Meal.withoutReference() = copy(
+        referenceRole = ReferenceRole.ONBEKEND,
+        referenceDescription = "",
+        referencePhotoId = "",
+        duplicateOf = "",
+    )
 
     /** De laatste bevestigde maaltijden van de afgelopen twee weken, als voorbeeld voor de AI. */
     private fun recentExamples(meal: Meal): List<Meal> =
@@ -273,6 +376,7 @@ class MealService(
     @PreDestroy
     fun shutdown() {
         executor.shutdownNow()
+        catalogueExecutor.shutdownNow()
     }
 
     companion object {
@@ -284,5 +388,8 @@ class MealService(
         private const val MAX_EXAMPLES = 20
         private const val MAX_REFERENCES = 3
         private val REFERENCE_WINDOW: Duration = Duration.ofDays(60)
+        private val LIBRARY_WINDOW: Duration = Duration.ofDays(180)
+        private const val MAX_LIBRARY = 40
+        private const val MAX_JOB_BYTES = 8 * 1024 * 1024
     }
 }

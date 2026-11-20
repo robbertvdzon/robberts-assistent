@@ -1437,12 +1437,52 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Expanded(child: Text('Samen', style: muted)),
+                        Expanded(
+                          child: Text(
+                            meal.eatenPercent < 100
+                                ? '${meal.eatenPercent}% opgegeten'
+                                : 'Samen',
+                            style: muted,
+                          ),
+                        ),
                         Text(
-                          '${_items.fold<int>(0, (sum, i) => sum + i.kcal)} kcal',
+                          '${_edited ? _items.fold<int>(0, (sum, i) => sum + i.kcal) * meal.eatenPercent ~/ 100 : meal.kcal} kcal',
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // De onderdelen hierboven blijven de hele portie: die is gewogen en dient
+                    // als referentie. Hier kies je alleen welk deel je ervan opat.
+                    Text('Hoeveel heb je ervan opgegeten?', style: muted),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final (percent, label) in const [
+                          (100, 'Alles'),
+                          (75, '75%'),
+                          (50, '50%'),
+                          (25, '25%'),
+                        ])
+                          ChoiceChip(
+                            key: ValueKey('opgegeten-$percent'),
+                            label: Text(label),
+                            selected: meal.eatenPercent == percent,
+                            onSelected: _busy || _edited
+                                ? null
+                                : (_) {
+                                    if (meal.eatenPercent == percent) return;
+                                    _run(
+                                      () => widget.api.setMealEaten(
+                                        widget.mealId,
+                                        percent,
+                                      ),
+                                      'Opslaan is mislukt.',
+                                    );
+                                  },
+                          ),
                       ],
                     ),
                     if (meal.learned.isNotEmpty && !_edited)
@@ -1462,6 +1502,26 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(meal.learned),
+                          ],
+                        ),
+                      ),
+                    if (meal.referenceLabel.isNotEmpty && !_edited)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              meal.referenceRole == 'DUBBEL'
+                                  ? Icons.copy_outlined
+                                  : Icons.photo_library_outlined,
+                              size: 18,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(meal.referenceLabel, style: muted),
+                            ),
                           ],
                         ),
                       ),

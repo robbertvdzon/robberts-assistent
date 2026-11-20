@@ -17,7 +17,13 @@ import org.springframework.stereotype.Component
 import org.springframework.util.MimeTypeUtils
 
 /** Wat de AI van een eetmoment maakte. */
-data class MealAnalysis(val title: String, val remark: String, val items: List<MealItem>)
+data class MealAnalysis(
+    val title: String,
+    val remark: String,
+    val items: List<MealItem>,
+    /** Alleen gevuld als Robbert zei dat hij niet alles opat; anders blijft staan wat er stond. */
+    val eatenPercent: Int? = null,
+)
 
 /** Alles wat de AI meekrijgt om één eetmoment te beoordelen. */
 class AnalysisRequest(
@@ -43,6 +49,17 @@ class AnalysisRequest(
 /** Een eerdere maaltijd waarvan (een deel van) de gewichten gemeten zijn, met de foto erbij. */
 class ReferenceExample(val photo: StoredMealPhoto, val description: String)
 
+/** Oordeel over de plek van een bevestigde maaltijd in de referentiebibliotheek. */
+data class ReferenceVerdict(
+    val role: ReferenceRole,
+    /** Wat er op de bordfoto te zien is; leeg bij GEEN. */
+    val description: String = "",
+    /** Index (vanaf 0) van de foto waarop het eten zelf staat. */
+    val photoIndex: Int = 0,
+    /** Id van de bestaande referentie waarvan dit een dubbele is. */
+    val duplicateOf: String = "",
+)
+
 /** Uitkomst van de leerstap: het nieuwe geheugen en één zin over wat er bijkwam. */
 data class LearnResult(val memory: String, val learned: String)
 
@@ -51,6 +68,12 @@ interface MealAnalyzer {
 
     /** Werkt het geheugen bij na een bevestiging; `null` als er niets verandert of het niet lukt. */
     fun learn(memory: String, meal: Meal): LearnResult?
+
+    /**
+     * Beoordeelt of een bevestigde maaltijd een nieuwe referentie is of een dubbele van een van de
+     * [existing] referenties; `null` als het niet lukt (dan blijft de maaltijd onbeoordeeld).
+     */
+    fun catalogue(meal: Meal, photos: List<StoredMealPhoto>, existing: List<Meal>): ReferenceVerdict? = null
 }
 
 private val NUTRITION_SYSTEM_PROMPT = """
@@ -65,10 +88,15 @@ private val NUTRITION_SYSTEM_PROMPT = """
     - Bij een recept: reken het hele recept door en bepaal met de bordfoto welk deel hij at.
       Vergeet olie, boter, room en suiker uit het recept niet.
     - Schat porties aan de hand van bord, bestek, hand of verpakking in beeld.
-    - Referentiefoto's: na de foto's van dit eetmoment kunnen foto's van eerdere maaltijden volgen
-      waarvan de gewichten gemeten zijn. Vergelijk de hoeveelheid op de nieuwe foto daarmee en zet
-      "basis" op VERGELEKEN als je schatting daarop rust. Eet hij duidelijk hetzelfde als op een
-      referentie, neem dan de gewogen hoeveelheden over.
+    - Referentiefoto's: na de foto's van dit eetmoment kunnen foto's volgen uit Robberts
+      referentiebibliotheek: eerdere, door hem bevestigde maaltijden, elk met een beschrijving van
+      servies en vulling en met de hoeveelheden. Bekijk eerst de foto's van dit eetmoment. Open
+      daarna alleen de referentiefoto's waarvan de beschrijving lijkt op wat je ziet (zelfde gerecht
+      of zelfde bord, kom of glas); de rest hoef je niet te openen. Vergelijk servies en vulling:
+      hetzelfde gerecht in een grotere kom is een andere hoeveelheid. Eet hij duidelijk hetzelfde
+      als op een referentie, neem dan die hoeveelheden over; ligt het ertussenin, schat dan naar
+      verhouding. Zet "basis" op VERGELEKEN als je getal op een referentie rust. Een referentie
+      met gewogen hoeveelheden weegt zwaarder dan een die alleen bevestigd is.
     - Staat er de tekst van een receptpagina bij, gebruik die dan als recept.
     - Volg de vuistregels en eerdere maaltijden van Robbert als die van toepassing zijn; lijkt het
       eetmoment op een eerdere maaltijd, neem dan die hoeveelheden over tenzij de foto iets anders
@@ -76,6 +104,10 @@ private val NUTRITION_SYSTEM_PROMPT = """
     - Voedingswaarden gelden voor de gegeten hoeveelheid, niet per 100 gram.
     - "groente_gram" en "fruit_gram" zijn het deel van het onderdeel dat groente of fruit is.
     - Zet "twijfel" op true als je product of hoeveelheid niet goed kunt zien.
+    - Niet alles opgegeten: zegt Robbert dat hij een deel liet staan ("kwart niet opgegeten",
+      "maar de helft gegeten"), geef dan in "items" toch de HELE portie zoals op de foto en zoals
+      gewogen, en zet in "opgegeten_procent" welk deel hij at (bv. 75). Verklein de grammen niet
+      zelf. Laat "opgegeten_procent" weg als hij er niets over zegt.
     - Water, thee en koffie zonder melk of suiker: laat ze weg.
     - Foto's bekijk je altijd echt voordat je iets invult. Lukt het openen van een foto niet,
       verzin dan niets: geef "items" als lege lijst en begin "opmerking" met "FOTO NIET GELEZEN:"
@@ -84,6 +116,7 @@ private val NUTRITION_SYSTEM_PROMPT = """
     Antwoord uitsluitend met één JSON-object, zonder uitleg ervoor of erna en zonder codeblok:
     {"titel": "Ontbijt|Lunch|Avondeten|Tussendoor|Drinken",
      "opmerking": "één korte Nederlandse zin, bv. waar je over twijfelt; mag leeg",
+     "opgegeten_procent": 100,
      "items": [{"naam": "Gekookte aardappelen", "gram": 200, "kcal": 170, "eiwit": 4.0,
                 "koolhydraten": 38.0, "vet": 0.2, "vezels": 3.6, "groente_gram": 0,
                 "fruit_gram": 0, "twijfel": false,
@@ -106,6 +139,29 @@ private val FOOD_MEMORY_SYSTEM_PROMPT = """
     {"geheugen": "de volledige nieuwe geheugentekst", "geleerd": "één korte zin over wat erbij kwam, of leeg als er niets verandert"}
 """.trimIndent()
 
+private val REFERENCE_SYSTEM_PROMPT = """
+    Je beheert de referentiebibliotheek van Robberts voedingsassistent: foto's van maaltijden die
+    hij heeft bevestigd, waarmee later nieuwe foto's worden vergeleken om de hoeveelheid te
+    schatten. Elke combinatie van gerecht, servies en hoeveelheid hoort er precies één keer in.
+
+    Je krijgt de foto's en de bevestigde onderdelen van één maaltijd, en de lijst van referenties
+    die er al zijn. Bepaal:
+    - "foto": het nummer (vanaf 1) van de foto waarop het eten of drinken zelf staat zoals hij het
+      at: het bord, de kom, het glas. Geen etiket, verpakking, recept of weegschaal zonder eten.
+    - "rol":
+      GEEN als geen enkele foto het eten zelf laat zien.
+      DUBBEL als er al een referentie is met hetzelfde gerecht, in hetzelfde servies, met ongeveer
+      dezelfde hoeveelheden (binnen ongeveer 10 procent). Zet het id daarvan in "dubbel_van".
+      REFERENTIE in alle andere gevallen: een nieuw gerecht, ander servies of andere hoeveelheid.
+      Is de nieuwe maaltijd gewogen en de bestaande referentie niet, kies dan ook REFERENTIE.
+    - "beschrijving": één Nederlandse zin over wat je op die foto ziet, zo dat je het servies en de
+      vulling later herkent, bv. "klein blauw-wit kopje met oor, tot de rand gevuld met kwark en
+      havermout". Noem vorm, kleur en grootte van het servies en hoe vol het is. Geen grammen.
+
+    Antwoord uitsluitend met één JSON-object:
+    {"rol": "REFERENTIE|DUBBEL|GEEN", "foto": 1, "dubbel_van": "id of leeg", "beschrijving": "..."}
+""".trimIndent()
+
 /**
  * Eigen tool-loze clients: vision voor de analyse, tekst voor het geheugen. Beide draaien op het
  * model dat in het beheerscherm voor het eetdagboek is gekozen (`nutritionChatModel`).
@@ -115,6 +171,10 @@ class NutritionAiConfig {
     @Bean
     fun nutritionChatClient(@Qualifier("nutritionChatModel") chatModel: ChatModel): ChatClient =
         ChatClient.builder(chatModel).defaultSystem(NUTRITION_SYSTEM_PROMPT).build()
+
+    @Bean
+    fun referenceChatClient(@Qualifier("nutritionChatModel") chatModel: ChatModel): ChatClient =
+        ChatClient.builder(chatModel).defaultSystem(REFERENCE_SYSTEM_PROMPT).build()
 
     @Bean
     fun foodMemoryChatClient(@Qualifier("nutritionChatModel") chatModel: ChatModel): ChatClient =
@@ -145,6 +205,7 @@ object MealAnalysisParser {
             title = root.path("titel").asText("").trim().take(40),
             remark = root.path("opmerking").asText("").trim().take(300),
             items = items,
+            eatenPercent = root.path("opgegeten_procent").takeIf { it.isNumber }?.asInt()?.coerceIn(1, 100),
         )
     }
 
@@ -156,10 +217,37 @@ object MealAnalysisParser {
     }
 }
 
+/** Leest het oordeel over een referentie; een onbruikbaar antwoord geeft `null`. */
+object ReferenceVerdictParser {
+    fun parse(answer: String, mapper: ObjectMapper, photoCount: Int, existing: List<Meal>): ReferenceVerdict? {
+        val root = MealAnalysisParser.jsonObject(answer, mapper)
+        val role = runCatching { ReferenceRole.valueOf(root.path("rol").asText("").trim().uppercase()) }.getOrNull()
+        val description = root.path("beschrijving").asText("").trim().take(300)
+        val photoIndex = (root.path("foto").asInt(1) - 1).coerceIn(0, maxOf(photoCount - 1, 0))
+        return when (role) {
+            ReferenceRole.GEEN -> ReferenceVerdict(ReferenceRole.GEEN)
+            ReferenceRole.REFERENTIE ->
+                if (description.isEmpty()) null else ReferenceVerdict(ReferenceRole.REFERENTIE, description, photoIndex)
+            ReferenceRole.DUBBEL -> {
+                val wanted = root.path("dubbel_van").asText("").trim()
+                val original = existing.singleOrNull { wanted.length >= 4 && it.id.startsWith(wanted) }
+                // Een dubbele van iets dat niet bestaat is gewoon een nieuwe referentie.
+                when {
+                    original != null -> ReferenceVerdict(ReferenceRole.DUBBEL, description, photoIndex, original.id)
+                    description.isEmpty() -> null
+                    else -> ReferenceVerdict(ReferenceRole.REFERENTIE, description, photoIndex)
+                }
+            }
+            else -> null
+        }
+    }
+}
+
 @Component
 class ChatMealAnalyzer(
     @Qualifier("nutritionChatClient") private val chatClient: ChatClient,
     @Qualifier("foodMemoryChatClient") private val memoryClient: ChatClient,
+    @Qualifier("referenceChatClient") private val referenceClient: ChatClient,
     private val mapper: ObjectMapper,
     private val secrets: AppSecrets,
 ) : MealAnalyzer {
@@ -202,6 +290,9 @@ class ChatMealAnalyzer(
                         appendLine()
                         appendLine("Bevestigde maaltijd: ${meal.title}")
                         if (meal.note.isNotBlank()) appendLine("Notitie van Robbert: ${meal.note}")
+                        if (meal.eatenPercent < 100) {
+                            appendLine("Deze keer at hij er ${meal.eatenPercent}% van op; de hoeveelheden hieronder zijn de hele portie.")
+                        }
                         appendLine("Oorspronkelijk AI-voorstel:")
                         appendLine(describe(meal.aiProposal))
                         appendLine("Wat Robbert ervan maakte:")
@@ -222,11 +313,39 @@ class ChatMealAnalyzer(
         }.onFailure { logger.warn("Eet-geheugen bijwerken mislukt: {}", it.message) }.getOrNull()
     }
 
+    override fun catalogue(meal: Meal, photos: List<StoredMealPhoto>, existing: List<Meal>): ReferenceVerdict? {
+        if (secrets.effectiveMockAi || photos.isEmpty()) return null
+        val text = buildString {
+            appendLine("Bevestigde maaltijd: ${meal.title}")
+            appendLine("Onderdelen: ${describe(meal.items)}")
+            if (meal.note.isNotBlank()) appendLine("Notitie van Robbert: ${meal.note}")
+            appendLine("Aantal foto's: ${photos.size}")
+            appendLine()
+            if (existing.isEmpty()) {
+                appendLine("Er zijn nog geen referenties.")
+            } else {
+                appendLine("Bestaande referenties:")
+                existing.forEach {
+                    appendLine("- id ${it.id.take(SHORT_ID)}: ${it.title}, ${it.referenceDescription}. Onderdelen: ${describe(it.items)}")
+                }
+            }
+        }
+        val media = photos.map { Media(MimeTypeUtils.parseMimeType(it.contentType), ByteArrayResource(it.bytes)) }
+        return runCatching {
+            val answer = referenceClient.prompt()
+                .user { user -> user.text(text).media(*media.toTypedArray()) }
+                .call()
+                .content()
+                .orEmpty()
+            ReferenceVerdictParser.parse(answer, mapper, photos.size, existing)
+        }.onFailure { logger.warn("Referentie beoordelen van maaltijd {} mislukt: {}", meal.id, it.message) }.getOrNull()
+    }
+
     private fun promptText(request: AnalysisRequest): String = buildString {
         appendLine("Tijdstip van eten: ${request.eatenAtLocal.format(TIME_FORMAT)}")
         appendLine("Aantal foto's van dit eetmoment: ${request.photos.size} (de eerste ${request.photos.size} foto's)")
         request.references.forEachIndexed { index, reference ->
-            appendLine("Foto ${request.photos.size + index + 1} is een referentie, niet van dit eetmoment: ${reference.description}")
+            appendLine("Foto ${request.photos.size + index + 1} is een referentie uit de bibliotheek, niet van dit eetmoment: ${reference.description}")
         }
         appendLine("Notitie van Robbert: ${request.note.ifBlank { "(geen)" }}")
         if (request.memory.isNotBlank()) {
@@ -286,6 +405,7 @@ class ChatMealAnalyzer(
     companion object {
         private val TIME_FORMAT = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy HH:mm", java.util.Locale.of("nl"))
         private const val MAX_MEMORY = 8000
+        const val SHORT_ID = 8
 
         fun describe(items: List<MealItem>): String =
             if (items.isEmpty()) "(niets)"

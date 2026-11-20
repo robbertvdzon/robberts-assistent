@@ -72,6 +72,11 @@ class FirestoreMealRepository(private val firestore: Firestore) : MealRepository
         "corrections" to corrections,
         "learned" to learned,
         "error" to error,
+        "eatenPercent" to eatenPercent,
+        "referenceRole" to referenceRole.name,
+        "referenceDescription" to referenceDescription,
+        "referencePhotoId" to referencePhotoId,
+        "duplicateOf" to duplicateOf,
         "createdAt" to createdAt.toEpochMilli(),
         "updatedAt" to updatedAt.toEpochMilli(),
     )
@@ -106,6 +111,12 @@ class FirestoreMealRepository(private val firestore: Firestore) : MealRepository
             corrections = strings("corrections"),
             learned = getString("learned").orEmpty(),
             error = getString("error").orEmpty(),
+            eatenPercent = (getLong("eatenPercent") ?: 100L).toInt().coerceIn(1, 100),
+            referenceRole = runCatching { ReferenceRole.valueOf(getString("referenceRole").orEmpty()) }
+                .getOrDefault(ReferenceRole.ONBEKEND),
+            referenceDescription = getString("referenceDescription").orEmpty(),
+            referencePhotoId = getString("referencePhotoId").orEmpty(),
+            duplicateOf = getString("duplicateOf").orEmpty(),
             createdAt = Instant.ofEpochMilli(getLong("createdAt") ?: eatenAt),
             updatedAt = Instant.ofEpochMilli(getLong("updatedAt") ?: eatenAt),
         )

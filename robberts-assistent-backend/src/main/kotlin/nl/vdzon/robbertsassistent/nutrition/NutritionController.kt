@@ -45,7 +45,15 @@ data class MealDto(
     val remark: String,
     val learned: String,
     val error: String,
+    /** Welk deel is opgegeten; `items` is de hele portie, `kcal` en de dagtotalen het opgegeten deel. */
+    val eatenPercent: Int = 100,
+    /** ONBEKEND, REFERENTIE, DUBBEL of GEEN: de rol in de referentiebibliotheek. */
+    val referenceRole: String = ReferenceRole.ONBEKEND.name,
+    val referenceDescription: String = "",
+    val duplicateOf: String = "",
 )
+
+data class EatenRequest(val percent: Int = 100)
 
 data class TotalsDto(
     val kcal: Int,
@@ -133,6 +141,17 @@ class NutritionController(
             title = request?.title,
             eatenAt = parseInstant(request?.eatenAt),
         ).toDto()
+    }
+
+    /** Niet alles opgegeten: de portie blijft staan, de dag telt alleen dit deel. */
+    @PutMapping("/api/v1/meals/{id}/eaten")
+    fun eaten(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+        @RequestBody request: EatenRequest,
+    ): MealDto {
+        authService.requireAuthorization(authorization)
+        return mealService.setEaten(id, request.percent).toDto()
     }
 
     @PostMapping("/api/v1/meals/{id}/correct")
@@ -241,6 +260,10 @@ private fun Meal.toDto() = MealDto(
     remark = remark,
     learned = learned,
     error = error,
+    eatenPercent = eatenPercent,
+    referenceRole = referenceRole.name,
+    referenceDescription = referenceDescription,
+    duplicateOf = duplicateOf,
 )
 
 private fun NutritionDay.toDto() = NutritionDayDto(

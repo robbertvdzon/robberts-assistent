@@ -92,7 +92,7 @@ class InsightService(
         val activityByDate = activity.between(start, end).associateBy { it.date }
         val days = (0L..6L).map { offset ->
             val date = start.plusDays(offset)
-            val items = byDate[date].orEmpty().flatMap { it.items }
+            val items = byDate[date].orEmpty().flatMap { it.eatenItems }
             val a = activityByDate[date]
             OverviewDay(
                 date = date,
@@ -109,7 +109,7 @@ class InsightService(
         }
         val eaten = days.filter { it.mealCount > 0 }
         val burned = days.mapNotNull { it.burnedKcal }
-        val allItems = mealList.flatMap { it.items }
+        val allItems = mealList.flatMap { it.eatenItems }
         val totalKcal = allItems.sumOf { it.kcal }
         val confirmed = mealList.filter { it.status == MealStatus.BEVESTIGD || it.status == MealStatus.VERBETERD }
         return WeekOverview(
@@ -247,7 +247,7 @@ class InsightService(
         val full = fullHours(meals.filter { it.kcal >= 250 }, checkIns)
         if (full.size < 4) return null
         // Eiwit als aandeel van de calorieën (4 kcal per gram), zodat een grote maaltijd niet vanzelf "eiwitrijk" is.
-        fun share(meal: Meal) = meal.items.sumOf { it.proteinG } * 4 / meal.kcal
+        fun share(meal: Meal) = meal.eatenItems.sumOf { it.proteinG } * 4 / meal.kcal
         val median = full.keys.map(::share).sorted().let { it[it.size / 2] }
         val (rich, poor) = full.entries.partition { share(it.key) >= median }
         return compare(

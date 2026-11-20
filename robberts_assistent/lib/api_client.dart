@@ -524,6 +524,11 @@ class ApiClient {
         }),
       );
 
+  /// Niet alles opgegeten: de portie blijft staan, de dag telt alleen [percent] procent.
+  Future<Meal> setMealEaten(String id, int percent) async => Meal.fromJson(
+    await putJson('/api/v1/meals/$id/eaten', {'percent': percent}),
+  );
+
   /// Verbetering in gewone woorden; de AI rekent het eetmoment opnieuw door.
   Future<Meal> correctMeal(String id, String text) async => Meal.fromJson(
     await postJson('/api/v1/meals/$id/correct', {'text': text}),
@@ -1291,6 +1296,13 @@ class Meal {
   final String learned;
   final String error;
 
+  /// Welk deel is opgegeten. [items] is de hele portie; [kcal] het opgegeten deel.
+  final int eatenPercent;
+
+  /// Rol in de referentiebibliotheek: ONBEKEND, REFERENTIE, DUBBEL of GEEN.
+  final String referenceRole;
+  final String referenceDescription;
+
   const Meal({
     required this.id,
     required this.eatenAt,
@@ -1303,7 +1315,19 @@ class Meal {
     this.remark = '',
     this.learned = '',
     this.error = '',
+    this.eatenPercent = 100,
+    this.referenceRole = 'ONBEKEND',
+    this.referenceDescription = '',
   });
+
+  /// Wat deze maaltijd betekent voor het vergelijken van nieuwe foto's; leeg als hij niet meedoet.
+  String get referenceLabel => switch (referenceRole) {
+    'REFERENTIE' =>
+      'Referentiefoto${referenceDescription.isEmpty ? '' : ': $referenceDescription'}',
+    'DUBBEL' =>
+      'Dubbel van een eerdere referentie; deze foto wordt niet nog eens gebruikt',
+    _ => '',
+  };
 
   bool get analysing => status == 'ANALYSEREN';
   bool get failed => status == 'MISLUKT';
@@ -1324,6 +1348,9 @@ class Meal {
     remark: m['remark'] as String? ?? '',
     learned: m['learned'] as String? ?? '',
     error: m['error'] as String? ?? '',
+    eatenPercent: (m['eatenPercent'] as num?)?.toInt() ?? 100,
+    referenceRole: m['referenceRole'] as String? ?? 'ONBEKEND',
+    referenceDescription: m['referenceDescription'] as String? ?? '',
   );
 }
 

@@ -167,6 +167,21 @@ class DiaryTools(
     }
 
     @Tool(
+        description = "Leg vast dat Robbert een eetmoment niet helemaal heeft opgegeten. De gefotografeerde en gewogen " +
+            "portie blijft staan (die is nodig om latere foto's mee te vergelijken); de dag telt alleen het opgegeten " +
+            "deel. Gebruik dit in plaats van correctMeal als hij alleen minder at. Het id komt uit getDayNutrition of " +
+            "getDayTimeline. 100 zet het terug naar alles opgegeten.",
+    )
+    fun setMealEaten(
+        @ToolParam(description = "Het korte id van het eetmoment") id: String,
+        @ToolParam(description = "Welk deel hij opat, in procenten van 1 tot 100; een kwart laten staan is 75") percent: Int,
+    ): String = guarded {
+        val meal = findMeal(id) ?: return@guarded noMatch("eetmoment", id)
+        val saved = meals.setEaten(meal.id, percent)
+        "${saved.title.ifBlank { "Het eetmoment" }} telt nu voor $percent% mee: ${saved.kcal} kcal."
+    }
+
+    @Tool(
         description = "Verwijder een eetmoment uit het dagboek. Het id komt uit getDayNutrition of getDayTimeline. " +
             "Alleen bij een duidelijk verzoek; dit is niet terug te draaien.",
     )
@@ -227,6 +242,7 @@ class DiaryTools(
         MealStatus.ANALYSEREN -> "wordt nog uitgerekend" + meal.note.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
         MealStatus.MISLUKT -> "uitrekenen mislukt" + meal.note.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
         else -> "${meal.kcal} kcal, ${meal.items.joinToString(", ") { it.name }}" +
+            (if (meal.eatenPercent < 100) " (${meal.eatenPercent}% opgegeten)" else "") +
             if (meal.status == MealStatus.VOORSTEL) " (nog niet bevestigd)" else ""
     }
 
