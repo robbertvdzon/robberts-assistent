@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'alarm_scheduler.dart';
+import 'admin_screen.dart';
 import 'api_client.dart';
 import 'app_logo.dart';
 import 'fcm_service.dart';
@@ -11,7 +12,12 @@ import 'google_signin_button_stub.dart'
     as gis_button;
 import 'home_screen.dart';
 
+/// Of de webversie op het beheeradres (`/admin`) is geopend.
+bool _openedOnAdmin = false;
+
 void main() {
+  // Meteen vastleggen: Flutter herschrijft het adres zodra de app start.
+  _openedOnAdmin = kIsWeb && isAdminUri(Uri.base);
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const RobbertsAssistentApp());
 }
@@ -178,6 +184,10 @@ class _RootScreenState extends State<RootScreen> {
       FcmService.setup(api);
       AlarmScheduler.sync(api);
     });
+    // De webversie op /admin is de beheerpagina voor de laptop; al het andere is de app zelf.
+    if (_openedOnAdmin) {
+      return AdminScreen(api: api, onLoggedOut: _logout);
+    }
     return HomeScreen(api: api, onLoggedOut: _logout);
   }
 

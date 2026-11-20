@@ -52,7 +52,15 @@ class _ReferenceMealsScreenState extends State<ReferenceMealsScreen> {
     }
   }
 
+  /// Op een breed scherm (de beheerpagina) staat de gekozen maaltijd naast de lijst.
+  Meal? _selected;
+  bool _wide = false;
+
   Future<void> _open(Meal meal) async {
+    if (_wide) {
+      setState(() => _selected = meal);
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ReferenceMealScreen(api: widget.api, meal: meal),
@@ -72,7 +80,37 @@ class _ReferenceMealsScreenState extends State<ReferenceMealsScreen> {
                   ? Text(_error!)
                   : const CircularProgressIndicator(),
             )
-          : RefreshIndicator(onRefresh: _load, child: _list(meals)),
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                _wide = constraints.maxWidth >= 900;
+                final list = RefreshIndicator(
+                  onRefresh: _load,
+                  child: _list(meals),
+                );
+                if (!_wide) return list;
+                final selected = _selected;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 440, child: list),
+                    const VerticalDivider(width: 1),
+                    Expanded(
+                      child: selected == null
+                          ? const Center(
+                              child: Text('Kies links een maaltijd.'),
+                            )
+                          : ReferenceMealScreen(
+                              key: ValueKey(selected.id),
+                              api: widget.api,
+                              meal: selected,
+                              embedded: true,
+                              onChanged: _load,
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
     );
   }
 
@@ -188,10 +226,22 @@ String referencePortion(Meal meal) =>
 
 /// Eén modelgerecht bekijken en bewerken.
 class ReferenceMealScreen extends StatefulWidget {
-  const ReferenceMealScreen({super.key, required this.api, required this.meal});
+  const ReferenceMealScreen({
+    super.key,
+    required this.api,
+    required this.meal,
+    this.embedded = false,
+    this.onChanged,
+  });
 
   final ApiClient api;
   final Meal meal;
+
+  /// Naast de lijst getoond op de beheerpagina: zonder eigen titelbalk.
+  final bool embedded;
+
+  /// Aangeroepen na opslaan, zodat de lijst ernaast meeverandert.
+  final VoidCallback? onChanged;
 
   @override
   State<ReferenceMealScreen> createState() => _ReferenceMealScreenState();
@@ -222,6 +272,7 @@ class _ReferenceMealScreenState extends State<ReferenceMealScreen> {
       );
       if (!mounted) return;
       setState(() => _meal = meal);
+      widget.onChanged?.call();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Opgeslagen.')));
@@ -247,8 +298,9 @@ class _ReferenceMealScreenState extends State<ReferenceMealScreen> {
       final meal = await widget.api.getMeal(_meal.id);
       if (mounted) setState(() => _meal = meal);
     } catch (_) {
-      if (mounted) Navigator.of(context).pop();
+      if (mounted && !widget.embedded) Navigator.of(context).pop();
     }
+    widget.onChanged?.call();
   }
 
   @override
@@ -264,7 +316,7 @@ class _ReferenceMealScreenState extends State<ReferenceMealScreen> {
       _ => 'Nog niet beoordeeld',
     };
     return Scaffold(
-      appBar: AppBar(title: Text(_meal.title)),
+      appBar: widget.embedded ? null : AppBar(title: Text(_meal.title)),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
@@ -287,6 +339,8 @@ class _ReferenceMealScreenState extends State<ReferenceMealScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          if (widget.embedded)
+            Text(_meal.title, style: theme.textTheme.titleLarge),
           Text(referenceDate(_meal.eatenAt), style: muted),
           const SizedBox(height: 12),
           for (final item in _meal.items)

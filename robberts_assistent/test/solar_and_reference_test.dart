@@ -235,3 +235,5 @@ void main() {
     },
   );
 }
+
+// De beheerpagina voor de laptop staat in admin_screen_test.dart.
