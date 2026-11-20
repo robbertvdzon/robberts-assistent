@@ -35,6 +35,12 @@ class WatchAiConfig {
                 """
                 Beoordeel uitsluitend of de zoekinstructie in de aangeleverde webpaginatekst is
                 vervuld. Gebruik geen tools en verzin geen ontbrekende informatie.
+                GEVONDEN betekent: de voorwaarde uit de instructie is nu waar, dus de gebruiker moet
+                nu een melding krijgen. Het betekent niet dat je het onderwerp of een woord uit de
+                instructie op de pagina hebt teruggevonden. Bij een instructie als "meld als dit
+                niet meer uitverkocht is" en een pagina waar het nog uitverkocht staat, is het
+                antwoord dus NIET GEVONDEN. Controleer dat regel 1 en regel 2 elkaar niet
+                tegenspreken. Na GEVONDEN stopt de zoekopdracht; kies het alleen als je zeker bent.
                 Antwoord exact met:
                 regel 1: GEVONDEN of NIET GEVONDEN
                 regel 2: een korte Nederlandstalige statusomschrijving
