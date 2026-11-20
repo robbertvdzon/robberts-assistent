@@ -58,14 +58,21 @@ class AgendaSectionProvider(
         return BriefingSection(key = "agenda", title = "Agenda (7 dagen)", text = text, items = items)
     }
 
-    override fun shortSummary(): String {
-        val now = Instant.now()
-        val count = calendarClient.eventsInRange(now, now.plus(Duration.ofDays(7))).size
-        return "$count afspra${if (count == 1) "ak" else "ken"}"
+    /** Voor de 18:00-push: alleen de afspraken van morgen; zonder afspraken geen regel. */
+    override fun shortSummary(): String? {
+        val (from, to) = tomorrow()
+        val count = calendarClient.eventsInRange(from, to).count { !it.start.isBefore(from) && it.start.isBefore(to) }
+        return if (count == 0) null else "$count afspra${if (count == 1) "ak" else "ken"}"
     }
 
     internal companion object {
         private val ZONE = ZoneId.of("Europe/Amsterdam")
+
+        /** Begin en eind van morgen in Nederlandse tijd. */
+        internal fun tomorrow(now: Instant = Instant.now()): Pair<Instant, Instant> {
+            val day = now.atZone(ZONE).toLocalDate().plusDays(1)
+            return day.atStartOfDay(ZONE).toInstant() to day.plusDays(1).atStartOfDay(ZONE).toInstant()
+        }
 
         // ~1 uur van tevoren, met marge (30-90 min) voor een reminder die niet exact op 60 minuten
         // gezet is.

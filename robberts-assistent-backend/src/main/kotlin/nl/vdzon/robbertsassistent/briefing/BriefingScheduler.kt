@@ -30,6 +30,8 @@ class BriefingScheduler(
                 .onFailure { logger.warn("shortSummary() van briefingsectie {} faalde", provider.javaClass.simpleName, it) }
                 .getOrNull()
         }
+        // Elke regel gaat over morgen (kiten, afspraken, taken, afval); alleen een systeemwaarschuwing
+        // geldt nu. Secties zonder nieuws voor morgen leveren geen regel.
         return if (parts.isEmpty()) "Bekijk de briefing in de app." else "Morgen: " + parts.joinToString(", ")
     }
 

@@ -55,14 +55,17 @@ class WeekTasksSectionProviderTest {
     }
 
     @Test
-    fun `shortSummary telt actieve reminders`() {
+    fun `shortSummary telt alleen de reminders van morgen en zwijgt zonder`() {
+        val (from, to) = AgendaSectionProvider.tomorrow()
         val reminders = RemindersService(InMemoryReminderRepository())
-        reminders.create("a", Instant.now())
-        reminders.create("b", Instant.now())
+        reminders.create("vandaag", from.minusSeconds(60))
+        reminders.create("volgende week", to.plusSeconds(86400))
+        assertEquals(null, provider(remindersService = reminders).shortSummary())
 
-        val summary = provider(remindersService = reminders).shortSummary()
-
-        assertEquals("2 taken", summary)
+        reminders.create("a", from.plusSeconds(3600))
+        assertEquals("1 taak", provider(remindersService = reminders).shortSummary())
+        reminders.create("b", to.minusSeconds(60))
+        assertEquals("2 taken", provider(remindersService = reminders).shortSummary())
     }
 
     @Test

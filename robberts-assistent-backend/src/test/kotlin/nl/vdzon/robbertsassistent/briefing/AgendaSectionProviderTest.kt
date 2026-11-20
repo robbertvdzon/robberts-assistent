@@ -81,14 +81,18 @@ class AgendaSectionProviderTest {
     }
 
     @Test
-    fun `shortSummary telt het aantal afspraken`() {
-        val now = Instant.now()
+    fun `shortSummary telt alleen de afspraken van morgen en zwijgt zonder`() {
+        val (from, to) = AgendaSectionProvider.tomorrow()
         val events = listOf(
-            CalendarEvent("A", now.plus(Duration.ofDays(1)), now.plus(Duration.ofDays(1))),
-            CalendarEvent("B", now.plus(Duration.ofDays(2)), now.plus(Duration.ofDays(2))),
+            CalendarEvent("Vandaag", from.minusSeconds(60), from),
+            CalendarEvent("A", from.plusSeconds(3600), from.plusSeconds(7200)),
+            CalendarEvent("B", to.minusSeconds(60), to),
+            CalendarEvent("Overmorgen", to.plusSeconds(60), to.plusSeconds(120)),
         )
-        val provider = AgendaSectionProvider(FixedCalendarClient(events), RemindersService(InMemoryReminderRepository()))
+        val reminders = RemindersService(InMemoryReminderRepository())
 
-        assertEquals("2 afspraken", provider.shortSummary())
+        assertEquals("2 afspraken", AgendaSectionProvider(FixedCalendarClient(events), reminders).shortSummary())
+        assertEquals("1 afspraak", AgendaSectionProvider(FixedCalendarClient(events.take(2)), reminders).shortSummary())
+        assertEquals(null, AgendaSectionProvider(FixedCalendarClient(events.take(1)), reminders).shortSummary())
     }
 }

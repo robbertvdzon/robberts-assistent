@@ -35,9 +35,11 @@ class WeekTasksSectionProvider(
         return BriefingSection(key = "week-tasks", title = "Deze week", text = text)
     }
 
-    override fun shortSummary(): String {
-        val count = remindersService.list().count { it.active }
-        return "$count ${if (count == 1) "taak" else "taken"}"
+    /** Voor de 18:00-push: alleen de reminders die morgen afgaan; zonder geen regel. */
+    override fun shortSummary(): String? {
+        val (from, to) = AgendaSectionProvider.tomorrow()
+        val count = remindersService.list().count { it.active && !it.dueAt.isBefore(from) && it.dueAt.isBefore(to) }
+        return if (count == 0) null else "$count ${if (count == 1) "taak" else "taken"}"
     }
 
     private fun summarize(reminders: List<Reminder>, note: String): String {
