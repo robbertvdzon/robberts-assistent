@@ -553,6 +553,105 @@ class ApiClient {
     }),
   );
 
+  // -- Moestuin -------------------------------------------------------------------
+  Future<Map<String, dynamic>> _gardenMultipart(
+    String path, {
+    Map<String, String> fields = const {},
+    String fileField = 'photos',
+    List<AssistantAttachment> photos = const [],
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
+    request.headers.addAll(authHeaders());
+    request.fields.addAll(fields);
+    for (final photo in photos) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fileField,
+          photo.bytes,
+          filename: photo.filename,
+          contentType: MediaType.parse(photo.contentType),
+        ),
+      );
+    }
+    final response = await http.Response.fromStream(await request.send());
+    await _throwOnError(response);
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  /// Vraag aan de moestuin-assistent, met foto's; [bedId] als de vraag over één bak gaat.
+  Future<GardenChatReply> gardenChat({
+    required String message,
+    String? conversationId,
+    String? bedId,
+    List<AssistantAttachment> photos = const [],
+  }) async {
+    final body = await _gardenMultipart(
+      '/api/v1/garden/chat',
+      fields: {
+        'message': message,
+        if (conversationId != null) 'conversationId': conversationId,
+        if (bedId != null) 'bedId': bedId,
+      },
+      photos: photos,
+    );
+    return GardenChatReply(
+      conversationId: body['conversationId'] as String,
+      reply: body['reply'] as String? ?? '',
+    );
+  }
+
+  Future<GardenPlan> getGardenPlan() async =>
+      GardenPlan.fromJson(await getJson('/api/v1/garden/plan'));
+
+  /// Een foto of tekening van de tuin als achtergrond; [aspectRatio] is breedte gedeeld door hoogte.
+  Future<GardenPlan> setGardenBackground(
+    AssistantAttachment photo,
+    double aspectRatio,
+  ) async => GardenPlan.fromJson(
+    await _gardenMultipart(
+      '/api/v1/garden/plan/background',
+      fields: {'aspectRatio': aspectRatio.toString()},
+      fileField: 'photo',
+      photos: [photo],
+    ),
+  );
+
+  Future<GardenBed> createGardenBed(GardenBed bed) async =>
+      GardenBed.fromJson(await postJson('/api/v1/garden/beds', bed.toJson()));
+
+  Future<GardenBed> updateGardenBed(GardenBed bed) async => GardenBed.fromJson(
+    await putJson('/api/v1/garden/beds/${bed.id}', bed.toJson()),
+  );
+
+  Future<GardenBed> getGardenBed(String id) async =>
+      GardenBed.fromJson(await getJson('/api/v1/garden/beds/$id'));
+
+  Future<void> deleteGardenBed(String id) => _delete('/api/v1/garden/beds/$id');
+
+  Future<GardenBed> addGardenBedEntry(
+    String bedId, {
+    String text = '',
+    List<AssistantAttachment> photos = const [],
+  }) async => GardenBed.fromJson(
+    await _gardenMultipart(
+      '/api/v1/garden/beds/$bedId/entries',
+      fields: {'text': text},
+      photos: photos,
+    ),
+  );
+
+  Future<void> deleteGardenBedEntry(String bedId, String entryId) =>
+      _delete('/api/v1/garden/beds/$bedId/entries/$entryId');
+
+  Future<Uint8List> fetchGardenPhoto(String photoId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/v1/garden/photos/$photoId'),
+      headers: authHeaders(),
+    );
+    await _throwOnError(response);
+    return response.bodyBytes;
+  }
+
   /// Dagopbrengst van de zonnepanelen naast de verwachting bij het weer.
   Future<SolarOverview> getSolar() async =>
       SolarOverview.fromJson(await getJson('/api/v1/solar'));
@@ -1394,6 +1493,112 @@ class Meal {
     referenceDescription: m['referenceDescription'] as String? ?? '',
     referencePhotoId: m['referencePhotoId'] as String? ?? '',
     referenceManual: m['referenceManual'] as bool? ?? false,
+  );
+}
+
+class GardenChatReply {
+  final String conversationId;
+  final String reply;
+  const GardenChatReply({required this.conversationId, required this.reply});
+}
+
+/// Eén vastlegging bij een moestuinbak: wat er op [date] in stond, met foto's.
+class GardenBedEntry {
+  final String id;
+  final DateTime date;
+  final String text;
+  final List<String> photoIds;
+  const GardenBedEntry({
+    required this.id,
+    required this.date,
+    this.text = '',
+    this.photoIds = const [],
+  });
+
+  static GardenBedEntry fromJson(Map<String, dynamic> m) => GardenBedEntry(
+    id: m['id'] as String,
+    date: DateTime.parse(m['date'] as String),
+    text: m['text'] as String? ?? '',
+    photoIds: ((m['photoIds'] as List?) ?? const []).cast<String>(),
+  );
+}
+
+/// Een bak op de plattegrond. Plaats en grootte zijn fracties (0..1) van de plattegrond.
+class GardenBed {
+  final String id;
+  final String name;
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+
+  /// Nieuwste eerst.
+  final List<GardenBedEntry> entries;
+  const GardenBed({
+    required this.id,
+    required this.name,
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+    this.entries = const [],
+  });
+
+  GardenBed copyWith({
+    String? name,
+    double? x,
+    double? y,
+    double? width,
+    double? height,
+  }) => GardenBed(
+    id: id,
+    name: name ?? this.name,
+    x: x ?? this.x,
+    y: y ?? this.y,
+    width: width ?? this.width,
+    height: height ?? this.height,
+    entries: entries,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'x': x,
+    'y': y,
+    'width': width,
+    'height': height,
+  };
+
+  static GardenBed fromJson(Map<String, dynamic> m) => GardenBed(
+    id: m['id'] as String,
+    name: m['name'] as String? ?? '',
+    x: (m['x'] as num).toDouble(),
+    y: (m['y'] as num).toDouble(),
+    width: (m['width'] as num).toDouble(),
+    height: (m['height'] as num).toDouble(),
+    entries: ((m['entries'] as List?) ?? const [])
+        .map(
+          (e) => GardenBedEntry.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
+        .toList(),
+  );
+}
+
+class GardenPlan {
+  final String backgroundPhotoId;
+  final double aspectRatio;
+  final List<GardenBed> beds;
+  const GardenPlan({
+    this.backgroundPhotoId = '',
+    this.aspectRatio = 1,
+    this.beds = const [],
+  });
+
+  static GardenPlan fromJson(Map<String, dynamic> m) => GardenPlan(
+    backgroundPhotoId: m['backgroundPhotoId'] as String? ?? '',
+    aspectRatio: (m['aspectRatio'] as num?)?.toDouble() ?? 1,
+    beds: ((m['beds'] as List?) ?? const [])
+        .map((e) => GardenBed.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
   );
 }
 

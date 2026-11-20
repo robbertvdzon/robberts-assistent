@@ -125,7 +125,11 @@ void main() {
       expect(find.text('Geheugen'), findsOneWidget);
       // Onder 'Beheer' staan de instellingen; de lijst is langer dan het testscherm.
       expect(find.text('AI-modellen'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Updates'), 200);
+      await tester.dragUntilVisible(
+        find.text('Updates'),
+        find.byType(MoreScreen),
+        const Offset(0, -200),
+      );
       expect(find.text('Modelgerechten'), findsOneWidget);
       expect(find.text('Updates'), findsOneWidget);
       expect(find.text('Eten'), findsNothing);
@@ -323,6 +327,12 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
+    await tester.dragUntilVisible(
+      find.text('Updates'),
+      find.byType(MoreScreen),
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Updates'));
     await tester.pumpAndSettle();
     expect(find.byType(UpdatesScreen), findsOneWidget);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'ai_models_screen.dart';
 import 'api_client.dart';
 import 'couplings_screen.dart';
+import 'garden_screen.dart';
 import 'health_check_screen.dart';
 import 'memory_screen.dart';
 import 'nightly_checks_screen.dart';
@@ -37,6 +38,7 @@ class _AdminScreenState extends State<AdminScreen> {
       ReferenceMealsScreen(api: widget.api),
     ),
     ('AI-modellen', Icons.tune_outlined, 760, AiModelsScreen(api: widget.api)),
+    ('Moestuin', Icons.yard_outlined, 900, GardenScreen(api: widget.api)),
     (
       'Health check',
       Icons.health_and_safety_outlined,

@@ -30,6 +30,7 @@ class GardenChatController(
         @RequestParam("message", required = false, defaultValue = "") message: String,
         @RequestParam("conversationId", required = false) conversationId: String?,
         @RequestParam("photos", required = false) photos: List<MultipartFile>?,
+        @RequestParam("bedId", required = false) bedId: String?,
     ): GardenChatResponse {
         authService.requireAuthorization(authorization)
         val uploads = (photos ?: emptyList())
@@ -38,7 +39,7 @@ class GardenChatController(
         if (message.isBlank() && uploads.isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Stuur een bericht en/of minstens één foto")
         }
-        val result = gardenChatService.chat(conversationId, message, uploads)
+        val result = gardenChatService.chat(conversationId, message, uploads, bedId?.takeIf { it.isNotBlank() })
         return GardenChatResponse(
             conversationId = result.conversationId,
             reply = result.reply,

@@ -24,15 +24,25 @@ class GardenChatService(
     @Qualifier("gardenChatClient") private val gardenChatClient: ChatClient,
     private val conversations: ConversationRepository,
     private val photos: PhotoStorage,
+    // Zonder plattegrond (in tests) is het de gewone chat zonder kennis van de bakken.
+    private val plan: GardenPlanService? = null,
 ) {
     fun conversation(id: String): Conversation? = conversations.findById(id)
 
-    fun chat(conversationId: String?, text: String, uploads: List<PhotoUpload>): ChatResult {
+    /**
+     * Met [bedId] gaat de vraag over die moestuinbak: de AI krijgt de geschiedenis van de bak en,
+     * als er geen eigen foto's bij de vraag zitten, de laatste foto's ervan. Zonder [bedId] krijgt
+     * hij per bak de laatste vastlegging mee.
+     */
+    fun chat(conversationId: String?, text: String, uploads: List<PhotoUpload>, bedId: String? = null): ChatResult {
         val conversation = conversationId?.let { conversations.findById(it) } ?: conversations.create()
 
         // Foto's opslaan (voor weergave/historie) én als Media klaarzetten voor de AI (deze beurt).
         val imageIds = uploads.map { photos.store(it.bytes, it.contentType) }
-        val media = uploads.map { Media(MimeTypeUtils.parseMimeType(it.contentType), ByteArrayResource(it.bytes)) }
+        val bedPhotos = if (bedId != null && uploads.isEmpty()) plan?.latestPhotos(bedId).orEmpty() else emptyList()
+        val media = uploads.map { Media(MimeTypeUtils.parseMimeType(it.contentType), ByteArrayResource(it.bytes)) } +
+            bedPhotos.map { Media(MimeTypeUtils.parseMimeType(it.contentType), ByteArrayResource(it.bytes)) }
+        val context = runCatching { plan?.chatContext(bedId).orEmpty() }.getOrDefault("")
 
         val history = conversation.messages.map { it.toSpringMessage() }
         val promptText = text.ifBlank { "(geen tekst, kijk naar de foto's)" }
@@ -40,7 +50,7 @@ class GardenChatService(
         val reply = gardenChatClient.prompt()
             .messages(history)
             .user { user ->
-                user.text(promptText)
+                user.text(if (context.isBlank()) promptText else "$context\n\nVraag: $promptText")
                 if (media.isNotEmpty()) user.media(*media.toTypedArray())
             }
             .call()
