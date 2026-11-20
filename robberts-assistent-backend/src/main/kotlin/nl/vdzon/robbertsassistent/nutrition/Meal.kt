@@ -102,6 +102,8 @@ data class Meal(
     val referencePhotoId: String = "",
     /** Id van de maaltijd waarvan dit een dubbele is; alleen bij DUBBEL. */
     val duplicateOf: String = "",
+    /** Door Robbert zelf gezet in het beheerscherm; de AI beoordeelt deze maaltijd dan niet opnieuw. */
+    val referenceManual: Boolean = false,
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {

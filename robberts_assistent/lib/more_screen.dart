@@ -6,6 +6,7 @@ import 'couplings_screen.dart';
 import 'health_check_screen.dart';
 import 'memory_screen.dart';
 import 'nightly_checks_screen.dart';
+import 'reference_meals_screen.dart';
 import 'updates_screen.dart';
 import 'watches_screen.dart';
 
@@ -57,12 +58,35 @@ class MoreScreen extends StatelessWidget {
               context,
             ).push(MaterialPageRoute(builder: (_) => MemoryScreen(api: api))),
           ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              'Beheer',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.tune_outlined),
             title: const Text('AI-modellen'),
+            subtitle: const Text(
+              'Welk model de assistent en het eetdagboek gebruiken',
+            ),
             onTap: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => AiModelsScreen(api: api))),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Modelgerechten'),
+            subtitle: const Text(
+              'De foto\'s waarmee nieuw eten wordt vergeleken',
+            ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ReferenceMealsScreen(api: api)),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.system_update_outlined),

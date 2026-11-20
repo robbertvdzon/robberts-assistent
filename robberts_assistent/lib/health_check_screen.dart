@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'app_logo.dart';
 import 'section_heading.dart';
+import 'solar_screen.dart';
+import 'status_pill.dart';
 
 /// 'Health check'-scherm: toont uitsluitend de systeemstatus-sectie (`key == 'system-status'`)
 /// van `GET /api/v1/briefing/health` — per onderdeel (zonnepanelen, backups, OpenShift,
@@ -26,10 +28,23 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
   String? _error;
   bool _refreshing = false;
 
+  /// De grafiek van de zonnepanelen komt los binnen; zonder blijft de kaart gewoon tekst.
+  SolarOverview? _solar;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadSolar();
+  }
+
+  Future<void> _loadSolar() async {
+    try {
+      final solar = await widget.api.getSolar();
+      if (mounted) setState(() => _solar = solar);
+    } catch (_) {
+      // De statusregels staan er al; alleen de grafiek ontbreekt dan.
+    }
   }
 
   Future<void> _load() async {
@@ -117,7 +132,14 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        // Een eigen padding schakelt de automatische ruimte voor de navigatiebalk van het toestel
+        // uit; zonder deze onderruimte valt de laatste kaart er half achter.
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          24 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
         children: [
           Text(
             'Health check',
@@ -125,7 +147,11 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
           ),
           const SizedBox(height: 4),
           _buildHeaderRow(_data!.updatedAt),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          if (items.any((item) => item.status != null)) ...[
+            _buildSummary(items),
+            const SizedBox(height: 12),
+          ],
           if (items.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 64),
@@ -168,20 +194,108 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
   String _formatTime(DateTime at) =>
       '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
 
+  static StatusPillVariant _variant(BriefingStatus status) => switch (status) {
+    BriefingStatus.goed => StatusPillVariant.good,
+    BriefingStatus.letOp => StatusPillVariant.warning,
+    BriefingStatus.niet => StatusPillVariant.critical,
+  };
+
+  /// In één oogopslag: is alles goed, en zo niet, welke onderdelen niet.
+  Widget _buildSummary(List<BriefingItem> items) {
+    final attention = items
+        .where((i) => i.status != null && i.status != BriefingStatus.goed)
+        .toList();
+    final worst = attention.any((i) => i.status == BriefingStatus.niet)
+        ? BriefingStatus.niet
+        : attention.isEmpty
+        ? BriefingStatus.goed
+        : BriefingStatus.letOp;
+    final (background, foreground, icon) = switch (worst) {
+      BriefingStatus.goed => (
+        const Color(0xFFE9F6E9),
+        const Color(0xFF0A6D0A),
+        Icons.check_circle_outline,
+      ),
+      BriefingStatus.letOp => (
+        const Color(0xFFFDF3DF),
+        const Color(0xFF8A5C05),
+        Icons.error_outline,
+      ),
+      BriefingStatus.niet => (
+        const Color(0xFFFBEAEA),
+        const Color(0xFFA52C2C),
+        Icons.warning_amber_outlined,
+      ),
+    };
+    final text = attention.isEmpty
+        ? 'Alles in orde'
+        : '${attention.length == 1 ? 'Eén onderdeel vraagt' : '${attention.length} onderdelen vragen'} '
+              'aandacht: ${attention.map((i) => i.heading ?? '').join(', ')}';
+    return Container(
+      key: const ValueKey('health-summary'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: foreground),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: foreground, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItemCard(BriefingItem item) {
+    final solar = item.heading == 'Zonnepanelen' ? _solar : null;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SectionHeading(item.heading ?? '', selectable: true),
+            Row(
+              children: [
+                Expanded(
+                  child: SectionHeading(item.heading ?? '', selectable: true),
+                ),
+                if (item.status != null)
+                  StatusPill(variant: _variant(item.status!)),
+              ],
+            ),
             const SizedBox(height: 8),
             for (final line in item.text.split('\n'))
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: SelectableText('•  $line'),
               ),
+            if (solar != null && solar.days.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SolarChart(
+                days: solar.days.length > 30
+                    ? solar.days.sublist(solar.days.length - 30)
+                    : solar.days,
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SolarScreen(api: widget.api, initial: solar),
+                    ),
+                  ),
+                  child: const Text('Meer grafieken'),
+                ),
+              ),
+            ],
           ],
         ),
       ),

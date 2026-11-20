@@ -111,7 +111,9 @@ class MealService(
         check(meal.status != MealStatus.ANALYSEREN) { "De analyse loopt nog" }
         val finalItems = items ?: meal.items
         // Andere onderdelen betekent een andere referentie: dan opnieuw beoordelen.
-        val keepReference = finalItems == meal.items && meal.referenceRole != ReferenceRole.ONBEKEND
+        // Een eigen keuze uit het beheerscherm blijft staan, ook als de onderdelen wijzigen.
+        val keepReference = meal.referenceManual ||
+            (finalItems == meal.items && meal.referenceRole != ReferenceRole.ONBEKEND)
         val confirmed = meals.save(
             (if (keepReference) meal else meal.withoutReference()).copy(
                 items = finalItems,
@@ -145,13 +147,45 @@ class MealService(
         val meal = meals.findById(id) ?: return
         meals.delete(id)
         meal.photoIds.forEach { photoId -> runCatching { photos.delete(photoId) } }
-        if (meal.referenceRole == ReferenceRole.REFERENTIE) {
-            // De dubbelen van deze referentie hebben geen origineel meer: één ervan neemt de plek over.
-            val orphans = meals.findBetween(meal.eatenAt.minus(LIBRARY_WINDOW), Instant.now().plus(Duration.ofDays(1)))
-                .filter { it.duplicateOf == id }
-            orphans.forEach { meals.save(it.withoutReference()) }
-            orphans.forEach { orphan -> catalogueExecutor.submit { catalogue(orphan.id) } }
-        }
+        if (meal.referenceRole == ReferenceRole.REFERENTIE) releaseDuplicates(meal)
+    }
+
+    /** De dubbelen van deze referentie hebben geen origineel meer: één ervan neemt de plek over. */
+    private fun releaseDuplicates(meal: Meal) {
+        val orphans = meals.findBetween(meal.eatenAt.minus(LIBRARY_WINDOW), Instant.now().plus(Duration.ofDays(1)))
+            .filter { it.duplicateOf == meal.id }
+        orphans.forEach { meals.save(it.withoutReference()) }
+        orphans.forEach { orphan -> catalogueExecutor.submit { catalogue(orphan.id) } }
+    }
+
+    /** Alle bevestigde maaltijden met foto uit het venster van de bibliotheek, nieuwste eerst. */
+    fun referenceMeals(): List<Meal> =
+        libraryWindow(Instant.now())
+            .filter { it.isConfirmed() && it.photoIds.isNotEmpty() }
+            .sortedByDescending { it.eatenAt }
+
+    /**
+     * Eigen keuze uit het beheerscherm: deze maaltijd wel of niet als modelgerecht gebruiken, met
+     * een eigen beschrijving. De AI beoordeelt hem daarna niet opnieuw.
+     */
+    fun setReference(id: String, use: Boolean, description: String?): Meal {
+        val meal = get(id)
+        check(meal.isConfirmed()) { "Alleen een bevestigd eetmoment kan een modelgerecht zijn" }
+        require(!use || meal.photoIds.isNotEmpty()) { "Een modelgerecht heeft een foto nodig" }
+        val wasReference = meal.referenceRole == ReferenceRole.REFERENTIE
+        val saved = meals.save(
+            meal.copy(
+                referenceRole = if (use) ReferenceRole.REFERENTIE else ReferenceRole.GEEN,
+                referenceDescription = description?.trim() ?: meal.referenceDescription,
+                referencePhotoId = if (use) meal.referencePhotoId.takeIf { it in meal.photoIds } ?: meal.photoIds.first() else "",
+                duplicateOf = "",
+                referenceManual = true,
+                // Een beoordeling die nu nog loopt mag deze keuze niet overschrijven.
+                updatedAt = Instant.now(),
+            ),
+        )
+        if (wasReference && !use) releaseDuplicates(saved)
+        return saved
     }
 
     /**

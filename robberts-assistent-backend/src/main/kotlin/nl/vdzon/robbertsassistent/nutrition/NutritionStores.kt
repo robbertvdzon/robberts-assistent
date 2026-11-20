@@ -77,6 +77,7 @@ class FirestoreMealRepository(private val firestore: Firestore) : MealRepository
         "referenceDescription" to referenceDescription,
         "referencePhotoId" to referencePhotoId,
         "duplicateOf" to duplicateOf,
+        "referenceManual" to referenceManual,
         "createdAt" to createdAt.toEpochMilli(),
         "updatedAt" to updatedAt.toEpochMilli(),
     )
@@ -117,6 +118,7 @@ class FirestoreMealRepository(private val firestore: Firestore) : MealRepository
             referenceDescription = getString("referenceDescription").orEmpty(),
             referencePhotoId = getString("referencePhotoId").orEmpty(),
             duplicateOf = getString("duplicateOf").orEmpty(),
+            referenceManual = getBoolean("referenceManual") ?: false,
             createdAt = Instant.ofEpochMilli(getLong("createdAt") ?: eatenAt),
             updatedAt = Instant.ofEpochMilli(getLong("updatedAt") ?: eatenAt),
         )

@@ -3,10 +3,15 @@ package nl.vdzon.robbertsassistent.briefing
 import nl.vdzon.robbertsassistent.automower.AutomowerClient
 import nl.vdzon.robbertsassistent.automower.activityDescription
 import nl.vdzon.robbertsassistent.automower.stateDescription
+import java.time.Duration
+import java.time.Instant
 import nl.vdzon.robbertsassistent.openshift.ClusterHealthResult
+import nl.vdzon.robbertsassistent.openshift.NodeMetrics
 import nl.vdzon.robbertsassistent.openshift.OpenShiftClient
 import nl.vdzon.robbertsassistent.openshift.describe
 import nl.vdzon.robbertsassistent.softwarefactory.SoftwareFactoryClient
+import nl.vdzon.robbertsassistent.zonneplan.SolarService
+import nl.vdzon.robbertsassistent.zonneplan.SolarVerdict
 import nl.vdzon.robbertsassistent.zonneplan.ZonneplanClient
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
@@ -36,6 +41,8 @@ class SystemStatusSectionProvider(
     private val automowerClient: AutomowerClient,
     private val softwareFactoryClient: SoftwareFactoryClient,
     @Qualifier("systemStatusChatClient") private val chatClient: ChatClient,
+    // Zonder dit overzicht (in tests) blijft de zonnepanelencheck bij het vermogen en gisteren.
+    private val solarService: SolarService? = null,
 ) : BriefingSectionProvider {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -64,7 +71,7 @@ class SystemStatusSectionProvider(
     private fun assess(): SystemStatusResult {
         val checks = buildChecks()
         val rawData = checks.joinToString("\n") { "${it.heading}: ${it.content}" }
-        val items = checks.map { BriefingItem(text = it.content, heading = it.heading) }
+        val items = checks.map { BriefingItem(text = it.content, heading = it.heading, status = it.status) }
 
         return runCatching { callAi(rawData) }
             .map { it.copy(items = items) }
@@ -89,20 +96,29 @@ class SystemStatusSectionProvider(
     private fun buildChecks(): List<CheckData> {
         val health = runCatching { openShiftClient.clusterHealth() }.getOrNull()
         return listOf(
-            runCatching { solarCheckData() }.getOrElse { CheckData("Zonnepanelen", "kon status niet ophalen (${it.message}).") },
-            runCatching { backupsCheckData(health) }.getOrElse { CheckData("Backups", "kon status niet ophalen (${it.message}).") },
-            runCatching { openShiftCheckData(health) }.getOrElse { CheckData("OpenShift", "kon status niet ophalen (${it.message}).") },
-            runCatching { automowerCheckData() }.getOrElse { CheckData("Robotmaaier", "kon status niet ophalen (${it.message}).") },
-            runCatching { softwareFactoryCheckData() }.getOrElse { CheckData("Software Factory", "kon stories niet ophalen (${it.message}).") },
+            runCatching { solarCheckData() }.getOrElse { CheckData("Zonnepanelen", "kon status niet ophalen (${it.message}).", BriefingStatus.NIET) },
+            runCatching { backupsCheckData(health) }.getOrElse { CheckData("Backups", "kon status niet ophalen (${it.message}).", BriefingStatus.NIET) },
+            runCatching { openShiftCheckData(health) }.getOrElse { CheckData("OpenShift", "kon status niet ophalen (${it.message}).", BriefingStatus.NIET) },
+            runCatching { automowerCheckData() }.getOrElse { CheckData("Robotmaaier", "kon status niet ophalen (${it.message}).", BriefingStatus.NIET) },
+            runCatching { softwareFactoryCheckData() }.getOrElse { CheckData("Software Factory", "kon stories niet ophalen (${it.message}).", BriefingStatus.NIET) },
         )
     }
 
     private fun solarCheckData(): CheckData {
         val result = zonneplanClient.status()
-        result.error?.let { return CheckData("Zonnepanelen", "kon status niet ophalen ($it).") }
+        result.error?.let { return CheckData("Zonnepanelen", "kon status niet ophalen ($it).", BriefingStatus.NIET) }
         val current = result.currentPowerWatt?.let { "$it W" } ?: "onbekend"
         val yesterday = result.yesterdayYieldKwh?.let { "$it kWh" } ?: "onbekend"
-        return CheckData("Zonnepanelen", "huidig vermogen=$current, gisteren opgewekt=$yesterday.")
+        val base = "huidig vermogen=$current, gisteren opgewekt=$yesterday."
+        val overview = solarService?.let { service -> runCatching { service.overview() }.getOrNull() }
+            ?: return CheckData("Zonnepanelen", base, BriefingStatus.GOED)
+        val status = when (overview.verdict) {
+            SolarVerdict.NIET -> BriefingStatus.NIET
+            SolarVerdict.LET_OP -> BriefingStatus.LET_OP
+            // Zonder vergelijking met het weer is er geen reden voor alarm.
+            SolarVerdict.GOED, SolarVerdict.ONBEKEND -> BriefingStatus.GOED
+        }
+        return CheckData("Zonnepanelen", "$base\n${overview.verdictText}", status)
     }
 
     /**
@@ -113,16 +129,20 @@ class SystemStatusSectionProvider(
      * nightly check.
      */
     private fun backupsCheckData(health: ClusterHealthResult?): CheckData {
-        if (health == null) return CheckData("Backups", "kon status niet ophalen.")
-        health.error?.let { return CheckData("Backups", "kon status niet ophalen ($it).") }
+        if (health == null) return CheckData("Backups", "kon status niet ophalen.", BriefingStatus.NIET)
+        health.error?.let { return CheckData("Backups", "kon status niet ophalen ($it).", BriefingStatus.NIET) }
         val timeMachine = health.nodeMetrics?.timeMachine
-            ?: return CheckData("Backups", "geen Time Machine-gegevens ontvangen van node-metrics.")
-        return CheckData("Backups", "${timeMachine.describe()}.")
+            ?: return CheckData("Backups", "geen Time Machine-gegevens ontvangen van node-metrics.", BriefingStatus.LET_OP)
+        val now = Instant.now()
+        val stale = timeMachine.error != null || timeMachine.backups.isEmpty() || timeMachine.backups.any {
+            it.error != null || it.lastModified == null || Duration.between(it.lastModified, now) > BACKUP_STALE_AFTER
+        }
+        return CheckData("Backups", "${timeMachine.describe()}.", if (stale) BriefingStatus.LET_OP else BriefingStatus.GOED)
     }
 
     private fun openShiftCheckData(health: ClusterHealthResult?): CheckData {
-        if (health == null) return CheckData("OpenShift", "kon status niet ophalen.")
-        health.error?.let { return CheckData("OpenShift", "kon status niet ophalen ($it).") }
+        if (health == null) return CheckData("OpenShift", "kon status niet ophalen.", BriefingStatus.NIET)
+        health.error?.let { return CheckData("OpenShift", "kon status niet ophalen ($it).", BriefingStatus.NIET) }
         val degraded = health.degradedOperators.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "geen"
         val updates = if (health.updateAvailable) health.availableUpdateVersions.joinToString(" of ") else "geen"
         val metrics = health.nodeMetrics?.let { ", ${it.describe()}" }.orEmpty()
@@ -130,18 +150,28 @@ class SystemStatusSectionProvider(
             "OpenShift",
             "gezond=${health.healthy}, versie=${health.clusterVersion ?: "onbekend"}, " +
                 "beschikbare update=$updates, gedegradeerde operators=$degraded$metrics.",
+            when {
+                !health.healthy -> BriefingStatus.NIET
+                health.nodeMetrics.isNearlyFull() -> BriefingStatus.LET_OP
+                else -> BriefingStatus.GOED
+            },
         )
     }
 
     private fun automowerCheckData(): CheckData {
         val result = automowerClient.status()
-        result.error?.let { return CheckData("Robotmaaier", "kon status niet ophalen ($it).") }
-        if (result.mowers.isEmpty()) return CheckData("Robotmaaier", "geen maaier gevonden op het account.")
+        result.error?.let { return CheckData("Robotmaaier", "kon status niet ophalen ($it).", BriefingStatus.NIET) }
+        if (result.mowers.isEmpty()) return CheckData("Robotmaaier", "geen maaier gevonden op het account.", BriefingStatus.LET_OP)
         val text = result.mowers.joinToString("\n") { mower ->
             "Robotmaaier ${mower.name}: activiteit=${activityDescription(mower.activity)}, " +
                 "status=${stateDescription(mower.state)}, errorCode=${mower.errorCode}, verbonden=${mower.connected}."
         }
-        return CheckData("Robotmaaier", text)
+        val status = when {
+            result.mowers.any { it.state in MOWER_ERROR_STATES || it.errorCode != 0 } -> BriefingStatus.NIET
+            result.mowers.any { !it.connected } -> BriefingStatus.LET_OP
+            else -> BriefingStatus.GOED
+        }
+        return CheckData("Robotmaaier", text, status)
     }
 
     /**
@@ -152,18 +182,25 @@ class SystemStatusSectionProvider(
      */
     private fun softwareFactoryCheckData(): CheckData {
         val result = softwareFactoryClient.stories()
-        result.error?.let { return CheckData("Software Factory", "kon stories niet ophalen ($it).") }
+        result.error?.let { return CheckData("Software Factory", "kon stories niet ophalen ($it).", BriefingStatus.NIET) }
         val relevant = result.stories.filter { it.error != null || (it.phase != null && !it.merged) }
-        if (relevant.isEmpty()) return CheckData("Software Factory", "geen lopende of error-stories.")
+        if (relevant.isEmpty()) return CheckData("Software Factory", "geen lopende of error-stories.", BriefingStatus.GOED)
         val text = relevant.joinToString("\n") { story ->
             "Software factory-story ${story.key}: fase=${story.phase ?: "onbekend"}, " +
                 "merged=${story.merged}, error=${story.error ?: "geen"}."
         }
-        return CheckData("Software Factory", text)
+        return CheckData("Software Factory", text, if (relevant.any { it.error != null }) BriefingStatus.LET_OP else BriefingStatus.GOED)
     }
 
-    /** Eén ruwe, per-check statusregel (kop + de bestaande, niet-AI-samengevatte tekst). */
-    internal data class CheckData(val heading: String, val content: String)
+    /**
+     * Eén ruwe, per-check statusregel (kop + de bestaande, niet-AI-samengevatte tekst). [status] is
+     * een vaste regel per check voor het Health check-scherm; wat in de 18:00-push komt beoordeelt
+     * de AI nog steeds zelf.
+     */
+    internal data class CheckData(val heading: String, val content: String, val status: BriefingStatus)
+
+    private fun NodeMetrics?.isNearlyFull(): Boolean = this != null &&
+        listOfNotNull(memory?.usedPercent, ssd?.usedPercent, externalHdd?.usedPercent).any { it >= NEARLY_FULL_PERCENT }
 
     internal data class SystemStatusResult(
         val text: String,
@@ -174,6 +211,9 @@ class SystemStatusSectionProvider(
     }
 
     internal companion object {
+        private val BACKUP_STALE_AFTER = Duration.ofHours(48)
+        private const val NEARLY_FULL_PERCENT = 90.0
+        private val MOWER_ERROR_STATES = setOf("ERROR", "FATAL_ERROR", "ERROR_AT_POWER_UP")
         private const val FALLBACK_TEXT = "Kon het systeemstatusrapport niet ophalen."
 
         private val ATTENTION_LINE = Regex("(?i)^AANDACHT:\\s*(.*)$")

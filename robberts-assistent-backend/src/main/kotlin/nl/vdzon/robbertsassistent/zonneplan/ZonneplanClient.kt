@@ -21,4 +21,10 @@ data class SolarStatusResult(
 interface ZonneplanClient {
     /** Huidig omvormervermogen (W) + dagopbrengst van gisteren (kWh). */
     fun status(): SolarStatusResult
+
+    /**
+     * De opbrengst per dag (kWh) vanaf [since], vandaag (nog onvolledig) inbegrepen. Gooit bij een
+     * netwerk- of serverfout; [SolarService] vangt dat op.
+     */
+    fun dailyYields(since: java.time.LocalDate): Map<java.time.LocalDate, Double> = emptyMap()
 }

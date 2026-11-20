@@ -529,6 +529,34 @@ class ApiClient {
     await putJson('/api/v1/meals/$id/eaten', {'percent': percent}),
   );
 
+  /// Beheer: alle bevestigde maaltijden met foto en hun rol in de referentiebibliotheek.
+  Future<List<Meal>> getReferenceMeals() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/v1/meals/references'),
+      headers: authHeaders(),
+    );
+    await _throwOnError(response);
+    return (jsonDecode(response.body) as List)
+        .map((e) => Meal.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  /// Beheer: zelf bepalen of een maaltijd als modelgerecht dient, met een eigen beschrijving.
+  Future<Meal> setMealReference(
+    String id, {
+    required bool use,
+    String? description,
+  }) async => Meal.fromJson(
+    await putJson('/api/v1/meals/$id/reference', {
+      'use': use,
+      if (description != null) 'description': description,
+    }),
+  );
+
+  /// Dagopbrengst van de zonnepanelen naast de verwachting bij het weer.
+  Future<SolarOverview> getSolar() async =>
+      SolarOverview.fromJson(await getJson('/api/v1/solar'));
+
   /// Verbetering in gewone woorden; de AI rekent het eetmoment opnieuw door.
   Future<Meal> correctMeal(String id, String text) async => Meal.fromJson(
     await postJson('/api/v1/meals/$id/correct', {'text': text}),
@@ -863,11 +891,15 @@ class BriefingItem {
   final BriefingAction? action;
   final String? imageUrl;
   final String? heading;
+
+  /// Oordeel per onderdeel op het Health check-scherm; `null` bij gewone briefingregels.
+  final BriefingStatus? status;
   const BriefingItem({
     required this.text,
     this.action,
     this.imageUrl,
     this.heading,
+    this.status,
   });
 
   static BriefingItem fromJson(Map<String, dynamic> m) => BriefingItem(
@@ -879,6 +911,7 @@ class BriefingItem {
           ),
     imageUrl: m['imageUrl'] as String?,
     heading: m['heading'] as String?,
+    status: BriefingStatus.fromJson(m['status']),
   );
 }
 
@@ -1303,6 +1336,12 @@ class Meal {
   final String referenceRole;
   final String referenceDescription;
 
+  /// De foto die als referentie dient; leeg als de maaltijd geen referentie is.
+  final String referencePhotoId;
+
+  /// `true` als de rol in het beheerscherm is gezet en niet door de AI.
+  final bool referenceManual;
+
   const Meal({
     required this.id,
     required this.eatenAt,
@@ -1318,6 +1357,8 @@ class Meal {
     this.eatenPercent = 100,
     this.referenceRole = 'ONBEKEND',
     this.referenceDescription = '',
+    this.referencePhotoId = '',
+    this.referenceManual = false,
   });
 
   /// Wat deze maaltijd betekent voor het vergelijken van nieuwe foto's; leeg als hij niet meedoet.
@@ -1351,6 +1392,70 @@ class Meal {
     eatenPercent: (m['eatenPercent'] as num?)?.toInt() ?? 100,
     referenceRole: m['referenceRole'] as String? ?? 'ONBEKEND',
     referenceDescription: m['referenceDescription'] as String? ?? '',
+    referencePhotoId: m['referencePhotoId'] as String? ?? '',
+    referenceManual: m['referenceManual'] as bool? ?? false,
+  );
+}
+
+/// Eén dag van de zonnepanelen. [complete] is `false` voor vandaag: die dag loopt nog.
+class SolarDay {
+  final DateTime date;
+  final double? yieldKwh;
+  final double? expectedKwh;
+  final double? radiationKwhM2;
+  final double? sunshineHours;
+  final bool complete;
+  const SolarDay({
+    required this.date,
+    this.yieldKwh,
+    this.expectedKwh,
+    this.radiationKwhM2,
+    this.sunshineHours,
+    this.complete = true,
+  });
+
+  static SolarDay fromJson(Map<String, dynamic> m) => SolarDay(
+    date: DateTime.parse(m['date'] as String),
+    yieldKwh: (m['yieldKwh'] as num?)?.toDouble(),
+    expectedKwh: (m['expectedKwh'] as num?)?.toDouble(),
+    radiationKwhM2: (m['radiationKwhM2'] as num?)?.toDouble(),
+    sunshineHours: (m['sunshineHours'] as num?)?.toDouble(),
+    complete: m['complete'] as bool? ?? true,
+  );
+}
+
+/// Opbrengst per dag met het oordeel over de laatste week (GOED, LET_OP, NIET of ONBEKEND).
+class SolarOverview {
+  final List<SolarDay> days;
+  final String verdict;
+  final String verdictText;
+  final double? weekYieldKwh;
+  final double? weekExpectedKwh;
+  final int? weekPercent;
+  final int? currentPowerWatt;
+  final String? error;
+  const SolarOverview({
+    required this.days,
+    required this.verdict,
+    required this.verdictText,
+    this.weekYieldKwh,
+    this.weekExpectedKwh,
+    this.weekPercent,
+    this.currentPowerWatt,
+    this.error,
+  });
+
+  static SolarOverview fromJson(Map<String, dynamic> m) => SolarOverview(
+    days: ((m['days'] as List?) ?? const [])
+        .map((e) => SolarDay.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
+    verdict: m['verdict'] as String? ?? 'ONBEKEND',
+    verdictText: m['verdictText'] as String? ?? '',
+    weekYieldKwh: (m['weekYieldKwh'] as num?)?.toDouble(),
+    weekExpectedKwh: (m['weekExpectedKwh'] as num?)?.toDouble(),
+    weekPercent: (m['weekPercent'] as num?)?.toInt(),
+    currentPowerWatt: (m['currentPowerWatt'] as num?)?.toInt(),
+    error: m['error'] as String?,
   );
 }
 

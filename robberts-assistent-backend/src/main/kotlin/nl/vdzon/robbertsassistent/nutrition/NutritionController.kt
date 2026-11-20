@@ -51,9 +51,14 @@ data class MealDto(
     val referenceRole: String = ReferenceRole.ONBEKEND.name,
     val referenceDescription: String = "",
     val duplicateOf: String = "",
+    /** De foto die als referentie dient; leeg als de maaltijd geen referentie is. */
+    val referencePhotoId: String = "",
+    /** `true` als de rol in het beheerscherm is gezet en niet door de AI. */
+    val referenceManual: Boolean = false,
 )
 
 data class EatenRequest(val percent: Int = 100)
+data class ReferenceRequest(val use: Boolean = true, val description: String? = null)
 
 data class TotalsDto(
     val kcal: Int,
@@ -152,6 +157,24 @@ class NutritionController(
     ): MealDto {
         authService.requireAuthorization(authorization)
         return mealService.setEaten(id, request.percent).toDto()
+    }
+
+    /** Beheer: alle bevestigde maaltijden met foto en hun rol in de referentiebibliotheek. */
+    @GetMapping("/api/v1/meals/references")
+    fun references(@RequestHeader("Authorization", required = false) authorization: String?): List<MealDto> {
+        authService.requireAuthorization(authorization)
+        return mealService.referenceMeals().map { it.toDto() }
+    }
+
+    /** Beheer: zelf bepalen of deze maaltijd een modelgerecht is, met een eigen beschrijving. */
+    @PutMapping("/api/v1/meals/{id}/reference")
+    fun reference(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+        @RequestBody request: ReferenceRequest,
+    ): MealDto {
+        authService.requireAuthorization(authorization)
+        return mealService.setReference(id, request.use, request.description).toDto()
     }
 
     @PostMapping("/api/v1/meals/{id}/correct")
@@ -264,6 +287,8 @@ private fun Meal.toDto() = MealDto(
     referenceRole = referenceRole.name,
     referenceDescription = referenceDescription,
     duplicateOf = duplicateOf,
+    referencePhotoId = referencePhotoId,
+    referenceManual = referenceManual,
 )
 
 private fun NutritionDay.toDto() = NutritionDayDto(

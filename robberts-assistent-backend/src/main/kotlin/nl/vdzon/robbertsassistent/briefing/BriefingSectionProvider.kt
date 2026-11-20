@@ -27,6 +27,8 @@ data class BriefingItem(
     // Optionele kop boven dit item (bv. per systeemstatus-onderdeel, zie
     // `SystemStatusSectionProvider`); secties zonder heading blijven ongewijzigd.
     val heading: String? = null,
+    // Optioneel oordeel per onderdeel (Health check): goed, let op of niet goed.
+    val status: BriefingStatus? = null,
 )
 
 /**

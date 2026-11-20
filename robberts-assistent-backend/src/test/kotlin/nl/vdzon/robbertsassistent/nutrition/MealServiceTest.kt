@@ -288,6 +288,41 @@ class MealServiceTest {
     }
 
     @Test
+    fun `eigen keuze in het beheer blijft staan en laat een dubbele de plek overnemen`() {
+        analyzer.verdict = byGrams
+        val first = awaitRole(confirmedMeal("2026-11-10T06:30:00Z", 30, 11).id, ReferenceRole.REFERENTIE)
+        val second = awaitRole(confirmedMeal("2026-11-11T06:30:00Z", 30, 21).id, ReferenceRole.DUBBEL)
+        assertEquals(listOf(second.id, first.id), service.referenceMeals().map { it.id })
+
+        val off = service.setReference(first.id, use = false, description = null)
+        assertEquals(ReferenceRole.GEEN, off.referenceRole)
+        assertTrue(off.referenceManual)
+        assertEquals("", off.referencePhotoId)
+        awaitRole(second.id, ReferenceRole.REFERENTIE)
+
+        // Andere hoeveelheden bevestigen laat de AI de eigen keuze niet overschrijven.
+        service.confirm(first.id, listOf(item.copy(grams = 45)))
+        Thread.sleep(100)
+        assertEquals(ReferenceRole.GEEN, service.get(first.id).referenceRole)
+
+        val on = service.setReference(first.id, use = true, description = " Klein blauw kopje ")
+        assertEquals(ReferenceRole.REFERENTIE, on.referenceRole)
+        assertEquals("Klein blauw kopje", on.referenceDescription)
+        assertEquals(first.photoIds.single(), on.referencePhotoId)
+    }
+
+    @Test
+    fun `een voorstel of een maaltijd zonder foto kan geen modelgerecht worden`() {
+        val proposal = awaitStatus(service.create(listOf(MealPhotoUpload(byteArrayOf(5), "image/jpeg")), "", null).id, MealStatus.VOORSTEL)
+        assertFailsWith<IllegalStateException> { service.setReference(proposal.id, use = true, description = null) }
+
+        val withoutPhoto = awaitStatus(service.create(emptyList(), "havermout", null).id, MealStatus.VOORSTEL)
+        service.confirm(withoutPhoto.id)
+        assertFailsWith<IllegalArgumentException> { service.setReference(withoutPhoto.id, use = true, description = null) }
+        assertEquals(emptyList(), service.referenceMeals())
+    }
+
+    @Test
     fun `bij de start krijgen onbeoordeelde maaltijden alsnog een plek, oudste eerst`() {
         val first = confirmedMeal("2026-11-10T06:30:00Z", 30, 11)
         val second = confirmedMeal("2026-11-11T06:30:00Z", 30, 21)

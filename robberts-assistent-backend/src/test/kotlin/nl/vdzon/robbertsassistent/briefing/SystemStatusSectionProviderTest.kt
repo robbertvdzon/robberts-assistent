@@ -125,6 +125,26 @@ class SystemStatusSectionProviderTest {
     }
 
     @Test
+    fun `elk onderdeel krijgt een vast oordeel, los van de AI`() {
+        val healthy = provider(chatModel = ThrowingChatModel()).section()
+        assertTrue(healthy.items.all { it.status == BriefingStatus.GOED }, healthy.items.toString())
+
+        val broken = provider(
+            openShiftClient = ThrowingOpenShiftClient(),
+            automowerClient = ErroredAutomowerClient(),
+            softwareFactoryClient = FixedSoftwareFactoryClient(
+                listOf(FactoryStory("SF-1", "Iets", phase = "bouwen", paused = false, error = "build faalt", merged = false)),
+            ),
+        ).section().items.associate { it.heading to it.status }
+
+        assertEquals(BriefingStatus.GOED, broken["Zonnepanelen"])
+        assertEquals(BriefingStatus.NIET, broken["Backups"])
+        assertEquals(BriefingStatus.NIET, broken["OpenShift"])
+        assertEquals(BriefingStatus.NIET, broken["Robotmaaier"])
+        assertEquals(BriefingStatus.LET_OP, broken["Software Factory"])
+    }
+
+    @Test
     fun `items blijven gevuld als de AI-call faalt`() {
         val section = provider(chatModel = ThrowingChatModel()).section()
 
