@@ -14,16 +14,29 @@ interface WatchEvaluator {
 }
 
 object WatchAssessmentParser {
+    /**
+     * Het model houdt zich niet altijd letterlijk aan het formaat ("regel 1: NIET GEVONDEN",
+     * "**Niet gevonden.**"); opmaak en het voorvoegsel tellen daarom niet mee. Een antwoord zonder
+     * herkenbare status blijft een fout, met het begin van het antwoord erbij voor de log.
+     */
     fun parse(answer: String): WatchAssessment {
-        val lines = answer.lines().map(String::trim).filter(String::isNotEmpty)
-        require(lines.size >= 2) { "Beoordelaar gaf te weinig regels terug" }
-        val found = when (lines[0].uppercase()) {
-            "GEVONDEN" -> true
-            "NIET GEVONDEN" -> false
-            else -> error("Beoordelaar gaf een onbekende status terug")
+        val lines = answer.lines().map { clean(it) }.filter(String::isNotEmpty)
+        require(lines.isNotEmpty()) { "Beoordelaar gaf een leeg antwoord terug" }
+        val status = lines[0].uppercase()
+        val found = when {
+            status.startsWith("NIET GEVONDEN") -> false
+            status.startsWith("GEVONDEN") -> true
+            else -> error("Beoordelaar gaf een onbekende status terug: ${answer.take(120)}")
         }
-        return WatchAssessment(found, lines[1].take(500))
+        // Staat de omschrijving op dezelfde regel als de status, dan is dat de rest van die regel.
+        val sameLine = lines[0].drop(if (found) "GEVONDEN".length else "NIET GEVONDEN".length).trimStart(' ', ':', '.', '-', ',').trim()
+        val description = lines.getOrNull(1) ?: sameLine
+        require(description.isNotEmpty()) { "Beoordelaar gaf geen omschrijving terug" }
+        return WatchAssessment(found, description.take(500))
     }
+
+    private fun clean(line: String): String =
+        line.trim().trim('*', '`', '#', ' ').replace(Regex("(?i)^regel\\s*[12]\\s*[:.-]\\s*"), "").trim('*', '`', ' ')
 }
 
 @Configuration
