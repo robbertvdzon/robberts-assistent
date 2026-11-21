@@ -122,7 +122,7 @@ void main() {
       expect(find.text('Zoekopdrachten'), findsOneWidget);
       expect(find.text('Koppelingen'), findsOneWidget);
       expect(find.text('Nachtchecks'), findsOneWidget);
-      expect(find.text('Geheugen'), findsOneWidget);
+      expect(find.text('Bankzaken'), findsOneWidget);
       // Onder 'Beheer' staan de instellingen; de lijst is langer dan het testscherm.
       expect(find.text('Moestuin'), findsOneWidget);
       expect(find.text('Vacatures'), findsOneWidget);
@@ -131,6 +131,7 @@ void main() {
         find.byType(MoreScreen),
         const Offset(0, -200),
       );
+      expect(find.text('Geheugen'), findsOneWidget);
       expect(find.text('AI-modellen'), findsOneWidget);
       expect(find.text('Modelgerechten'), findsOneWidget);
       expect(find.text('Updates'), findsOneWidget);
