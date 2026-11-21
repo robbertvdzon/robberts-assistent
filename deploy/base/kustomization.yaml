@@ -1,5 +1,6 @@
 namespace: robberts-assistent
 resources:
+- sealed-secret-banking.yaml
 - sealed-secret-robberts-assistent.yaml
 - robberts-assistent-backend-serviceaccount.yaml
 - robberts-assistent-backend-deployment.yaml
@@ -24,6 +25,7 @@ images:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 patches:
+- path: banking-patch.yaml
 - path: agent-access-patch.yaml
 - path: backend-memory.yaml
 - path: robberts-assistent-frontend-memory.yaml

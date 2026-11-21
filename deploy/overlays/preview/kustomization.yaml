@@ -38,3 +38,13 @@ patches:
 - path: backend-memory.yaml
 - path: robberts-assistent-frontend-memory.yaml
 - path: groentetuin-frontend-memory.yaml
+- target:
+    kind: SealedSecret
+    name: robberts-assistent-banking
+  patch: |-
+    $patch: delete
+    apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      name: robberts-assistent-banking
+- path: banking-disabled-patch.yaml

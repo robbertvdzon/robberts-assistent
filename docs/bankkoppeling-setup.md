@@ -1,7 +1,8 @@
 # Bankzaken: implementatie en ingebruikname
 
-Status 21 november 2026: eerste implementatie op branch
-`ai/bankkoppeling-enablebanking`. Nog niet naar productie uitgerold.
+Status 21 november 2026: implementatie staat op main. De productieconfiguratie
+wordt via GitOps geïnstalleerd; afzonderlijke banktoestemming in de assistent is
+nog nodig voordat transacties kunnen worden opgehaald.
 
 ## Wat er klaarstaat
 
@@ -82,8 +83,11 @@ om parallelle imports/correcties tussen pods te voorkomen. HTTP-antwoorden voor
 bankgegevens zijn `no-store`; de callback heeft `no-referrer` en een beperkte CSP.
 Providerfouten en bankresponses worden niet gelogd.
 
-Het aparte voorbeeld `deploy/examples/banking-mount.yaml` toont de secretmount en
-environment-variabelen. Dit bestand verandert de huidige deployment niet.
+De productiepatch `deploy/base/banking-patch.yaml` installeert de secretmount en
+environment-variabelen uit het aparte SealedSecret `robberts-assistent-banking`.
+Het secret heeft geen Reflector-annotaties. De preview-overlay verwijdert zowel
+het SealedSecret als de mount en schakelt bankconfiguratie expliciet uit.
+`deploy/examples/banking-mount.yaml` blijft beschikbaar als los voorbeeld.
 Let bij ingebruikname op dat proxy/access-logs callbackqueryparameters niet
 bewaren. Laat Firestore-TTL verlopen pending-state opruimen indien geconfigureerd;
 verlopen states worden functioneel altijd geweigerd.
@@ -91,7 +95,7 @@ verlopen states worden functioneel altijd geweigerd.
 ## Nog nodig bij terugkomst
 
 1. Resterende eigen rekeningen in de Enable Banking-portal linken.
-2. Implementatie reviewen, banksecret veilig op de backend installeren en uitrollen.
+2. Productie-uitrol met bankconfiguratie controleren (GitOps).
 3. Via **Bankzaken → Rekening koppelen / vernieuwen** banktoestemming geven.
 4. Eerste import controleren: alle rekeningen, periode, aantallen, interne
    overboekingen en categorieën. Vervolgens regels uit de oude administratie
