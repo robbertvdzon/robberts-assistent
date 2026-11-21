@@ -91,6 +91,8 @@ class BankController(private val auth: AuthService, private val bank: BankServic
             // Geen exceptionberichten: die kunnen rekening-id's of providerdata bevatten.
             logger.warn("Bankcallback mislukt: type={}, providerStatus={}", causes.last().javaClass.simpleName, provider?.httpStatus)
             when {
+                causes.any { it is BankNoAccountsException } ->
+                    "De bank heeft geen rekeningen teruggegeven voor deze toestemming. Start opnieuw vanuit Bankzaken via Nieuwe rekening toevoegen en gebruik het IBAN van de gewenste rekening. Laat de rekeninghouder bij de bank toestemming geven."
                 provider?.httpStatus == 403 -> {
                     status = 403
                     portal = true

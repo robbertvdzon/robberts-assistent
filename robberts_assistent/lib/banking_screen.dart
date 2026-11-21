@@ -320,6 +320,73 @@ class _BankingScreenState extends State<BankingScreen> {
     await _loadInsights();
   }
 
+  Future<void> _addAccount() async {
+    final form = GlobalKey<FormState>();
+    var iban = '';
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Nieuwe rekening toevoegen'),
+        content: SizedBox(
+          width: 420,
+          child: Form(
+            key: form,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Koppel de ABN AMRO-rekening eerst in de Enable Banking-portal. '
+                  'Daarna geeft de rekeninghouder bij de bank toestemming voor de assistent. '
+                  'Je bestaande rekeningen blijven gekoppeld.',
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'IBAN'),
+                  onChanged: (value) =>
+                      iban = value.replaceAll(RegExp(r'\s'), '').toUpperCase(),
+                  validator: (_) {
+                    if (!RegExp(r'^NL[0-9]{2}ABNA[0-9]{10}$').hasMatch(iban)) {
+                      return 'Vul een Nederlands ABN AMRO-IBAN in.';
+                    }
+                    final rearranged = iban.substring(4) + iban.substring(0, 4);
+                    var remainder = 0;
+                    for (final code in rearranged.codeUnits) {
+                      final digits = code >= 65
+                          ? '${code - 65 + 10}'
+                          : String.fromCharCode(code);
+                      for (final digit in digits.codeUnits) {
+                        remainder = (remainder * 10 + digit - 48) % 97;
+                      }
+                    }
+                    return remainder == 1
+                        ? null
+                        : 'Controleer het IBAN; het controlegetal klopt niet.';
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuleren'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (form.currentState!.validate()) {
+                Navigator.pop(dialogContext, iban);
+              }
+            },
+            child: const Text('Verder naar de bank'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && mounted) await _connect(result);
+  }
+
   Future<void> _connect([String? iban]) => _action(() async {
     final response = await widget.api.postJson('/api/v1/banking/connect', {
       if (iban != null) 'iban': iban,
@@ -695,6 +762,13 @@ class _BankingScreenState extends State<BankingScreen> {
                                       icon: const Icon(Icons.link),
                                       label: const Text(
                                         'Rekening koppelen / vernieuwen',
+                                      ),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _addAccount,
+                                      icon: const Icon(Icons.add),
+                                      label: const Text(
+                                        'Nieuwe rekening toevoegen',
                                       ),
                                     ),
                                     FilledButton.icon(

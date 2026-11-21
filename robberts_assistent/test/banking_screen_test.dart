@@ -136,6 +136,20 @@ class BankApi extends ApiClient {
     };
   }
 
+  final connectBodies = <Map<String, dynamic>>[];
+  @override
+  Future<Map<String, dynamic>> postJson(
+    String path, [
+    Map<String, dynamic> body = const {},
+  ]) async {
+    if (path.endsWith('/connect')) {
+      connectBodies.add(body);
+      // Stop before launching a real browser in this widget test.
+      return {'url': 'https://example.invalid/auth'};
+    }
+    return {};
+  }
+
   @override
   Future<Map<String, dynamic>> putJson(
     String path, [
@@ -158,6 +172,40 @@ Future<void> revealAndTap(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
+  testWidgets('nieuwe rekening valideert IBAN en vraagt die rekening aan', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = BankApi();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BankingScreen(api: api, initialMonth: '2026-10'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await revealAndTap(tester, find.textContaining('Rekeningen en gegevens'));
+    await revealAndTap(tester, find.text('Nieuwe rekening toevoegen'));
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'IBAN'),
+      'NL00ABNA0417164300',
+    );
+    await tester.tap(find.text('Verder naar de bank'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('het controlegetal klopt niet'), findsOneWidget);
+    expect(api.connectBodies, isEmpty);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'IBAN'),
+      'nl91 abna 0417 1643 00',
+    );
+    await tester.tap(find.text('Verder naar de bank'));
+    await tester.pumpAndSettle();
+    expect(api.connectBodies, [
+      {'iban': 'NL91ABNA0417164300'},
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'winkellijst opent binnen Bankzaken met PageStorage en behoudt zoekveld na opnieuw openen',
     (tester) async {

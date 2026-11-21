@@ -113,6 +113,36 @@ class BankingTest {
         verify(gateway, times(1)).session("one-time-code")
         assertEquals(1, service.connection(owner).accounts.size)
     }
+    @Test fun `nieuwe rekening vraagt uitsluitend nieuw IBAN aan en behoudt bestaande koppeling`() {
+        seed()
+        val iban = "NL91ABNA0417164300"
+        service.connect(owner, "nl91 abna 0417 1643 00")
+        assertEquals(listOf(iban), mockingDetails(gateway).invocations.single { it.method.name == "start" }.arguments[1])
+        assertEquals(listOf(account), service.connection(owner).accounts)
+        assertFalse(iban in service.rules(owner).ownIbans)
+        val state = "n".repeat(43)
+        store.write("pending", bankHash(state), PendingBankAuth(owner, Instant.now().plusSeconds(600)))
+        `when`(gateway.session("new-code")).thenReturn(mapper.readTree("""{"session_id":"new-session","access":{"valid_until":"${account.validUntil}"},
+            "accounts":[{"account_id":{"iban":"$iban"},"uid":"00000000-0000-0000-0000-000000000002","identification_hash":"new-hash"}]}"""))
+        assertTrue(service.callback(state, "new-code", null))
+        assertEquals(setOf(account.iban, iban), service.connection(owner).accounts.map { it.iban }.toSet())
+        assertEquals(account, service.connection(owner).accounts.first())
+    }
+    @Test fun `ongeldig nieuw IBAN start geen banktoestemming`() {
+        listOf("", "NL00ABNA0417164300", "NL91ABNA0417164300<script>", "DE89370400440532013000").forEach { iban ->
+            assertThrows(IllegalArgumentException::class.java) { service.connect(owner, iban) }
+        }
+        verifyNoInteractions(gateway)
+        assertTrue(store.keys("pending").isEmpty())
+    }
+    @Test fun `lege banktoestemming bewaart bestaande rekeningen`() {
+        seed()
+        val state = "e".repeat(43)
+        store.write("pending", bankHash(state), PendingBankAuth(owner, Instant.now().plusSeconds(600)))
+        `when`(gateway.session("empty-code")).thenReturn(mapper.readTree("""{"access":{"valid_until":"${account.validUntil}"},"accounts":[]}"""))
+        assertThrows(BankNoAccountsException::class.java) { service.callback(state, "empty-code", null) }
+        assertEquals(listOf(account), service.connection(owner).accounts)
+    }
     @Test fun `versleuteling voorkomt plaintext en omwisselen tussen eigenaars`() {
         val cipher = BankCipher(Base64.getEncoder().encodeToString(ByteArray(32) { 7 }))
         val encrypted = cipher.encrypt("private banktransactie", "owner/record")

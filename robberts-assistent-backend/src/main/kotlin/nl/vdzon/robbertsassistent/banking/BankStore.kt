@@ -90,3 +90,5 @@ class FirestoreBankStore(private val db: Firestore, private val mapper: ObjectMa
 }
 
 class BankBusyException : RuntimeException("Bankzaken worden al bijgewerkt. Probeer straks opnieuw.")
+
+class BankNoAccountsException : RuntimeException()

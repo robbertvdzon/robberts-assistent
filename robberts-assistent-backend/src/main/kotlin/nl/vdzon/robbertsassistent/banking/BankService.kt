@@ -41,11 +41,18 @@ class BankService(private val settings: BankSettings, private val store: BankSto
     }
     fun connect(owner: String, requestedIban: String? = null): String {
         requireOwner(owner)
+        val requested = requestedIban?.let { raw ->
+            normalizeIban(raw).also { iban ->
+                require(iban.matches(Regex("NL[0-9]{2}ABNA[0-9]{10}")))
+                val rearranged = iban.drop(4) + iban.take(4)
+                val digits = rearranged.map { if (it.isDigit()) it.toString() else (it.code - 'A'.code + 10).toString() }.joinToString("")
+                require(digits.toBigInteger().mod(java.math.BigInteger.valueOf(97)).toInt() == 1)
+            }
+        }?.let(::listOf)
         val state = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(32).also { SecureRandom().nextBytes(it) })
         store.write("pending", bankHash(state), PendingBankAuth(owner, Instant.now().plusSeconds(900)))
         val owned = (rules(owner).ownIbans + connection(owner).accounts.map { it.iban }).map(::normalizeIban).filter { it.isNotBlank() }.distinct()
-        val requested = requestedIban?.let { normalizeIban(it).also { iban -> require(iban in owned) } }?.let(::listOf) ?: owned
-        return gateway.start(state, requested)
+        return gateway.start(state, requested ?: owned)
     }
     fun callback(state: String, code: String?, error: String?): Boolean {
         if (state.length !in 40..100) return false
@@ -61,7 +68,7 @@ class BankService(private val settings: BankSettings, private val store: BankSto
             BankAccount(bankHash(iban.ifBlank { hash }), a.path("uid").asText().also { java.util.UUID.fromString(it) },
                 iban, a.path("name").asText("Betaalrekening"), response.path("session_id").asText(), until)
         }
-        require(accounts.isNotEmpty())
+        if (accounts.isEmpty()) throw BankNoAccountsException()
         store.exclusive(pending.owner) {
             val previous = connection(pending.owner)
             store.write(pending.owner, "connection", previous.copy(accounts =

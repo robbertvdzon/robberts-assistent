@@ -40,6 +40,12 @@ De knop koppelen start toestemming; de callback wisselt de code in voor een
 sessie en haalt meteen beschikbare geboekte transacties op. Iedere rekening
 behoudt zijn eigen toestemming. Een volgend toestemmingstraject voegt rekeningen
 toe of vernieuwt bestaande rekeningen, zonder de overige rekeningen te wissen.
+Via **Nieuwe rekening toevoegen** kun je een nog onbekend Nederlands ABN AMRO-IBAN
+invoeren. De app controleert het IBAN en vraagt alleen die rekening aan; de
+bestaande koppelingen blijven staan. De rekening moet vooraf in de Enable
+Banking-portal zijn vrijgegeven en de rekeninghouder geeft daarna afzonderlijk
+banktoestemming voor de assistent. Alleen invoeren van een IBAN voegt het nog
+niet toe aan de administratie of de interne-overboekingenherkenning.
 De sessie blijft uitsluitend op de server. Er is geen betaalfunctie.
 
 De portalregistratie is actief met toegang beperkt tot expliciet gekoppelde eigen

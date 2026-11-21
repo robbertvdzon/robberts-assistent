@@ -74,6 +74,15 @@ class BankControllerTest {
             .andExpect(status().isBadRequest)
             .andExpect(content().string(org.hamcrest.Matchers.containsString("al gebruikt")))
     }
+    @Test fun `lege banktoestemming geeft gericht hersteladvies zonder credentials`() {
+        val state = "e".repeat(43)
+        store.write("pending", bankHash(state), PendingBankAuth(settings.owner, Instant.now().plusSeconds(600)))
+        `when`(gateway.session("empty-private-code")).thenReturn(mapper.readTree("""{"access":{"valid_until":"${Instant.now().plusSeconds(600)}"},"accounts":[]}"""))
+        mvc.perform(get("/api/v1/banking/callback").param("state", state).param("code", "empty-private-code"))
+            .andExpect(status().isBadRequest)
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Nieuwe rekening toevoegen")))
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("empty-private-code"))))
+    }
     @Test fun `preview zonder Google-auth mag geen echte bankcredentials gebruiken`() {
         val secrets = mock(AppSecrets::class.java)
         `when`(secrets.previewSkipGoogleAuth).thenReturn(true)
