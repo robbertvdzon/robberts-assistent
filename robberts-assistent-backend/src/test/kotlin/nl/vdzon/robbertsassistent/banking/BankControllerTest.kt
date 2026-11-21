@@ -59,6 +59,19 @@ class BankControllerTest {
             .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("secret-code"))))
             .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<script>"))))
     }
+    @Test fun `provider weigering verwijst naar portalvrijgave in plaats van verlopen link`() {
+        val state = "p".repeat(43)
+        store.write("pending", bankHash(state), PendingBankAuth(settings.owner, Instant.now().plusSeconds(600)))
+        `when`(gateway.session("private-auth-code")).thenThrow(BankUnavailableException(403))
+        mvc.perform(get("/api/v1/banking/callback").param("state", state).param("code", "private-auth-code"))
+            .andExpect(status().isForbidden)
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Link accounts")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("https://enablebanking.com/cp/applications")))
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private-auth-code"))))
+        mvc.perform(get("/api/v1/banking/callback").param("state", state).param("code", "private-auth-code"))
+            .andExpect(status().isBadRequest)
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("al gebruikt")))
+    }
     @Test fun `preview zonder Google-auth mag geen echte bankcredentials gebruiken`() {
         val secrets = mock(AppSecrets::class.java)
         `when`(secrets.previewSkipGoogleAuth).thenReturn(true)

@@ -18,6 +18,7 @@ data class BankCategoryRequest(val category: BankCategory, val remember: Boolean
 @RestController
 @RequestMapping("/api/v1/banking")
 class BankController(private val auth: AuthService, private val bank: BankService, private val settings: BankSettings, private val categorization: BankCategorizationRunner? = null) {
+    private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
     private fun owner(header: String?): String = bank.resolveOwner(auth.requireAuthorization(header))
     private fun <T> privateResponse(body: T) = ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body)
     @GetMapping fun status(@RequestHeader("Authorization", required = false) header: String?): ResponseEntity<BankStatus> {
@@ -61,11 +62,44 @@ class BankController(private val auth: AuthService, private val bank: BankServic
     @GetMapping("/callback", produces = [MediaType.TEXT_HTML_VALUE])
     fun callback(@RequestParam state: String, @RequestParam(required = false) code: String?,
         @RequestParam(required = false) error: String?): ResponseEntity<String> {
-        val success = runCatching { bank.callback(state, code, error) }.getOrDefault(false)
-        val message = if (success) "Banktoestemming opgeslagen. Je kunt terug naar Bankzaken in de assistent." else "Koppelen is niet gelukt of de link is verlopen. Begin opnieuw vanuit Bankzaken."
-        return ResponseEntity.status(if (success) 200 else 400).cacheControl(CacheControl.noStore())
+        var status = 400
+        var portal = false
+        val message = try {
+            if (bank.callback(state, code, error)) {
+                status = 200
+                "Banktoestemming opgeslagen. Je kunt terug naar Bankzaken in de assistent."
+            } else {
+                logger.warn("Bankcallback geweigerd: ongeldig/verlopen state of geen toestemming")
+                if (error != null) "De banktoestemming is onderbroken of geweigerd. Begin opnieuw vanuit Bankzaken."
+                else "Deze koppellink is verlopen of al gebruikt. Open Bankzaken en begin een nieuwe koppeling; ververs deze callbackpagina niet."
+            }
+        } catch (ex: Exception) {
+            val causes = generateSequence<Throwable>(ex) { it.cause }.take(10).toList()
+            val provider = causes.filterIsInstance<BankUnavailableException>().firstOrNull()
+            // Geen exceptionberichten: die kunnen rekening-id's of providerdata bevatten.
+            logger.warn("Bankcallback mislukt: type={}, providerStatus={}", causes.last().javaClass.simpleName, provider?.httpStatus)
+            when {
+                provider?.httpStatus == 403 -> {
+                    status = 403
+                    portal = true
+                    "Enable Banking weigert toegang tot deze rekening. Geef de rekening eerst vrij in de Enable Banking-portal via API applications → Robberts Assistent → Link accounts. Geef daar zelf banktoestemming. Start daarna een nieuwe koppeling vanuit Bankzaken. Toestemming vanuit de assistent alleen voegt een rekening niet toe aan de portalvrijgave."
+                }
+                causes.any { it is BankBusyException } -> {
+                    status = 409
+                    "Je bankadministratie wordt nog bijgewerkt. Wacht tot dat klaar is en begin daarna een nieuwe koppeling vanuit Bankzaken."
+                }
+                provider != null -> {
+                    status = 502
+                    portal = true
+                    "Enable Banking kon de banktoestemming niet verwerken. Controleer eerst in de Enable Banking-portal of deze rekening bij Linked accounts staat. Probeer daarna een nieuwe koppeling vanuit Bankzaken."
+                }
+                else -> "De banktoestemming kon niet worden opgeslagen. Begin opnieuw vanuit Bankzaken. Als dit terugkomt, laat de koppeling onderzoeken."
+            }
+        }
+        val portalLink = if (portal) "<p><a href=\"https://enablebanking.com/cp/applications\" rel=\"noreferrer\">Open Enable Banking-portal</a></p>" else ""
+        return ResponseEntity.status(status).cacheControl(CacheControl.noStore())
             .header("Referrer-Policy", "no-referrer").header("Content-Security-Policy", "default-src 'none'; style-src 'none'; frame-ancestors 'none'; base-uri 'none'")
-            .body("<!doctype html><html lang=\"nl\"><meta charset=\"utf-8\"><title>Bankkoppeling</title><h1>Bankkoppeling</h1><p>$message</p><a href=\"/#/meer/bankzaken\">Terug naar Bankzaken</a></html>")
+            .body("<!doctype html><html lang=\"nl\"><meta charset=\"utf-8\"><title>Bankkoppeling</title><h1>Bankkoppeling</h1><p>$message</p>$portalLink<a href=\"/#/meer/bankzaken\">Terug naar Bankzaken</a></html>")
     }
     @ExceptionHandler(IllegalArgumentException::class)
     fun invalid() = ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).body(mapOf("message" to "Ongeldige bankgegevens of rubriceringsregel."))

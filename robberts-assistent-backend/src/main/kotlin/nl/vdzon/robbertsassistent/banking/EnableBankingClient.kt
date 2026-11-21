@@ -52,7 +52,7 @@ class EnableBankingClient(
         val response = exchange?.invoke(request) ?: http.send(request, HttpResponse.BodyHandlers.ofString()).let {
             BankHttpReply(it.statusCode(), it.body())
         }
-        if (response.status !in 200..299) throw BankUnavailableException()
+        if (response.status !in 200..299) throw BankUnavailableException(response.status)
         return mapper.readTree(response.body)
     }
     override fun start(state: String, accounts: List<String>): String {
@@ -93,6 +93,6 @@ class EnableBankingClient(
     }
     override fun check() = request("/application").isObject
 }
-class BankUnavailableException : RuntimeException("Enable Banking is tijdelijk niet beschikbaar of toestemming moet worden vernieuwd.")
+class BankUnavailableException(val httpStatus: Int? = null) : RuntimeException("Enable Banking is tijdelijk niet beschikbaar of toestemming moet worden vernieuwd.")
 
 data class BankHttpReply(val status: Int, val body: String)
