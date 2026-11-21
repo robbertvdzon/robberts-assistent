@@ -14,6 +14,13 @@ import java.util.Base64
 
 @Service
 class BankService(private val settings: BankSettings, private val store: BankStore, private val gateway: BankingGateway) {
+    /** Meerdere expliciet ingestelde logins kunnen bij dezelfde administratie horen. */
+    fun resolveOwner(identity: String): String {
+        if (!settings.configured) throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Bankkoppeling is nog niet ingesteld.")
+        if (identity.lowercase() !in settings.authorizedEmails)
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Geen toegang tot deze bankadministratie.")
+        return settings.owner
+    }
     fun requireOwner(owner: String) {
         if (!settings.configured) throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Bankkoppeling is nog niet ingesteld.")
         if (owner != settings.owner) throw ResponseStatusException(HttpStatus.FORBIDDEN, "Geen toegang tot deze bankadministratie.")

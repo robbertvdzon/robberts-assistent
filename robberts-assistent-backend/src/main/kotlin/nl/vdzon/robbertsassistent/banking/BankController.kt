@@ -16,13 +16,12 @@ data class BankCategoryRequest(val category: BankCategory)
 @RestController
 @RequestMapping("/api/v1/banking")
 class BankController(private val auth: AuthService, private val bank: BankService, private val settings: BankSettings) {
-    private fun owner(header: String?): String = auth.requireAuthorization(header).also { bank.requireOwner(it) }
+    private fun owner(header: String?): String = bank.resolveOwner(auth.requireAuthorization(header))
     private fun <T> privateResponse(body: T) = ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body)
     @GetMapping fun status(@RequestHeader("Authorization", required = false) header: String?): ResponseEntity<BankStatus> {
         val identity = auth.requireAuthorization(header)
         if (!settings.configured) return privateResponse(BankStatus(false, emptyList(), null, listOf("Bankkoppeling is nog niet ingesteld.")))
-        bank.requireOwner(identity)
-        return privateResponse(statusFor(identity))
+        return privateResponse(statusFor(bank.resolveOwner(identity)))
     }
     private fun statusFor(owner: String): BankStatus {
         val connection = bank.connection(owner)

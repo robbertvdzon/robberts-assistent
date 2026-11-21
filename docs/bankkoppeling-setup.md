@@ -61,7 +61,8 @@ Bankzaken ‘wordt voorbereid’; er worden geen bankverzoeken uitgevoerd.
 | `RA_BANKING_APP_ID` | App-id uit Enable Banking |
 | `RA_BANKING_PRIVATE_KEY_FILE` | Serverpad naar RSA PKCS#8 PEM-privésleutel |
 | `RA_BANKING_STORAGE_KEY` | Base64 van een aparte willekeurige AES-sleutel van 32 bytes |
-| `RA_BANKING_OWNER` | Exact het toegestane Google-login-e-mailadres van de rekeninghouder |
+| `RA_BANKING_OWNER` | Vaste identiteit van de bankadministratie |
+| `RA_BANKING_LOGIN_EMAILS` | Extra expliciet toegestane Google-loginadressen voor dezelfde eigenaar, kommagescheiden; standaard alleen de eigenaar |
 | `RA_BANKING_REDIRECT_URL` | Default `https://robberts-assistent.vdzonsoftware.nl/api/v1/banking/callback` |
 | `RA_BANKING_AUTO_SYNC` | Default `false`; `true` haalt dagelijks om 04:15 Amsterdam op |
 
@@ -69,7 +70,7 @@ Firebase moet geconfigureerd zijn voordat echte banktoegang kan starten. Bij een
 opslagfout valt deze module **niet** terug op vluchtige opslag. Bankrecords zijn
 per eigenaar gescheiden en aanvullend versleuteld met AES-GCM, met het documentpad
 als authenticated associated data. Transacties staan per maand; sessies en regels
-in aparte versleutelde records. De app krijgt alleen een beperkt rekeningmodel,
+in aparte versleutelde records. Expliciete loginaliases verwijzen naar dezelfde vaste eigenaar; de algemene app-allowlist geeft niet automatisch banktoegang. De app krijgt alleen een beperkt rekeningmodel,
 geen sessie-id of toegangssleutel. Bewaar de AES-sleutel samen met de beveiligde
 back-upvoorziening: zonder deze sleutel is opgeslagen bankhistorie niet leesbaar.
 

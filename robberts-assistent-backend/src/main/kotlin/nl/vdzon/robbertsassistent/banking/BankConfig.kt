@@ -15,7 +15,9 @@ class BankSettings(
     @Value("\${RA_BANKING_STORAGE_KEY:}") val storageKey: String,
     @Value("\${RA_BANKING_OWNER:}") val owner: String,
     @Value("\${RA_BANKING_REDIRECT_URL:https://robberts-assistent.vdzonsoftware.nl/api/v1/banking/callback}") val redirectUrl: String,
+    @Value("\${RA_BANKING_LOGIN_EMAILS:}") val loginEmails: String = "",
 ) {
+    val authorizedEmails get() = (loginEmails.split(",") + owner).map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
     val configured get() = listOf(appId, privateKeyFile, storageKey, owner).all { it.isNotBlank() }
 }
 @Configuration

@@ -16,6 +16,9 @@ spec:
             - name: RA_BANKING_OWNER
               valueFrom:
                 secretKeyRef: {name: robberts-assistent-banking, key: owner}
+            - name: RA_BANKING_LOGIN_EMAILS
+              valueFrom:
+                secretKeyRef: {name: robberts-assistent-banking, key: login-emails}
             - name: RA_BANKING_STORAGE_KEY
               valueFrom:
                 secretKeyRef: {name: robberts-assistent-banking, key: storage-key}
