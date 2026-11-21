@@ -23,8 +23,12 @@ onthouden. De gekozen tekst en tegenrekening begrenzen die regel; bedragen blijv
 altijd afkomstig uit de banktransacties.
 
 **Alle transacties rubriceren** verwerkt alle opgeslagen maanden. Een nieuwe import
-start de verwerking ook automatisch. Het scherm toont de voortgang en wordt tijdens
-het rubriceren bijgewerkt. AI-fouten behouden bestaande regels en bevestigingen en
+start de verwerking ook automatisch. De AI verwerkt maximaal 100 verschillende betaalpatronen per batch, met maximaal
+3 batches parallel (begrensd op 4). Herhalingen worden binnen één patroon samengevoegd.
+Resultaten worden opgeslagen zodra een batch klaar is; een langzame batch houdt
+snellere batches niet tegen. Mislukte batches laten eerder opgeslagen resultaten
+staan en kunnen opnieuw worden opgepakt. Het scherm toont de voortgang en wordt
+tijdens het rubriceren bijgewerkt. AI-fouten behouden bestaande regels en bevestigingen en
 kunnen opnieuw worden geprobeerd.
 
 De browser gebruikt nu deelbare routes, bijvoorbeeld
@@ -84,6 +88,8 @@ Bankzaken ‘wordt voorbereid’; er worden geen bankverzoeken uitgevoerd.
 | `RA_BANKING_LOGIN_EMAILS` | Extra expliciet toegestane Google-loginadressen voor dezelfde eigenaar, kommagescheiden; standaard alleen de eigenaar |
 | `RA_BANKING_REDIRECT_URL` | Default `https://robberts-assistent.vdzonsoftware.nl/api/v1/banking/callback` |
 | `RA_BANKING_INITIAL_RULES_FILE` | Optioneel serverbestand met private startregels en expliciet bekende eigen IBANs |
+| `RA_BANKING_AI_BATCH_SIZE` | Maximaal aantal betaalpatronen per AI-batch; default 100, bereik 1–200 |
+| `RA_BANKING_AI_PARALLELISM` | Maximaal aantal gelijktijdige bank-AI-batches; default 3, bereik 1–4 |
 | `RA_BANKING_AUTO_SYNC` | Default `false`; `true` haalt dagelijks om 04:15 Amsterdam op |
 
 Firebase moet geconfigureerd zijn voordat echte banktoegang kan starten. Bij een

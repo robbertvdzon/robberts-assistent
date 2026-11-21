@@ -141,6 +141,10 @@ class DiaryToolsTest {
         assertTrue(tools.correctMeal("dddd4444", "het was soep").startsWith("Dat eetmoment wordt nog uitgerekend"))
         assertTrue(tools.correctMeal("cccc3333", "het was volkorenbrood").startsWith("Doorgegeven"))
         assertEquals(listOf("het was volkorenbrood"), meals.get("cccc3333-meal").corrections)
+        // Correctie wordt asynchroon verwerkt; test de vervolgstap pas nadat die klaar is.
+        org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted {
+            assertEquals(MealStatus.VOORSTEL, meals.get("cccc3333-meal").status)
+        }
 
         assertTrue(tools.deleteMeal("ccc").startsWith("Geen eetmoment gevonden"), "te kort id")
         assertTrue(tools.deleteMeal("[id cccc3333]".removeSurrounding("[", "]")).startsWith("Verwijderd: Lunch"))

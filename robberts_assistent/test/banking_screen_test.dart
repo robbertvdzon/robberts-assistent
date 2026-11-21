@@ -6,10 +6,13 @@ import 'package:robberts_assistent/banking_screen.dart';
 class BankApi extends ApiClient {
   bool configured = true;
   bool fail = false;
+  Map<String, dynamic>? categorization;
   final writes = <String>[];
   @override
   Future<Map<String, dynamic>> getJson(String path) async {
     if (fail) throw StateError('offline');
+    if (path.endsWith('/categorization'))
+      return categorization ?? {'status': 'IDLE'};
     if (path.endsWith('/rules')) return {'rules': []};
     if (path.contains('/month?')) {
       return {
@@ -54,6 +57,33 @@ class BankApi extends ApiClient {
 }
 
 void main() {
+  testWidgets(
+    'voortgangsbalk toont de beoordeelde fractie bij parallelle batches',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = BankApi()
+        ..categorization = {
+          'status': 'RUNNING',
+          'total': 100,
+          'completed': 25,
+          'message': 'Batches van 100 patronen, maximaal 3 tegelijk.',
+        };
+      await tester.pumpWidget(MaterialApp(home: BankingScreen(api: api)));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byType(LinearProgressIndicator),
+            )
+            .value,
+        0.25,
+      );
+      expect(find.textContaining('25 van 100'), findsOneWidget);
+      expect(find.textContaining('maximaal 3 tegelijk'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets('smal scherm toont overzicht en transacties zonder overflow', (
     tester,
   ) async {

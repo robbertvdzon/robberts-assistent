@@ -73,6 +73,129 @@ class BankCategorizationTest {
             assertEquals(BankCategory.EXTRA, bank.month(owner, "2026-10").transactions.single().category)
         } finally { runner.close() }
     }
+    private fun awaitFinished(runner: BankCategorizationRunner): BankCategorizationJob {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (runner.status(owner).status == "RUNNING" && System.nanoTime() < deadline) Thread.sleep(10)
+        return runner.status(owner)
+    }
+
+    @Test fun `grotere batches draaien begrensd parallel en tellen geen resultaten dubbel`() {
+        store.write(owner, "month-2026-11", BankTransactions((0 until 250).map { row("id-$it", "Testfirma $it") }))
+        val entered = java.util.concurrent.CountDownLatch(3)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val active = java.util.concurrent.atomic.AtomicInteger()
+        val maximum = java.util.concurrent.atomic.AtomicInteger()
+        val sizes = java.util.concurrent.ConcurrentLinkedQueue<Int>()
+        val ai = object : BankAiPort {
+            override fun assess(items: List<BankAiItem>): List<BankAiDecision> {
+                sizes += items.size
+                val current = active.incrementAndGet()
+                maximum.accumulateAndGet(current, ::maxOf)
+                entered.countDown()
+                try {
+                    check(release.await(5, TimeUnit.SECONDS))
+                    return items.map { decision(BankCategory.HEALTH).copy(id = it.id) }
+                } finally { active.decrementAndGet() }
+            }
+        }
+        val runner = BankCategorizationRunner(settings, bank, store, ai)
+        try {
+            runner.start(owner)
+            assertTrue(entered.await(5, TimeUnit.SECONDS), "Er moeten drie batches tegelijk kunnen werken")
+            assertEquals(3, maximum.get())
+            release.countDown()
+            val job = awaitFinished(runner)
+            assertEquals("DONE", job.status)
+            assertEquals(listOf(50, 100, 100), sizes.sorted())
+            assertEquals(250, job.completed)
+            assertEquals(3, job.batchesCompleted)
+            assertEquals(250, bank.month(owner, "2026-11").transactions.count { it.category == BankCategory.HEALTH })
+        } finally { release.countDown(); runner.close() }
+    }
+
+    @Test fun `snelle batch wordt opgeslagen zonder op trage batch te wachten en handmatig antwoord wint`() {
+        store.write(owner, "month-2026-11", BankTransactions(listOf(row("slow", "Langzaam"), row("fast", "Snel"))))
+        val slowEntered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val ai = object : BankAiPort {
+            override fun assess(items: List<BankAiItem>): List<BankAiDecision> {
+                if (items.single().merchant == "Langzaam") { slowEntered.countDown(); check(release.await(5, TimeUnit.SECONDS)) }
+                return items.map { decision(BankCategory.HEALTH).copy(id = it.id) }
+            }
+        }
+        val runner = BankCategorizationRunner(settings, bank, store, ai, batchSize = 1, parallelism = 2)
+        try {
+            runner.start(owner)
+            assertTrue(slowEntered.await(5, TimeUnit.SECONDS))
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (runner.status(owner).completed == 0 && System.nanoTime() < deadline) Thread.sleep(10)
+            assertEquals(1, runner.status(owner).completed)
+            bank.classify(owner, "2026-11", "slow", BankCategory.EXTRA)
+            release.countDown()
+            assertEquals("DONE", awaitFinished(runner).status)
+            assertEquals(BankCategory.EXTRA, bank.month(owner, "2026-11").transactions.first { it.id == "slow" }.category)
+        } finally { release.countDown(); runner.close() }
+    }
+
+    @Test fun `mislukte batch blokkeert andere batches niet en opnieuw starten verwerkt alleen wat ontbreekt`() {
+        store.write(owner, "month-2026-11", BankTransactions(listOf(row("bad", "Fout"), row("good", "Goed"))))
+        val fail = java.util.concurrent.atomic.AtomicBoolean(true)
+        val seen = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val ai = object : BankAiPort {
+            override fun assess(items: List<BankAiItem>): List<BankAiDecision> {
+                seen.addAll(items.map { it.merchant })
+                if (items.any { it.merchant == "Fout" } && fail.get()) error("Testfout zonder financiële gegevens")
+                return items.map { decision(BankCategory.HEALTH).copy(id = it.id) }
+            }
+        }
+        val runner = BankCategorizationRunner(settings, bank, store, ai, batchSize = 1, parallelism = 2)
+        try {
+            runner.start(owner)
+            assertEquals("ERROR", awaitFinished(runner).status)
+            assertEquals(1, runner.status(owner).completed)
+            fail.set(false); seen.clear()
+            runner.start(owner)
+            assertEquals("DONE", awaitFinished(runner).status)
+            assertEquals(listOf("Fout"), seen.toList())
+            assertEquals(1, runner.status(owner).completed)
+        } finally { runner.close() }
+    }
+
+    @Test fun `hervatten na uitrol bewaart de voortgang en verwerkt alleen ontbrekende indelingen`() {
+        val old = row("old", "Al klaar").copy(category = BankCategory.HEALTH, aiReviewed = true, classificationSource = "AI")
+        store.write(owner, "month-2026-11", BankTransactions(listOf(old, row("new", "Nog verwerken"))))
+        store.write(owner, "categorization", BankCategorizationJob("old-run", "ERROR", total = 2, completed = 1))
+        val seen = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val ai = object : BankAiPort {
+            override fun assess(items: List<BankAiItem>): List<BankAiDecision> {
+                seen.addAll(items.map { it.merchant })
+                return items.map { decision(BankCategory.HEALTH).copy(id = it.id) }
+            }
+        }
+        val runner = BankCategorizationRunner(settings, bank, store, ai)
+        try {
+            runner.start(owner, recover = true)
+            val job = awaitFinished(runner)
+            assertEquals("DONE", job.status)
+            assertEquals(2, job.total)
+            assertEquals(2, job.completed)
+            assertEquals(listOf("Nog verwerken"), seen.toList())
+        } finally { runner.close() }
+    }
+    @Test fun `onvolledige AI output wordt niet als een volledige batch opgeslagen`() {
+        store.write(owner, "month-2026-11", BankTransactions(listOf(row("1", "Een"), row("2", "Twee"))))
+        val ai = object : BankAiPort {
+            override fun assess(items: List<BankAiItem>) = listOf(decision(BankCategory.HEALTH).copy(id = items.first().id))
+        }
+        val runner = BankCategorizationRunner(settings, bank, store, ai)
+        try {
+            runner.start(owner)
+            assertEquals("ERROR", awaitFinished(runner).status)
+            assertEquals(0, runner.status(owner).completed)
+            assertTrue(bank.month(owner, "2026-11").transactions.none { it.aiReviewed })
+        } finally { runner.close() }
+    }
+
     @Test fun `een verwijderde regel blijft niet als oude AI beslissing doorwerken`() {
         val ai = applyBankAi(row("1", "Theater"), decision(BankCategory.EXTRA))
         val ruled = BankLedger.classify(ai, emptyList(), listOf(BankRule("test", "Theater", "", BankCategory.HEALTH)))

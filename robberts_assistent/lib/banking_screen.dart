@@ -491,7 +491,13 @@ class _BankingScreenState extends State<BankingScreen> {
                               'Rubricering: vaste regels → AI → jouw antwoord bij twijfel',
                             ),
                             if (_job['status'] == 'RUNNING') ...[
-                              const LinearProgressIndicator(),
+                              LinearProgressIndicator(
+                                value: (_job['total'] as num? ?? 0) > 0
+                                    ? ((_job['completed'] as num? ?? 0) /
+                                              (_job['total'] as num))
+                                          .clamp(0.0, 1.0)
+                                    : null,
+                              ),
                               Text(
                                 '${_job['completed'] ?? 0} van ${_job['total'] ?? 0} overige betalingen beoordeeld',
                               ),
