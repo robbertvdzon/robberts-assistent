@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'ai_models_screen.dart';
 import 'api_client.dart';
+import 'banking_screen.dart';
 import 'couplings_screen.dart';
 import 'garden_screen.dart';
 import 'health_check_screen.dart';
@@ -25,6 +26,16 @@ class MoreScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Meer')),
       body: ListView(
         children: [
+          ListTile(
+            leading: const Icon(Icons.account_balance_outlined),
+            title: const Text('Bankzaken'),
+            subtitle: const Text(
+              'Maanduitgaven, categorieën en overig / extra',
+            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => BankingScreen(api: api))),
+          ),
           ListTile(
             leading: const Icon(Icons.yard_outlined),
             title: const Text('Moestuin'),

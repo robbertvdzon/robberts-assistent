@@ -1,0 +1,37 @@
+# Voorbeeldpatch; bewust niet opgenomen in kustomization.yaml.
+# Pas pas toe na review en aanmaken van het banksecret buiten Git.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: robberts-assistent-backend
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          env:
+            - name: RA_BANKING_APP_ID
+              valueFrom:
+                secretKeyRef: {name: robberts-assistent-banking, key: app-id}
+            - name: RA_BANKING_OWNER
+              valueFrom:
+                secretKeyRef: {name: robberts-assistent-banking, key: owner}
+            - name: RA_BANKING_STORAGE_KEY
+              valueFrom:
+                secretKeyRef: {name: robberts-assistent-banking, key: storage-key}
+            - name: RA_BANKING_PRIVATE_KEY_FILE
+              value: /etc/banking/private.key
+            - name: RA_BANKING_AUTO_SYNC
+              value: 'true'
+          volumeMounts:
+            - name: banking-key
+              mountPath: /etc/banking
+              readOnly: true
+      volumes:
+        - name: banking-key
+          secret:
+            secretName: robberts-assistent-banking
+            defaultMode: 0440
+            items:
+              - key: private-key
+                path: private.key

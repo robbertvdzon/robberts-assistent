@@ -138,6 +138,12 @@ tool-loze clients voor afgebakende beoordelingen, waaronder
 
 ---
 
+Bankzaken is toegevoegd in de module `banking` (Enable Banking AIS, opt-in,
+per eigenaar versleutelde Firestore-opslag). De Flutter-ingang staat onder
+**Meer → Bankzaken**. Configuratie, beperkingen en ingebruikname staan in
+[docs/bankkoppeling-setup.md](docs/bankkoppeling-setup.md). Echte bankconfiguratie
+mag niet in previews met overgeslagen Google-authenticatie worden gezet.
+
 ## 5. Koppelingen + het stub/fallback-patroon
 
 Elke koppeling is actief zodra de bijbehorende secret gezet is; anders fallback. Config via
