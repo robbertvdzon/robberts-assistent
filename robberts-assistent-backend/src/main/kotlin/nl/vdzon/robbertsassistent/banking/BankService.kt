@@ -193,17 +193,18 @@ class BankService(private val settings: BankSettings, private val store: BankSto
         require(rules.rules.map { it.id }.distinct().size == rules.rules.size)
         return@exclusive rules.copy(ownIbans = (rules.ownIbans + rules(owner).ownIbans).distinct(), seedVersion = rules(owner).seedVersion).also { store.write(owner, "rules", it) }
     }
-    fun reviewMerchants(owner: String): BankReviewMerchants {
+    /** Alle opgeslagen maanden, gerubriceerd zoals de overzichten ze tonen. */
+    fun allTransactions(owner: String): List<BankTransaction> {
         requireOwner(owner)
         val connection = connection(owner)
         val rules = rules(owner)
-        val rows = store.keys(owner).filter { it.matches(Regex("month-\\d{4}-(0[1-9]|1[0-2])")) }.flatMap { key ->
+        return store.keys(owner).filter { it.matches(Regex("month-\\d{4}-(0[1-9]|1[0-2])")) }.flatMap { key ->
             store.read(owner, key, BankTransactions::class.java)?.transactions.orEmpty()
                 .filter { it.date.startsWith(key.removePrefix("month-")) }
                 .map { BankLedger.classify(it, connection.accounts, rules.rules, rules.ownIbans) }
         }
-        return bankReviewMerchants(rows)
     }
+    fun reviewMerchants(owner: String): BankReviewMerchants = bankReviewMerchants(allTransactions(owner))
     fun classifyMerchant(owner: String, key: String, category: BankCategory): BankReviewMerchantResult {
         requireOwner(owner)
         require(key.matches(Regex("[a-f0-9]{64}")))

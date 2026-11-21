@@ -148,6 +148,20 @@ Configuratie, beperkingen en ingebruikname staan in
 [docs/bankkoppeling-setup.md](docs/bankkoppeling-setup.md). Echte bankconfiguratie
 mag niet in previews met overgeslagen Google-authenticatie worden gezet.
 
+**Factuurcontrole** (21 nov 2026, tab Facturen in Bankzaken, `lib/bank_invoices_panel.dart`):
+controleert of verkoopfacturen betaald zijn. Rompslomp houdt geen betalingen bij en de API is op
+het gratis account dicht, dus de facturen komen uit een handmatig ingelezen export (Facturen →
+Exporteer → Download als .xls; `RompslompInvoiceExport` leest de .xlsx zonder Excel-bibliotheek,
+begrensd en zonder DOCTYPE). `BankInvoiceMatcher` legt ze naast alle opgeslagen bijschrijvingen:
+factuurnummer in de omschrijving (ook één bijschrijving voor meerdere facturen, of betaling in
+delen) geeft `PAID`, nummer met afwijkend bedrag `CHECK`, zelfde bedrag plus klantnaam `LIKELY`,
+alleen zelfde bedrag blijft `OPEN` met een suggestie. Eigen keuzes (betaald, "dit is niet de
+betaling") blijven bij een nieuwe export staan. Opslag: record `invoices` in de versleutelde
+`BankStore`; adres en e-mail uit de export worden niet bewaard. Endpoints: `GET
+/api/v1/banking/invoices`, `POST .../import` (`content` = base64), `PUT .../{nummer}` (`action`
+`PAID`/`REJECT`/`RESET`). De rekening waarop deze facturen betaald worden is nog niet gekoppeld;
+tot die tijd staat alles open.
+
 ## 5. Koppelingen + het stub/fallback-patroon
 
 Elke koppeling is actief zodra de bijbehorende secret gezet is; anders fallback. Config via

@@ -67,6 +67,15 @@ Legenda: ✅ = al gebouwd · 🔜 = kandidaat · ⏸️ = geprobeerd, lukt nu ni
   van de software-factory-dashboard-backend (cluster-intern)
 - ✅ Nieuws / RSS — laatste NOS-koppen (keyless, standaard feed feeds.nos.nl/nosnieuwsalgemeen)
 
+## Geld & administratie
+- ✅ Bankzaken — Enable Banking, alleen lezen (zie [bankkoppeling-setup.md](bankkoppeling-setup.md))
+- ✅ Factuurcontrole Rompslomp — handmatig ingelezen factuurexport naast de bijschrijvingen
+  (Bankzaken → Facturen). 🔜 De rekening waarop de facturen betaald worden moet nog gekoppeld
+  worden; tot die tijd staat alles open.
+- ⏸️ Rompslomp-API — bestaat (REST v1, persoonlijk token), maar pas vanaf Puur Factuur (€ 8,95 p/m);
+  het gratis account heeft geen API-toegang en Rompslomp neemt nu geen nieuwe
+  integratieverzoeken aan. Daarom de handmatige export.
+
 ## Thuis-server / OpenShift (nightly checks)
 Zie [nightly-checks.md](nightly-checks.md) voor het generieke nightly-check-framework
 (scherm "Nachtchecks" in de app, bereikbaar via de 'Meer'-tab, elke check eigen cron-schema,

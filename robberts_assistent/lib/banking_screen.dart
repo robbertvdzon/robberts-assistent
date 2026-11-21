@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'api_client.dart';
 import 'bank_dashboard.dart';
 import 'bank_insights.dart';
+import 'bank_invoices_panel.dart';
 import 'bank_merchant_review.dart';
 import 'bank_planning_panel.dart';
 
@@ -90,7 +91,7 @@ class _BankingScreenState extends State<BankingScreen> {
   }
 
   void _readLocation() {
-    _view = ['month', 'detail', 'plan'].contains(widget.initialView)
+    _view = ['month', 'detail', 'plan', 'invoices'].contains(widget.initialView)
         ? widget.initialView
         : 'month';
     _category = bankCategories.containsKey(widget.initialCategory)
@@ -610,6 +611,7 @@ class _BankingScreenState extends State<BankingScreen> {
                                   'month': 'Maandoverzicht',
                                   'detail': 'Categorie uitpluizen',
                                   'plan': 'Jaarplanning & budget',
+                                  'invoices': 'Facturen',
                                 }.entries)
                                   ChoiceChip(
                                     label: Text(entry.value),
@@ -621,7 +623,9 @@ class _BankingScreenState extends State<BankingScreen> {
                               ],
                             ),
                             const SizedBox(height: 20),
-                            if (_view != 'plan') ...[
+                            if (_view == 'invoices')
+                              BankInvoicesPanel(api: widget.api)
+                            else if (_view != 'plan') ...[
                               Row(
                                 children: [
                                   IconButton(
