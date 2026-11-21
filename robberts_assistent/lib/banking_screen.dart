@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -15,12 +16,21 @@ const bankCategories = <String, String>{
   'PENSION': 'Pensioen en sparen',
   'CHARITY': 'Goede doelen',
   'EXTRA': 'Overig / extra',
+  'BANK_FEES': 'Bankkosten',
+  'CREDIT_CARD': 'Creditcard, nog zonder details',
   'INTERNAL': 'Interne overboeking',
   'INCOME': 'Inkomsten',
 };
 
 class BankingScreen extends StatefulWidget {
-  const BankingScreen({super.key, required this.api});
+  const BankingScreen({
+    super.key,
+    required this.api,
+    this.initialMonth,
+    this.onMonthChanged,
+  });
+  final String? initialMonth;
+  final ValueChanged<String>? onMonthChanged;
   final ApiClient api;
 
   @override
@@ -32,9 +42,13 @@ class _BankingScreenState extends State<BankingScreen> {
   Map<String, dynamic>? _status;
   Map<String, dynamic>? _report;
   List<Map<String, dynamic>> _rules = [];
+  Map<String, dynamic> _job = {};
+  Timer? _pollTimer;
   String? _error;
   String? _filter;
   bool _busy = true;
+  bool _polling = false;
+  int _loadVersion = 0;
   String get _monthKey =>
       '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
   String money(dynamic value) =>
@@ -46,10 +60,82 @@ class _BankingScreenState extends State<BankingScreen> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialMonth;
+    if (initial != null &&
+        RegExp(r'^\d{4}-(0[1-9]|1[0-2])$').hasMatch(initial)) {
+      _month = DateTime.parse('$initial-01');
+    }
     _load();
   }
 
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant BankingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialMonth != oldWidget.initialMonth &&
+        widget.initialMonth != null &&
+        RegExp(r'^\d{4}-(0[1-9]|1[0-2])$').hasMatch(widget.initialMonth!)) {
+      _month = DateTime.parse('${widget.initialMonth}-01');
+      _report = null;
+      _load();
+    }
+  }
+
+  void _changeMonth(int delta) {
+    final next = DateTime(_month.year, _month.month + delta);
+    final key = '${next.year}-${next.month.toString().padLeft(2, '0')}';
+    if (widget.onMonthChanged != null) {
+      widget.onMonthChanged!(key);
+    } else {
+      setState(() {
+        _month = next;
+        _report = null;
+      });
+      _load();
+    }
+  }
+
+  void _schedulePoll() {
+    _pollTimer?.cancel();
+    if (_job['status'] == 'RUNNING') {
+      _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _poll());
+    }
+  }
+
+  Future<void> _poll() async {
+    if (_polling || _busy || _status?['configured'] != true) return;
+    _polling = true;
+    final month = _monthKey;
+    try {
+      final job = await widget.api.getJson('/api/v1/banking/categorization');
+      if (job['updatedAt'] == _job['updatedAt'] &&
+          job['status'] == _job['status']) {
+        return;
+      }
+      final report = await widget.api.getJson(
+        '/api/v1/banking/month?month=$_monthKey',
+      );
+      if (mounted && month == _monthKey) {
+        setState(() {
+          _job = job;
+          _report = report;
+        });
+        _schedulePoll();
+      }
+    } catch (_) {
+      /* Bij een tijdelijke fout blijft het bestaande overzicht zichtbaar. */
+    } finally {
+      _polling = false;
+    }
+  }
+
   Future<void> _load() async {
+    final version = ++_loadVersion;
     setState(() {
       _busy = true;
       _error = null;
@@ -58,7 +144,9 @@ class _BankingScreenState extends State<BankingScreen> {
       final status = await widget.api.getJson('/api/v1/banking');
       Map<String, dynamic>? report;
       List<Map<String, dynamic>> rules = [];
+      Map<String, dynamic> job = {};
       if (status['configured'] == true) {
+        job = await widget.api.getJson('/api/v1/banking/categorization');
         report = await widget.api.getJson(
           '/api/v1/banking/month?month=$_monthKey',
         );
@@ -66,12 +154,14 @@ class _BankingScreenState extends State<BankingScreen> {
           (await widget.api.getJson('/api/v1/banking/rules'))['rules'],
         );
       }
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _status = status;
         _report = report;
         _rules = rules;
+        _job = job;
       });
+      _schedulePoll();
     } catch (_) {
       if (mounted) {
         setState(
@@ -79,7 +169,7 @@ class _BankingScreenState extends State<BankingScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && version == _loadVersion) setState(() => _busy = false);
     }
   }
 
@@ -102,8 +192,10 @@ class _BankingScreenState extends State<BankingScreen> {
     }
   }
 
-  Future<void> _connect() => _action(() async {
-    final response = await widget.api.postJson('/api/v1/banking/connect');
+  Future<void> _connect([String? iban]) => _action(() async {
+    final response = await widget.api.postJson('/api/v1/banking/connect', {
+      if (iban != null) 'iban': iban,
+    });
     final uri = Uri.parse(response['url'] as String);
     if (uri.scheme != 'https' ||
         !(uri.host == 'enablebanking.com' ||
@@ -120,25 +212,73 @@ class _BankingScreenState extends State<BankingScreen> {
   });
 
   Future<void> _classify(Map<String, dynamic> transaction) async {
-    final result = await showDialog<String>(
+    var remember = false;
+    var matchText = (transaction['counterparty'] as String? ?? '').trim();
+    String? validation;
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => SimpleDialog(
-        title: Text(transaction['counterparty'] as String? ?? 'Categorie'),
-        children: bankCategories.entries
-            .map(
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => SimpleDialog(
+          title: Text(transaction['counterparty'] as String? ?? 'Categorie'),
+          children: [
+            if ('${transaction['question'] ?? ''}'.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('${transaction['question']}'),
+              ),
+            CheckboxListTile(
+              title: const Text('Onthouden voor soortgelijke betalingen'),
+              value: remember,
+              onChanged: (v) => update(() => remember = v ?? false),
+            ),
+            if (remember)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    TextFormField(
+                      initialValue: matchText,
+                      decoration: const InputDecoration(
+                        labelText: 'Naam of omschrijving bevat',
+                      ),
+                      onChanged: (v) => update(() => matchText = v),
+                    ),
+                    const Text(
+                      'Gebruik bij een gemengde winkel een specifiek aankoopdoel, anders worden ook andere aankopen zo ingedeeld. Als een tegenrekening bekend is, geldt de regel alleen op die rekening.',
+                    ),
+                    Text(
+                      '${rows(_report?['transactions']).where((t) => t['counterpartyIban'] == transaction['counterpartyIban'] && '${t['counterparty']} ${t['description']}'.toLowerCase().contains(matchText.toLowerCase())).length} betalingen in deze maand passen bij deze regel.',
+                    ),
+                    if (validation != null) Text(validation!),
+                  ],
+                ),
+              ),
+            ...bankCategories.entries.map(
               (e) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(context, e.key),
+                onPressed: () {
+                  if (remember && matchText.trim().length < 3) {
+                    update(() => validation = 'Gebruik minimaal drie tekens.');
+                    return;
+                  }
+                  Navigator.pop(context, <String, dynamic>{
+                    'category': e.key,
+                    'remember': remember,
+                    'matchText': matchText.trim(),
+                  });
+                },
                 child: Text(e.value),
               ),
-            )
-            .toList(),
+            ),
+          ],
+        ),
       ),
     );
     if (result == null || !mounted) return;
+    final transactionMonth = '${transaction['date']}'.substring(0, 7);
     await _action(() async {
       await widget.api.putJson(
-        '/api/v1/banking/month/$_monthKey/transactions/${transaction['id']}/category',
-        {'category': result},
+        '/api/v1/banking/month/$transactionMonth/transactions/${transaction['id']}/category',
+        result,
       );
     });
   }
@@ -218,6 +358,23 @@ class _BankingScreenState extends State<BankingScreen> {
     });
   }
 
+  String _transactionDetails(Map<String, dynamic> t) {
+    const sourceLabels = {
+      'RULE': 'Vaste regel',
+      'LEARNED': 'Geleerd van jou',
+      'AI': 'AI-indeling',
+      'USER': 'Jouw keuze',
+      'QUESTION': 'Vraag',
+    };
+    return [
+      '${t['date']} · ${bankCategories[t['category']]}',
+      '${t['description']}',
+      if ('${t['question'] ?? ''}'.isNotEmpty) 'Vraag: ${t['question']}',
+      if ('${t['reason'] ?? ''}'.isNotEmpty)
+        '${sourceLabels[t['classificationSource']] ?? 'Indeling'}: ${t['reason']}',
+    ].join('\n');
+  }
+
   Widget metric(String label, dynamic value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
@@ -293,7 +450,7 @@ class _BankingScreenState extends State<BankingScreen> {
                       spacing: 8,
                       children: [
                         OutlinedButton.icon(
-                          onPressed: _connect,
+                          onPressed: () => _connect(),
                           icon: const Icon(Icons.link),
                           label: const Text('Rekening koppelen / vernieuwen'),
                         ),
@@ -308,18 +465,62 @@ class _BankingScreenState extends State<BankingScreen> {
                     ),
                     if (_status!['lastSync'] != null)
                       Text('Laatst opgehaald: ${_status!['lastSync']}'),
+                    ...rows(_status!['availableAccounts'])
+                        .where((a) => a['connected'] != true)
+                        .map(
+                          (a) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('Nog niet zichtbaar: ${a['iban']}'),
+                            subtitle: const Text(
+                              'Deze rekening is nog niet door de bank teruggegeven aan de assistent.',
+                            ),
+                            trailing: OutlinedButton(
+                              onPressed: () => _connect('${a['iban']}'),
+                              child: const Text('Deze rekening koppelen'),
+                            ),
+                          ),
+                        ),
+                    const SizedBox(height: 12),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Rubricering: vaste regels → AI → jouw antwoord bij twijfel',
+                            ),
+                            if (_job['status'] == 'RUNNING') ...[
+                              const LinearProgressIndicator(),
+                              Text(
+                                '${_job['completed'] ?? 0} van ${_job['total'] ?? 0} overige betalingen beoordeeld',
+                              ),
+                            ],
+                            if (_job['message'] != null)
+                              Text('${_job['message']}'),
+                            FilledButton.tonal(
+                              onPressed: _job['status'] == 'RUNNING'
+                                  ? null
+                                  : () => _action(() async {
+                                      await widget.api.postJson(
+                                        '/api/v1/banking/categorize',
+                                      );
+                                    }),
+                              child: const Text('Alle transacties rubriceren'),
+                            ),
+                            const Text(
+                              'Tik bij een vraag op de betaling om te antwoorden. Je kunt aangeven of je antwoord als regel onthouden mag worden.',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         IconButton(
                           tooltip: 'Vorige maand',
-                          onPressed: () {
-                            setState(() {
-                              _month = DateTime(_month.year, _month.month - 1);
-                              _report = null;
-                            });
-                            _load();
-                          },
+                          onPressed: () => _changeMonth(-1),
                           icon: const Icon(Icons.chevron_left),
                         ),
                         Expanded(
@@ -336,16 +537,7 @@ class _BankingScreenState extends State<BankingScreen> {
                               _month.year == DateTime.now().year &&
                                   _month.month == DateTime.now().month
                               ? null
-                              : () {
-                                  setState(() {
-                                    _month = DateTime(
-                                      _month.year,
-                                      _month.month + 1,
-                                    );
-                                    _report = null;
-                                  });
-                                  _load();
-                                },
+                              : () => _changeMonth(1),
                           icon: const Icon(Icons.chevron_right),
                         ),
                       ],
@@ -428,9 +620,7 @@ class _BankingScreenState extends State<BankingScreen> {
                             title: Text(
                               '${t['counterparty'] == '' ? 'Betaling' : t['counterparty']} · ${money(t['amount'])}',
                             ),
-                            subtitle: Text(
-                              '${t['date']} · ${bankCategories[t['category']]}\n${t['description']}',
-                            ),
+                            subtitle: Text(_transactionDetails(t)),
                             isThreeLine: true,
                             onTap: () => _classify(t),
                             trailing: PopupMenuButton<String>(
@@ -463,7 +653,9 @@ class _BankingScreenState extends State<BankingScreen> {
                       children: _rules
                           .map(
                             (r) => ListTile(
-                              title: Text('${r['contains']} ${r['iban']}'),
+                              title: Text(
+                                '${r['label'] ?? ''} ${r['contains']} ${r['iban']}',
+                              ),
                               subtitle: Text(
                                 bankCategories[r['category']] ?? '',
                               ),

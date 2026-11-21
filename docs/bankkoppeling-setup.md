@@ -13,6 +13,24 @@ of verwijderen zonder codewijzigingen. Regels matchen een exacte tegenrekening
 en/of een deel van de naam of omschrijving; de eerste passende regel wint.
 Handmatig gecorrigeerde transacties behouden hun categorie bij opnieuw ophalen.
 
+Vaste regels en jouw handmatige indelingen gaan voor AI. De resterende betalingen
+worden via de bestaande Agent Runtime in de achtergrond beoordeeld. De AI krijgt
+alleen opgeschoonde tegenpartij/omschrijving en bedragen, met tijdelijke groeps-id's.
+IBANs, lange identificaties en bankcredentials gaan niet mee. Onvoldoende zekere
+uitkomsten en gemengde winkels/betaalplatformen worden een concrete vraag in het
+scherm. Je kunt antwoorden met een categorie en optioneel een herkenningsregel
+onthouden. De gekozen tekst en tegenrekening begrenzen die regel; bedragen blijven
+altijd afkomstig uit de banktransacties.
+
+**Alle transacties rubriceren** verwerkt alle opgeslagen maanden. Een nieuwe import
+start de verwerking ook automatisch. Het scherm toont de voortgang en wordt tijdens
+het rubriceren bijgewerkt. AI-fouten behouden bestaande regels en bevestigingen en
+kunnen opnieuw worden geprobeerd.
+
+De browser gebruikt nu deelbare routes, bijvoorbeeld
+`/#/meer/bankzaken?month=2026-11`. Refresh, direct openen en maandwisseling behouden
+de bestemming; hoofdtabs en schermen onder Meer hebben eigen routes.
+
 De backend gebruikt de AIS-API van Enable Banking voor ABN AMRO NL (personal).
 De knop koppelen start toestemming; de callback wisselt de code in voor een
 sessie en haalt meteen beschikbare geboekte transacties op. Iedere rekening
@@ -30,8 +48,7 @@ nodig; de portal-callbackcode wordt hiervoor niet hergebruikt.
 - Bedragen worden in decimale euro's berekend. Alleen geboekte eurotransacties
   worden verwerkt; afwijkende valuta breken de import af voor controle.
 - Interne overboekingen worden herkend aan een tegen-IBAN van een gekoppelde eigen
-  rekening en tellen niet mee bij uitgaven/ontvangsten. Niet-gekoppelde eigen
-  rekeningen moeten nog handmatig worden beoordeeld.
+  rekening of een expliciet bekende eigen IBAN en tellen niet mee bij uitgaven/ontvangsten. De bekende eigen rekeningen kunnen al worden uitgesloten voordat hun API-toestemming is afgerond.
 - Ontvangen geld omvat ook terugbetalingen. Een terugbetaling verlaagt ‘extra’
   als die dezelfde categorie heeft; dat kan via een regel of handmatige correctie.
 - Onbekende afschrijvingen krijgen ‘Nog te beoordelen’, nooit automatisch ‘extra’.
@@ -45,9 +62,11 @@ nodig; de portal-callbackcode wordt hiervoor niet hergebruikt.
 - Eerste import vraagt maximaal een jaar terug; de bank kan minder leveren.
   Daarna wordt 89 dagen overlappend opgehaald. Eerder opgeslagen maanden blijven
   bewaard. Een oude maand is daarom geen bewijs van volledige rekeninghistorie.
-- Creditcardexports en migratie van de oude rubriceringsregels zijn nog niet
-  aangesloten. De eerste versie start met eigen regels en handmatige beoordeling.
-- Er zijn nog geen AI-banktools of automatische maandmeldingen. Bij optionele
+- Er zijn 81 gecontroleerde regels uit de oude app als private startconfiguratie
+  overgenomen, inclusief bronrekening, richting en uitsluitingen. De oude brede
+  restcategorie is niet overgenomen; optionele uitgaven worden apart beoordeeld.
+  Creditcardexports zijn nog niet aangesloten.
+- AI-rubricering is aangesloten; er zijn nog geen banktools voor de chat of automatische maandmeldingen. Bij optionele
   dagelijkse synchronisatie zijn maandtotalen na ophalen direct beschikbaar in
   het scherm. Bankgegevens worden niet via globale pushberichten verspreid.
 
@@ -64,6 +83,7 @@ Bankzaken ‘wordt voorbereid’; er worden geen bankverzoeken uitgevoerd.
 | `RA_BANKING_OWNER` | Vaste identiteit van de bankadministratie |
 | `RA_BANKING_LOGIN_EMAILS` | Extra expliciet toegestane Google-loginadressen voor dezelfde eigenaar, kommagescheiden; standaard alleen de eigenaar |
 | `RA_BANKING_REDIRECT_URL` | Default `https://robberts-assistent.vdzonsoftware.nl/api/v1/banking/callback` |
+| `RA_BANKING_INITIAL_RULES_FILE` | Optioneel serverbestand met private startregels en expliciet bekende eigen IBANs |
 | `RA_BANKING_AUTO_SYNC` | Default `false`; `true` haalt dagelijks om 04:15 Amsterdam op |
 
 Firebase moet geconfigureerd zijn voordat echte banktoegang kan starten. Bij een
@@ -98,9 +118,12 @@ verlopen states worden functioneel altijd geweigerd.
 1. Resterende eigen rekeningen in de Enable Banking-portal linken.
 2. Productie-uitrol met bankconfiguratie controleren (GitOps).
 3. Via **Bankzaken → Rekening koppelen / vernieuwen** banktoestemming geven.
-4. Eerste import controleren: alle rekeningen, periode, aantallen, interne
-   overboekingen en categorieën. Vervolgens regels uit de oude administratie
-   gecontroleerd overnemen, met expliciete scheiding tussen nodig en extra.
+4. Toestemming kan per bank één rekening teruggeven. Het scherm toont de
+   ontbrekende bekende rekeningen met gerichte koppelknoppen; het API-verzoek noemt
+   de gewenste IBAN(s) nu expliciet. Portalregistratie en feitelijk verleende
+   sessietoegang zijn twee verschillende stappen.
+5. Eerste import controleren: alle rekeningen, periode, aantallen, interne
+   overboekingen en categorieën. Controleer de overgenomen regels en beantwoord resterende vragen, met expliciete scheiding tussen nodig en extra.
 
 Officiële documentatie: [API](https://enablebanking.com/docs/api/reference/) en
 [Eigen rekeningen activeren](https://enablebanking.com/docs/api/linked-accounts).

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'more_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'alarm_scheduler.dart';
@@ -37,15 +39,44 @@ const skipGoogleAuthPreview = bool.fromEnvironment(
   defaultValue: false,
 );
 
+GoRouter createAppRouter({
+  String? initialLocation,
+  Widget Function(Uri)? rootBuilder,
+}) => GoRouter(
+  initialLocation: initialLocation,
+  routes: [
+    for (final path in [
+      '/',
+      '/vandaag',
+      '/assistent',
+      '/dagboek',
+      '/taken',
+      '/meer',
+      '/admin',
+      ...MoreScreen.paths.map((p) => '/meer/$p'),
+    ])
+      GoRoute(
+        path: path,
+        pageBuilder: (context, state) => NoTransitionPage<void>(
+          key: const ValueKey('root-session'),
+          child:
+              rootBuilder?.call(state.uri) ?? RootScreen(location: state.uri),
+        ),
+      ),
+  ],
+);
+
+final appRouter = createAppRouter();
+
 class RobbertsAssistentApp extends StatelessWidget {
   const RobbertsAssistentApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
+      routerConfig: appRouter,
       title: "Robbert's assistent",
       theme: robbertsAssistentTheme,
-      home: const RootScreen(),
     );
   }
 }
@@ -86,7 +117,8 @@ final robbertsAssistentTheme = ThemeData(
 
 /// Laadt de sessie en toont ofwel het login-scherm, ofwel de app-shell.
 class RootScreen extends StatefulWidget {
-  const RootScreen({super.key});
+  const RootScreen({super.key, this.location});
+  final Uri? location;
 
   @override
   State<RootScreen> createState() => _RootScreenState();
@@ -185,10 +217,33 @@ class _RootScreenState extends State<RootScreen> {
       AlarmScheduler.sync(api);
     });
     // De webversie op /admin is de beheerpagina voor de laptop; al het andere is de app zelf.
-    if (_openedOnAdmin) {
+    if (_openedOnAdmin || widget.location?.path == '/admin') {
       return AdminScreen(api: api, onLoggedOut: _logout);
     }
-    return HomeScreen(api: api, onLoggedOut: _logout);
+    final location = widget.location;
+    final path = location?.path ?? '/assistent';
+    const tabs = ['/vandaag', '/assistent', '/dagboek', '/taken', '/meer'];
+    final detailName = path.startsWith('/meer/')
+        ? path.substring('/meer/'.length)
+        : null;
+    final tab = detailName != null ? 4 : tabs.indexOf(path);
+    void navigate(String target) => context.go(target);
+    return HomeScreen(
+      api: api,
+      onLoggedOut: _logout,
+      initialTab: tab < 0 ? 1 : tab,
+      onNavigate: location == null ? null : navigate,
+      detailPath: detailName == null ? null : path,
+      detail: detailName == null
+          ? null
+          : MoreScreen.detail(
+              detailName,
+              api,
+              month: location?.queryParameters['month'],
+              onMonthChanged: (month) =>
+                  navigate('/meer/bankzaken?month=$month'),
+            ),
+    );
   }
 
   Widget _loginView() => Scaffold(

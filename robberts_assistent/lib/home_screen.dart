@@ -22,10 +22,22 @@ import 'watches_screen.dart';
 
 /// App-shell na het inloggen: vijf hoofdbestemmingen met de overige schermen onder 'Meer'.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.api, required this.onLoggedOut});
+  const HomeScreen({
+    super.key,
+    required this.api,
+    required this.onLoggedOut,
+    this.initialTab = 1,
+    this.onNavigate,
+    this.detail,
+    this.detailPath,
+  });
 
   final ApiClient api;
   final VoidCallback onLoggedOut;
+  final int initialTab;
+  final ValueChanged<String>? onNavigate;
+  final Widget? detail;
+  final String? detailPath;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -33,6 +45,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   var _tab = 1;
+  final _detailNavigator = GlobalKey<NavigatorState>();
+  static const tabPaths = [
+    '/vandaag',
+    '/assistent',
+    '/dagboek',
+    '/taken',
+    '/meer',
+  ];
   DateTime? _lastHealthSync;
 
   /// Laat het dagboek opnieuw laden als de tab wordt gekozen of de app terugkomt.
@@ -43,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _tab = widget.initialTab;
     // Web heeft geen APK/MethodChannel-concept — alleen op Android relevant. Async/niet-blokkerend:
     // de rest van het scherm wacht niet op deze check.
     if (!kIsWeb) {
@@ -72,6 +93,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => LaunchSourceService.setup(),
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) _tab = widget.initialTab;
   }
 
   @override
@@ -187,6 +214,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _selectTab(int tab) {
     setState(() => _tab = tab);
     if (tab == _diaryTab) _diaryReload.value++;
+    widget.onNavigate?.call(tabPaths[tab]);
   }
 
   @override
@@ -196,9 +224,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ConversationsScreen(api: widget.api),
       FoodScreen(api: widget.api, reload: _diaryReload),
       SchedulesScreen(api: widget.api),
-      MoreScreen(api: widget.api),
+      MoreScreen(api: widget.api, onOpen: widget.onNavigate),
     ];
-    return Scaffold(
+    final home = Scaffold(
       appBar: AppBar(
         title: const AppHeaderTitle(),
         actions: [
@@ -240,6 +268,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             label: 'Meer',
           ),
         ],
+      ),
+    );
+    if (widget.onNavigate == null) return home;
+    return PopScope(
+      canPop: widget.detail == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && widget.detail != null) widget.onNavigate!('/meer');
+      },
+      child: Navigator(
+        key: _detailNavigator,
+        pages: [
+          MaterialPage<void>(key: const ValueKey('home-shell'), child: home),
+          if (widget.detail != null)
+            MaterialPage<void>(
+              key: ValueKey(widget.detailPath),
+              name: widget.detailPath,
+              child: widget.detail!,
+            ),
+        ],
+        onDidRemovePage: (page) {
+          if (page.name != null && page.name == widget.detailPath) {
+            widget.onNavigate!('/meer');
+          }
+        },
       ),
     );
   }

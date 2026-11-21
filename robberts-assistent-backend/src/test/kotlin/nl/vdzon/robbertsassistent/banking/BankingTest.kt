@@ -121,6 +121,14 @@ class BankingTest {
         assertThrows(Exception::class.java) { cipher.decrypt(encrypted, "other/record") }
         assertNotEquals(encrypted, cipher.encrypt("private banktransactie", "owner/record"))
     }
+    @Test fun `bankgegenereerde SEPA metadata vult ontbrekend tegenrekeningveld aan`() {
+        val raw = transaction().deepCopy<com.fasterxml.jackson.databind.node.ObjectNode>()
+        raw.remove("creditor_account")
+        raw.putArray("remittance_information").add("SEPA Periodieke overb. IBAN: NL00TEST0000000002 BIC: TESTNL2A Naam: Eigen rekening")
+        assertEquals("NL00TEST0000000002", parseTransaction(account.id, raw, mutableMapOf()).counterpartyIban)
+        raw.putArray("remittance_information").add("Aankoop met tekst IBAN: NL00TEST0000000002 BIC: TESTNL2A")
+        assertEquals("", parseTransaction(account.id, raw, mutableMapOf()).counterpartyIban)
+    }
     @Test fun `afwijkende valuta wordt niet stilzwijgend bij euro opgeteld`() {
         assertThrows(IllegalArgumentException::class.java) { parseTransaction(account.id,
             mapper.readTree(transaction().toString().replace("EUR", "USD")), mutableMapOf()) }

@@ -13,7 +13,8 @@ import java.time.ZoneId
 import java.util.Base64
 
 @Service
-class BankService(private val settings: BankSettings, private val store: BankStore, private val gateway: BankingGateway) {
+class BankService(private val settings: BankSettings, private val store: BankStore, private val gateway: BankingGateway,
+    private val events: org.springframework.context.ApplicationEventPublisher? = null) {
     /** Meerdere expliciet ingestelde logins kunnen bij dezelfde administratie horen. */
     fun resolveOwner(identity: String): String {
         if (!settings.configured) throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Bankkoppeling is nog niet ingesteld.")
@@ -26,12 +27,25 @@ class BankService(private val settings: BankSettings, private val store: BankSto
         if (owner != settings.owner) throw ResponseStatusException(HttpStatus.FORBIDDEN, "Geen toegang tot deze bankadministratie.")
     }
     fun connection(owner: String): BankConnection = store.read(owner, "connection", BankConnection::class.java) ?: BankConnection()
-    fun rules(owner: String): BankRules = store.read(owner, "rules", BankRules::class.java) ?: BankRules()
-    fun connect(owner: String): String {
+    private val seedRules: BankRules by lazy {
+        if (settings.initialRulesFile.isBlank()) BankRules() else
+            com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().findAndRegisterModules().readValue(
+                java.nio.file.Files.readString(java.nio.file.Path.of(settings.initialRulesFile)), BankRules::class.java)
+    }
+    fun rules(owner: String): BankRules {
+        val current = store.read(owner, "rules", BankRules::class.java)
+        val version = bankHash(seedRules.rules.joinToString { it.id } + seedRules.ownIbans.joinToString())
+        val merged = if (current == null) seedRules else if (current.seedVersion != version)
+            current.copy(rules = (current.rules + seedRules.rules).distinctBy { it.id }) else current
+        return merged.copy(ownIbans = (merged.ownIbans + seedRules.ownIbans).distinct(), seedVersion = version)
+    }
+    fun connect(owner: String, requestedIban: String? = null): String {
         requireOwner(owner)
         val state = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(32).also { SecureRandom().nextBytes(it) })
         store.write("pending", bankHash(state), PendingBankAuth(owner, Instant.now().plusSeconds(900)))
-        return gateway.start(state)
+        val owned = (rules(owner).ownIbans + connection(owner).accounts.map { it.iban }).map(::normalizeIban).filter { it.isNotBlank() }.distinct()
+        val requested = requestedIban?.let { normalizeIban(it).also { iban -> require(iban in owned) } }?.let(::listOf) ?: owned
+        return gateway.start(state, requested)
     }
     fun callback(state: String, code: String?, error: String?): Boolean {
         if (state.length !in 40..100) return false
@@ -94,12 +108,15 @@ class BankService(private val settings: BankSettings, private val store: BankSto
         imported.groupBy { it.date.take(7) }.forEach { (month, rows) ->
             val old = transactions(owner, month).associateBy { it.id }
             val merged = old.toMutableMap()
-            rows.forEach { t -> merged[t.id] = old[t.id]?.takeIf { it.manual }?.let { t.copy(category = it.category, manual = true) } ?: t }
+            rows.forEach { t -> merged[t.id] = old[t.id]?.let { previous ->
+                t.copy(category = previous.category, manual = previous.manual, classificationSource = previous.classificationSource,
+                    reason = previous.reason, question = previous.question, suggestedCategory = previous.suggestedCategory, aiReviewed = previous.aiReviewed)
+            } ?: t }
             store.write(owner, "month-$month", BankTransactions(merged.values.toList()))
         }
         current.accounts.forEach { store.write(owner, "import-${it.id}", ImportMarker(today.toString())) }
         return@exclusive current.copy(lastSync = Instant.now(), warnings = warnings).also { store.write(owner, "connection", it) }
-    }
+    }.also { if (it.lastSync != null) events?.publishEvent(BankSynced(owner)) }
     private fun transactions(owner: String, month: String) =
         store.read(owner, "month-$month", BankTransactions::class.java)?.transactions.orEmpty()
     fun month(owner: String, month: String): BankMonth {
@@ -108,27 +125,42 @@ class BankService(private val settings: BankSettings, private val store: BankSto
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Gebruik een maand als 2026-11.")
         }
         val connection = connection(owner)
-        val rows = transactions(owner, validMonth).map { BankLedger.classify(it, connection.accounts, rules(owner).rules) }
+        val rubrication = rules(owner)
+        val rows = transactions(owner, validMonth).map { BankLedger.classify(it, connection.accounts, rubrication.rules, rubrication.ownIbans) }
         val warnings = connection.warnings +
             (if (connection.lastSync == null) listOf("Nog geen banktransacties opgehaald.") else emptyList()) +
-            listOf("${connection.accounts.size} rekening(en) gekoppeld. Overboekingen naar nog niet gekoppelde eigen rekeningen moeten worden beoordeeld.") +
+            listOf("${connection.accounts.size} van ${(rubrication.ownIbans + connection.accounts.map { it.iban }).distinct().size} bekende eigen rekening(en) uitgelezen. Overboekingen tussen bekende eigen rekeningen zijn uitgesloten.") +
             (if (connection.accounts.any { it.validUntil <= Instant.now() }) listOf("Banktoestemming is verlopen; vernieuw de koppeling.") else emptyList())
         return BankLedger.month(validMonth, rows, warnings.distinct())
     }
     fun saveRules(owner: String, rules: BankRules): BankRules = store.exclusive(owner) {
         requireOwner(owner)
-        require(rules.rules.size <= 200)
+        require(rules.rules.size <= 500)
+        require(rules.ownIbans.all { normalizeIban(it).matches(Regex("[A-Z]{2}[0-9A-Z]{13,32}")) })
         require(rules.rules.all { it.id.matches(Regex("[a-zA-Z0-9-]{1,80}")) && it.contains.length <= 200 &&
-            (it.contains.trim().length >= 3 || normalizeIban(it.iban).length >= 15) && it.iban.length <= 40 })
+            (it.contains.trim().length >= 3 || normalizeIban(it.iban).length >= 15 || it.required.any { word -> word.length >= 3 }) && it.iban.length <= 40 && it.required.size <= 20 && it.forbidden.size <= 20 && (it.required + it.forbidden).all { word -> word.length <= 200 } && it.accountSuffix.length <= 34 && it.direction in listOf("", "DBIT", "CRDT") })
         require(rules.rules.map { it.id }.distinct().size == rules.rules.size)
-        return@exclusive rules.also { store.write(owner, "rules", it) }
+        return@exclusive rules.copy(ownIbans = (rules.ownIbans + rules(owner).ownIbans).distinct(), seedVersion = rules(owner).seedVersion).also { store.write(owner, "rules", it) }
     }
-    fun classify(owner: String, month: String, id: String, category: BankCategory): Unit = store.exclusive(owner) {
+    fun classify(owner: String, month: String, id: String, category: BankCategory, remember: Boolean = false, matchText: String = ""): Unit = store.exclusive(owner) {
         requireOwner(owner)
         YearMonth.parse(month)
         val rows = transactions(owner, month)
         if (rows.none { it.id == id }) throw ResponseStatusException(HttpStatus.NOT_FOUND, "Transactie niet gevonden.")
-        store.write(owner, "month-$month", BankTransactions(rows.map { if (it.id == id) it.copy(category = category, manual = true) else it }))
+        val transaction = rows.single { it.id == id }
+        if (remember) {
+            require(matchText.trim().length in 3..200)
+            val existing = rules(owner)
+            val learned = BankRule(java.util.UUID.randomUUID().toString(), matchText.trim(), transaction.counterpartyIban, category,
+                label = "Geleerd van jouw antwoord", learned = true)
+            require(existing.rules.size < 500)
+            store.write(owner, "rules", existing.copy(rules = listOf(learned) + existing.rules))
+        }
+        store.write(owner, "month-$month", BankTransactions(rows.map { if (it.id == id)
+            it.copy(category = category, manual = category != BankCategory.REVIEW,
+                classificationSource = if (category == BankCategory.REVIEW) "" else "USER", question = "",
+                aiReviewed = if (category == BankCategory.REVIEW) false else it.aiReviewed,
+                reason = if (category == BankCategory.REVIEW) "" else "Door jou bevestigd") else it }))
     }
 }
 data class ImportMarker(val importedAt: String)
@@ -144,9 +176,13 @@ internal fun parseTransaction(accountId: String, json: JsonNode, occurrences: Mu
     val reference = json.path("entry_reference").asText("").ifBlank { json.path("transaction_id").asText("") }
     val amount = if (debit) -absolute else absolute
     val counterparty = json.path(party).path("name").asText("")
-    val iban = normalizeIban(json.path("${party}_account").path("iban").asText(""))
-    val fingerprint = bankHash(listOf(accountId, date, amount.toPlainString(), counterparty, iban, description).joinToString("\u0000"))
+    val structuredIban = normalizeIban(json.path("${party}_account").path("iban").asText(""))
+    val iban = structuredIban.ifBlank { bankTextIban(description) }
+    // Verrijkte metadata mag de bestaande fallback-identiteit niet veranderen.
+    val fingerprint = bankHash(listOf(accountId, date, amount.toPlainString(), counterparty, structuredIban, description).joinToString("\u0000"))
     val occurrence = occurrences.merge(fingerprint, 1, Int::plus)!!
     val id = bankHash(accountId + ":" + if (reference.isNotBlank()) "ref:$reference" else "fallback:$fingerprint:$occurrence")
     return BankTransaction(id, accountId, date, amount, "EUR", counterparty, iban, description, stableReference = reference.isNotBlank())
 }
+
+data class BankSynced(val owner: String)

@@ -140,7 +140,11 @@ tool-loze clients voor afgebakende beoordelingen, waaronder
 
 Bankzaken is toegevoegd in de module `banking` (Enable Banking AIS, opt-in,
 per eigenaar versleutelde Firestore-opslag). De Flutter-ingang staat onder
-**Meer → Bankzaken**. Configuratie, beperkingen en ingebruikname staan in
+**Meer → Bankzaken**. Rubricering gebruikt handmatige keuzes, harde/startregels,
+AI-beoordeling via `BankAiPort` (adapter in `assistant.ai`) en concrete vragen bij
+onzekerheid; bankcredentials blijven buiten de runtime. De webapp gebruikt
+`go_router` voor hoofdtabs en Meer-schermen, inclusief maandparameter bij Bankzaken.
+Configuratie, beperkingen en ingebruikname staan in
 [docs/bankkoppeling-setup.md](docs/bankkoppeling-setup.md). Echte bankconfiguratie
 mag niet in previews met overgeslagen Google-authenticatie worden gezet.
 

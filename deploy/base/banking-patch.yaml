@@ -22,6 +22,8 @@ spec:
                 secretKeyRef: {name: robberts-assistent-banking, key: storage-key}
             - name: RA_BANKING_PRIVATE_KEY_FILE
               value: /etc/banking/private.key
+            - name: RA_BANKING_INITIAL_RULES_FILE
+              value: /etc/banking/initial-rules.json
             - name: RA_BANKING_AUTO_SYNC
               value: 'true'
           volumeMounts:
@@ -36,3 +38,5 @@ spec:
             items:
               - key: private-key
                 path: private.key
+              - key: initial-rules
+                path: initial-rules.json

@@ -55,12 +55,16 @@ class EnableBankingClient(
         if (response.status !in 200..299) throw BankUnavailableException()
         return mapper.readTree(response.body)
     }
-    override fun start(state: String): String {
+    override fun start(state: String, accounts: List<String>): String {
         val bank = request("/aspsps?country=NL").path("aspsps").firstOrNull { it.path("name").asText() == "ABN AMRO" }
             ?: throw BankUnavailableException()
         val validity = bank.path("maximum_consent_validity").asLong()
         check(validity > 0)
-        return request("/auth", mapOf("access" to mapOf("valid_until" to Instant.now().plusSeconds(validity).toString()),
+        return request("/auth", mapOf("access" to buildMap<String, Any> {
+            put("valid_until", Instant.now().plusSeconds(validity).toString())
+            put("transactions", true)
+            if (accounts.isNotEmpty()) put("accounts", accounts.map { mapOf("iban" to it) })
+        },
             "aspsp" to mapOf("name" to "ABN AMRO", "country" to "NL"), "state" to state,
             "redirect_url" to settings.redirectUrl, "psu_type" to "personal"))
             .path("url").asText().also {

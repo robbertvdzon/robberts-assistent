@@ -35,6 +35,7 @@ class BankApi extends ApiClient {
             'description': 'Aankoop test',
             'amount': -70,
             'category': 'REVIEW',
+            'question': 'Waarvoor was deze aankoop?',
           },
         ],
       };

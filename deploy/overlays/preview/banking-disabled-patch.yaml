@@ -11,6 +11,8 @@ spec:
         env:
         - name: RA_BANKING_APP_ID
           value: ''
+        - name: RA_BANKING_INITIAL_RULES_FILE
+          value: ''
         volumeMounts:
         - mountPath: /etc/banking
           $patch: delete

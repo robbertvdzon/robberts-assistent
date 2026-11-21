@@ -40,6 +40,27 @@ class EnableBankingClientTest {
         assertEquals(listOf("api.enablebanking.com"), jwt.jwtClaimsSet.audience)
         assertEquals(300000, jwt.jwtClaimsSet.expirationTime.time - jwt.jwtClaimsSet.issueTime.time)
     }
+    @Test fun `gericht koppelen vraagt expliciet de gewenste rekeningen aan`() {
+        var posted = ""
+        val (client, _) = client { request ->
+            if (request.uri().path == "/aspsps") BankHttpReply(200, """{"aspsps":[{"name":"ABN AMRO","maximum_consent_validity":3600}]}""")
+            else {
+                val subscriber = object : java.util.concurrent.Flow.Subscriber<java.nio.ByteBuffer> {
+                    lateinit var subscription: java.util.concurrent.Flow.Subscription
+                    override fun onSubscribe(s: java.util.concurrent.Flow.Subscription) { subscription = s; s.request(Long.MAX_VALUE) }
+                    override fun onNext(b: java.nio.ByteBuffer) { posted += java.nio.charset.StandardCharsets.UTF_8.decode(b).toString() }
+                    override fun onComplete() {}
+                    override fun onError(t: Throwable) { throw t }
+                }
+                request.bodyPublisher().get().subscribe(subscriber)
+                BankHttpReply(200, """{"url":"https://auth.enablebanking.com/ais/start"}""")
+            }
+        }
+        client.start("state", listOf("NL00TEST0000000001", "NL00TEST0000000002"))
+        val body = jacksonObjectMapper().readTree(posted)
+        assertEquals(2, body.path("access").path("accounts").size())
+        assertEquals("NL00TEST0000000002", body.path("access").path("accounts")[1].path("iban").asText())
+    }
     @Test fun `herhaalde pagina cursor stopt de import`() {
         val (client, _) = client { BankHttpReply(200, """{"transactions":[],"continuation_key":"same"}""") }
         assertThrows(IllegalStateException::class.java) {

@@ -13,6 +13,7 @@ import javax.crypto.spec.SecretKeySpec
 interface BankStore {
     fun <T> read(owner: String, key: String, type: Class<T>): T?
     fun write(owner: String, key: String, value: Any)
+    fun keys(owner: String): List<String>
     fun consumeState(state: String): PendingBankAuth?
     fun <T> exclusive(owner: String, action: () -> T): T
 }
@@ -22,6 +23,7 @@ class MemoryBankStore(private val mapper: ObjectMapper) : BankStore {
     override fun <T> read(owner: String, key: String, type: Class<T>): T? =
         records["${bankHash(owner)}/$key"]?.let { mapper.readValue(it, type) }
     override fun write(owner: String, key: String, value: Any) { records["${bankHash(owner)}/$key"] = mapper.writeValueAsString(value) }
+    override fun keys(owner: String): List<String> = records.keys.filter { it.startsWith(bankHash(owner) + "/") }.map { it.substringAfter("/") }
     override fun consumeState(state: String): PendingBankAuth? = records.remove("${bankHash("pending")}/${bankHash(state)}")
         ?.let { mapper.readValue(it, PendingBankAuth::class.java) }
 }
@@ -74,6 +76,8 @@ class FirestoreBankStore(private val db: Firestore, private val mapper: ObjectMa
             value.expiresAt.epochSecond, value.expiresAt.nano)
         doc.set(fields).get()
     }
+    override fun keys(owner: String): List<String> = db.collection("banking").document(bankHash(owner))
+        .collection("records").select(*emptyArray<String>()).get().get().documents.map { it.id }
     override fun consumeState(state: String): PendingBankAuth? {
         val doc = document("pending", bankHash(state))
         return db.runTransaction<PendingBankAuth?> { tx ->

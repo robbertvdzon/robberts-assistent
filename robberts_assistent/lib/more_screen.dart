@@ -13,120 +13,112 @@ import 'reference_meals_screen.dart';
 import 'updates_screen.dart';
 import 'watches_screen.dart';
 
-/// Overzicht van de minder frequent gebruikte schermen.
-/// Elk item opent het bestaande, ongewijzigde scherm via een gewone navigatie-push.
+/// Minder vaak gebruikte schermen met stabiele, deelbare bestemmingen.
 class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key, required this.api});
-
+  const MoreScreen({super.key, required this.api, this.onOpen});
   final ApiClient api;
+  final ValueChanged<String>? onOpen;
+
+  static const paths = [
+    'bankzaken',
+    'moestuin',
+    'health',
+    'zoekopdrachten',
+    'vacatures',
+    'koppelingen',
+    'nachtchecks',
+    'geheugen',
+    'ai-modellen',
+    'modelgerechten',
+    'updates',
+  ];
+  static Widget detail(
+    String name,
+    ApiClient api, {
+    String? month,
+    ValueChanged<String>? onMonthChanged,
+  }) => switch (name) {
+    'bankzaken' => BankingScreen(
+      api: api,
+      initialMonth: month,
+      onMonthChanged: onMonthChanged,
+    ),
+    'moestuin' => GardenScreen(api: api),
+    'health' => HealthCheckScreen(api: api),
+    'zoekopdrachten' => WatchesScreen(api: api),
+    'vacatures' => JobsScreen(api: api),
+    'koppelingen' => CouplingsScreen(api: api),
+    'nachtchecks' => NightlyChecksScreen(api: api),
+    'geheugen' => MemoryScreen(api: api),
+    'ai-modellen' => AiModelsScreen(api: api),
+    'modelgerechten' => ReferenceMealsScreen(api: api),
+    _ => Scaffold(
+      appBar: AppBar(title: const Text('Updates')),
+      body: const UpdatesScreen(),
+    ),
+  };
 
   @override
   Widget build(BuildContext context) {
+    final entries = <(String, IconData, String, String?)>[
+      (
+        'bankzaken',
+        Icons.account_balance_outlined,
+        'Bankzaken',
+        'Maanduitgaven, categorieën en overig / extra',
+      ),
+      ('moestuin', Icons.yard_outlined, 'Moestuin', null),
+      ('health', Icons.health_and_safety_outlined, 'Health check', null),
+      ('zoekopdrachten', Icons.travel_explore_outlined, 'Zoekopdrachten', null),
+      ('vacatures', Icons.work_outline, 'Vacatures', null),
+      ('koppelingen', Icons.hub_outlined, 'Koppelingen', null),
+      ('nachtchecks', Icons.checklist_outlined, 'Nachtchecks', null),
+      ('geheugen', Icons.psychology_outlined, 'Geheugen', null),
+      (
+        'ai-modellen',
+        Icons.tune_outlined,
+        'AI-modellen',
+        'Welk model de assistent en het eetdagboek gebruiken',
+      ),
+      (
+        'modelgerechten',
+        Icons.photo_library_outlined,
+        'Modelgerechten',
+        "De foto's waarmee nieuw eten wordt vergeleken",
+      ),
+      ('updates', Icons.system_update_outlined, 'Updates', null),
+    ];
     return Scaffold(
       appBar: AppBar(title: const Text('Meer')),
       body: ListView(
         children: [
-          ListTile(
-            leading: const Icon(Icons.account_balance_outlined),
-            title: const Text('Bankzaken'),
-            subtitle: const Text(
-              'Maanduitgaven, categorieën en overig / extra',
-            ),
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => BankingScreen(api: api))),
-          ),
-          ListTile(
-            leading: const Icon(Icons.yard_outlined),
-            title: const Text('Moestuin'),
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => GardenScreen(api: api))),
-          ),
-          ListTile(
-            leading: const Icon(Icons.health_and_safety_outlined),
-            title: const Text('Health check'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => HealthCheckScreen(api: api)),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.travel_explore_outlined),
-            title: const Text('Zoekopdrachten'),
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => WatchesScreen(api: api))),
-          ),
-          ListTile(
-            leading: const Icon(Icons.work_outline),
-            title: const Text('Vacatures'),
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => JobsScreen(api: api))),
-          ),
-          ListTile(
-            leading: const Icon(Icons.hub_outlined),
-            title: const Text('Koppelingen'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => CouplingsScreen(api: api)),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.checklist_outlined),
-            title: const Text('Nachtchecks'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => NightlyChecksScreen(api: api)),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.psychology_outlined),
-            title: const Text('Geheugen'),
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => MemoryScreen(api: api))),
-          ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              'Beheer',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+          for (final entry in entries) ...[
+            if (entry.$1 == 'ai-modellen') ...[
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text('Beheer'),
               ),
+            ],
+            ListTile(
+              leading: Icon(entry.$2),
+              title: Text(entry.$3),
+              subtitle: entry.$4 == null ? null : Text(entry.$4!),
+              onTap: () {
+                final path = '/meer/${entry.$1}';
+                if (onOpen != null) {
+                  onOpen!(path);
+                } else {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      settings: RouteSettings(name: path),
+                      builder: (_) => detail(entry.$1, api),
+                    ),
+                  );
+                }
+              },
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.tune_outlined),
-            title: const Text('AI-modellen'),
-            subtitle: const Text(
-              'Welk model de assistent en het eetdagboek gebruiken',
-            ),
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => AiModelsScreen(api: api))),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: const Text('Modelgerechten'),
-            subtitle: const Text(
-              'De foto\'s waarmee nieuw eten wordt vergeleken',
-            ),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => ReferenceMealsScreen(api: api)),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.system_update_outlined),
-            title: const Text('Updates'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: const Text('Updates')),
-                  body: const UpdatesScreen(),
-                ),
-              ),
-            ),
-          ),
+          ],
         ],
       ),
     );
