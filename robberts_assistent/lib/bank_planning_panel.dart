@@ -699,7 +699,7 @@ class _BankPlanningPanelState extends State<BankPlanningPanel> {
                               width: math.min(width / 3, 22),
                               height: 110 * row.plannedIncome / highest,
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.tertiary,
+                                color: _teal.withValues(alpha: 0.45),
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(4),
                                 ),
@@ -939,7 +939,7 @@ class _BankPlanningPanelState extends State<BankPlanningPanel> {
                       Icon(
                         Icons.square,
                         size: 12,
-                        color: Theme.of(context).colorScheme.tertiary,
+                        color: _teal.withValues(alpha: 0.45),
                       ),
                       const SizedBox(width: 5),
                       const Text('Inkomsten'),
