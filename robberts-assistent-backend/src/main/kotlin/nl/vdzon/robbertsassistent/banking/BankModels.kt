@@ -6,7 +6,7 @@ import java.time.Instant
 
 enum class BankCategory(val label: String) {
     REVIEW("Nog te beoordelen"), GROCERIES("Boodschappen"), HOUSING("Wonen en vaste lasten"),
-    INSURANCE("Verzekeringen"), TRANSPORT("Vervoer"), HEALTH("Zorg"), TAX("Belastingen"),
+    INSURANCE("Verzekeringen"), TRANSPORT("Vervoer"), HEALTH("Zorg"), CLOTHING("Kleding"), TAX("Belastingen"),
     BUSINESS("Zakelijk"), PENSION("Pensioen en sparen"), CHARITY("Goede doelen"),
     BANK_FEES("Bankkosten"), CREDIT_CARD("Creditcard, nog zonder details"), HOLIDAY("Vakantie"), EXTRA("Overig / extra"), INTERNAL("Interne overboeking"), INCOME("Inkomsten")
 }
@@ -23,7 +23,8 @@ data class BankTransaction(val id: String, val accountId: String, val date: Stri
 data class BankTransactions(val transactions: List<BankTransaction> = emptyList())
 data class BankRule(val id: String, val contains: String, val iban: String, val category: BankCategory,
     val required: List<String> = emptyList(), val forbidden: List<String> = emptyList(),
-    val accountSuffix: String = "", val direction: String = "", val label: String = "", val learned: Boolean = false)
+    val accountSuffix: String = "", val direction: String = "", val label: String = "", val learned: Boolean = false,
+    val merchant: String = "")
 data class BankRules(val rules: List<BankRule> = emptyList(), val ownIbans: List<String> = emptyList(), val seedVersion: String = "")
 data class PendingBankAuth(val owner: String, val expiresAt: Instant)
 data class CategoryTotal(val category: BankCategory, val label: String, val spent: BigDecimal,
@@ -40,7 +41,10 @@ fun normalizeIban(value: String) = value.replace(" ", "").uppercase()
 /** Onbekend betekent nooit automatisch luxe. Alleen expliciete regels/correcties bepalen extra. */
 object BankLedger {
     fun classify(raw: BankTransaction, accounts: List<BankAccount>, rules: List<BankRule>, ownIbans: List<String> = emptyList()): BankTransaction {
-        val t = if (raw.counterpartyIban.isBlank()) raw.copy(counterpartyIban = bankTextIban(raw.description)) else raw
+        val t = raw.copy(
+            counterparty = raw.counterparty.ifBlank { bankCardMerchant(raw.description) },
+            counterpartyIban = raw.counterpartyIban.ifBlank { bankTextIban(raw.description) },
+        )
         if (t.manual) return t.copy(classificationSource = "USER", question = "")
         val owned = (accounts.map { it.iban } + ownIbans).map(::normalizeIban).filter { it.isNotBlank() }
         if (t.counterpartyIban.isNotBlank() && t.counterpartyIban in owned)
@@ -48,6 +52,7 @@ object BankLedger {
         val text = t.counterparty + " " + t.description
         val sourceIban = accounts.firstOrNull { it.id == t.accountId }?.iban.orEmpty()
         val rule = rules.firstOrNull { r ->
+            bankExactMerchantMatches(r, t) &&
             (r.iban.isBlank() || normalizeIban(r.iban) == t.counterpartyIban) &&
                 (r.contains.isBlank() || text.contains(r.contains, true)) &&
                 r.required.all { text.contains(it, true) } && r.forbidden.none { text.contains(it, true) } &&

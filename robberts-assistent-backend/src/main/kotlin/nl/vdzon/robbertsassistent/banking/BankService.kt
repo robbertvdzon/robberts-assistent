@@ -180,9 +180,41 @@ class BankService(private val settings: BankSettings, private val store: BankSto
         require(rules.rules.size <= 500)
         require(rules.ownIbans.all { normalizeIban(it).matches(Regex("[A-Z]{2}[0-9A-Z]{13,32}")) })
         require(rules.rules.all { it.id.matches(Regex("[a-zA-Z0-9-]{1,80}")) && it.contains.length <= 200 &&
-            (it.contains.trim().length >= 3 || normalizeIban(it.iban).length >= 15 || it.required.any { word -> word.length >= 3 }) && it.iban.length <= 40 && it.required.size <= 20 && it.forbidden.size <= 20 && (it.required + it.forbidden).all { word -> word.length <= 200 } && it.accountSuffix.length <= 34 && it.direction in listOf("", "DBIT", "CRDT") })
+            (it.contains.trim().length >= 3 || normalizeIban(it.iban).length >= 15 || it.required.any { word -> word.length >= 3 } || it.merchant.isNotBlank()) &&
+            (it.merchant.isEmpty() || bankLearnableMerchantName(it.merchant)) &&
+            it.iban.length <= 40 && it.required.size <= 20 && it.forbidden.size <= 20 && (it.required + it.forbidden).all { word -> word.length <= 200 } && it.accountSuffix.length <= 34 && it.direction in listOf("", "DBIT", "CRDT") })
         require(rules.rules.map { it.id }.distinct().size == rules.rules.size)
         return@exclusive rules.copy(ownIbans = (rules.ownIbans + rules(owner).ownIbans).distinct(), seedVersion = rules(owner).seedVersion).also { store.write(owner, "rules", it) }
+    }
+    fun reviewMerchants(owner: String): BankReviewMerchants {
+        requireOwner(owner)
+        val connection = connection(owner)
+        val rules = rules(owner)
+        val rows = store.keys(owner).filter { it.matches(Regex("month-\\d{4}-(0[1-9]|1[0-2])")) }.flatMap { key ->
+            store.read(owner, key, BankTransactions::class.java)?.transactions.orEmpty()
+                .filter { it.date.startsWith(key.removePrefix("month-")) }
+                .map { BankLedger.classify(it, connection.accounts, rules.rules, rules.ownIbans) }
+        }
+        return bankReviewMerchants(rows)
+    }
+    fun classifyMerchant(owner: String, key: String, category: BankCategory): BankReviewMerchantResult {
+        requireOwner(owner)
+        require(key.matches(Regex("[a-f0-9]{64}")))
+        require(category !in setOf(BankCategory.REVIEW, BankCategory.INTERNAL, BankCategory.INCOME))
+        return store.exclusive(owner) {
+            val group = reviewMerchants(owner).groups.firstOrNull { it.key == key }
+                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Deze openstaande winkel is niet meer beschikbaar. Ververs het overzicht.")
+            require(group.canLearn) { "Beoordeel dit betaalverzoek per transactie." }
+            val identity = bankMerchantIdentity(group.merchant)
+            val existing = rules(owner)
+            val otherRules = existing.rules.filterNot { it.merchant.isNotBlank() && bankMerchantIdentity(it.merchant) == identity }
+            require(otherRules.size < 500)
+            val learned = BankRule("merchant-${bankHash(identity)}", "", "", category,
+                label = "Door jou gekozen voor ${group.merchant.take(100)}", learned = true, merchant = identity)
+            // Rules are applied on every read and import; historical manual choices remain untouched.
+            store.write(owner, "rules", existing.copy(rules = listOf(learned) + otherRules))
+            BankReviewMerchantResult(group.count)
+        }
     }
     fun classify(owner: String, month: String, id: String, category: BankCategory, remember: Boolean = false, matchText: String = ""): Unit = store.exclusive(owner) {
         requireOwner(owner)

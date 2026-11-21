@@ -9,6 +9,24 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 
 class RuntimeBankClassifierTest {
+    @Test fun `kleding kan apart van extra via het beslissingsschema worden ingedeeld`() {
+        val mapper = jacksonObjectMapper()
+        val runtime = object : AgentRuntimeGateway {
+            override fun ping() = true to "test"
+            override fun runStructured(instruction: String, resultSchema: JsonNode, attachments: List<RuntimeAttachment>): JsonNode {
+                val categories = resultSchema.path("properties").path("decisions").path("items")
+                    .path("properties").path("category").path("enum").map { it.asText() }
+                assertTrue("CLOTHING" in categories)
+                assertTrue(instruction.contains("CLOTHING is voor kleding en schoenen"))
+                return mapper.readTree("""{"decisions":[{"id":"clothes","category":"CLOTHING","confidence":0.95,"needsUser":false,"reason":"Herkenbare kledingwinkel","question":""}]}""")
+            }
+        }
+        val decisions = RuntimeBankClassifier(runtime, mapper, mock(AppSecrets::class.java))
+            .assess(listOf(BankAiItem("clothes", "Test Kledingzaak", "Kleding", listOf("-50.00"))))
+        assertEquals(BankCategory.CLOTHING, decisions.single().category)
+        assertFalse(decisions.single().needsUser)
+    }
+
     @Test fun `runtime krijgt geminimaliseerde gegevens en een beperkt beslissingsschema`() {
         val mapper = jacksonObjectMapper()
         var prompt = ""

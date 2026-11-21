@@ -153,3 +153,26 @@ jaar als schattingen overnemen. De voorspelling vereist expliciete maandinkomste
 en maanduitgaven; reserveringen en categoriebudgetten tellen niet nogmaals als
 uitgave. Vakantie heeft de eigen categorie `HOLIDAY`; bestaande handmatige
 indelingen veranderen daardoor niet vanzelf.
+
+## Winkels herkennen en indelen
+
+`CLOTHING` (Kleding) omvat herkenbare kleding- en schoenenwinkels, zonder een
+oordeel over noodzaak of luxe. Gemengde winkels zoals Vinted, HEMA en sportzaken
+blijven open wanneer de aankoop niet duidelijk is. Welkoop valt op expliciete
+keuze van de eigenaar onder Overig / extra. Duidelijke nieuwe winkelregels gelden
+ook voor bestaande AI-vragen; handmatige categorieën en eigen regels gaan voor.
+
+Bij ABN-pinbetalingen ontbreekt soms de gestructureerde tegenpartij. De app haalt
+dan de kassanaam uit de herkenbare BEA-bankmetadata. De oorspronkelijke tekst en
+transactie-identiteit blijven behouden. Vrije SEPA-omschrijvingen worden niet als
+bankmetadata geïnterpreteerd.
+
+Winkels indelen toont openstaande betalingen over alle opgeslagen maanden, met
+bedrag, aantal, periode en voorbeelden. Een opgeslagen winkelkeuze wordt een
+regel op de genormaliseerde winkelnaam en geldt ook voor toekomstige betalingen
+en retouren. Alleen bekende betaalprocessorvoorvoegsels worden weggehaald;
+verschillende filialen/namen worden niet op basis van een gok samengevoegd.
+Persoonlijke betaalverzoeken, contante opnames en algemene betaalplatformen
+moeten afzonderlijk beoordeeld worden, omdat dezelfde ontvanger verschillende
+doelen kan hebben. De lijst en leeracties vereisen de bestaande bankautorisatie;
+antwoorden zijn `no-store`.

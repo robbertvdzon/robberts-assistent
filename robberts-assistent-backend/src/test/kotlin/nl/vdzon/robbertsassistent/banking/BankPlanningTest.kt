@@ -53,6 +53,26 @@ class BankPlanningTest {
         assertThrows(IllegalArgumentException::class.java) { bank.history(owner, "2026-1") }
     }
 
+    @Test fun `kledingcorrectie leert ook retouren en heeft eigen budget en historietotaal`() {
+        fun row(id: String, amount: String) = BankTransaction(id, "account", "2026-10-15",
+            BigDecimal(amount), "EUR", "Test Kledingzaak", "", "Kledingbetaling")
+        store.write(owner, "month-2026-10", BankTransactions(listOf(row("purchase", "-120.00"), row("return", "30.00"))))
+        bank.classify(owner, "2026-10", "purchase", BankCategory.CLOTHING, remember = true, matchText = "Test Kledingzaak")
+        bank.savePlanning(owner, 2027, BankPlanning(2027, budgets = mapOf(BankCategory.CLOTHING to BigDecimal("150"))))
+
+        val month = bank.history(owner, "2026-10").months.last()
+        val clothing = month.categories.single()
+        assertEquals(BankCategory.CLOTHING, clothing.category)
+        assertEquals("Kleding", clothing.label)
+        assertEquals(BigDecimal("90.00"), clothing.spent - clothing.received)
+        assertEquals(0, month.extra.signum())
+        assertEquals(0, month.review.signum())
+        assertTrue(month.transactions.all { it.category == BankCategory.CLOTHING })
+        assertEquals("LEARNED", month.transactions.single { it.id == "return" }.classificationSource)
+        assertEquals(BigDecimal("150.00"), bank.planning(owner, 2027).budgets[BankCategory.CLOTHING])
+        verifyNoInteractions(gateway)
+    }
+
     @Test fun `planning bewaart bedragen en budgetten onder juiste eigenaar en jaar`() {
         val plan = BankPlanning(2027, BigDecimal("6850"), BigDecimal("4000.5"), BigDecimal("2000"),
             mapOf(BankCategory.EXTRA to BigDecimal("500"), BankCategory.GROCERIES to BigDecimal("850")), listOf(holiday))

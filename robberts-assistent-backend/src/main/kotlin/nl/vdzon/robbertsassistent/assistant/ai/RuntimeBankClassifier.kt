@@ -26,10 +26,11 @@ class RuntimeBankClassifier(private val runtime: AgentRuntimeGateway, private va
             Categorieën: ${BankCategory.entries.filter { it != BankCategory.INTERNAL }.joinToString { "${it.name}: ${it.label}" }}.
             EXTRA betekent uitsluitend niet-noodzakelijke extra aankopen/activiteiten (zoals uitjes, restaurant, cadeaus, luxe).
             HOLIDAY is voor herkenbare vakantiebetalingen zoals wintersport, zomervakantie, vakantieverblijf en vakantiereizen; vakantie blijft apart van EXTRA.
+            CLOTHING is voor kleding en schoenen, inclusief herkenbare kleding- en schoenenwinkels. Deze categorie zegt niets over noodzaak of luxe en blijft apart van EXTRA.
             Benodigde zorg, gewone boodschappen, belastingen, hypotheek, verzekeringen en noodzakelijke vervanging zijn geen EXTRA.
-            Een kledingwinkel, meubelwinkel, bouwmarkt, bol.com, Amazon of betaalplatform vertelt niet wat er gekocht is of of het nodig was.
+            Een meubelwinkel, bouwmarkt, warenhuis, bol.com, Amazon of betaalplatform vertelt niet wat er gekocht is of of het nodig was. Deel gemengde winkels niet als kleding in zonder concrete aanwijzing.
             Vraag bij gemengde winkels en onduidelijke overschrijvingen om het doel. Verzin geen gekochte producten.
-            Zet needsUser=true, category=REVIEW en een gerichte question als doel of noodzaak niet vaststaat.
+            Zet needsUser=true, category=REVIEW en een gerichte question als de uitgavencategorie niet vaststaat. Vraag bij een voorstel voor EXTRA ook door als de noodzaak onduidelijk is; een duidelijke CLOTHING-betaling vereist die beoordeling niet.
             Automatisch indelen mag alleen bij voldoende concrete informatie. confidence moet die inhoudelijke zekerheid weergeven.
             Interne overboekingen worden door de backend herkend; stel die categorie nooit voor.
             BANK_FEES zijn bankkosten, CREDIT_CARD zijn afrekeningen waarvan kaarttransacties nog ontbreken.

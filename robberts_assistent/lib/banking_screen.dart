@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'api_client.dart';
 import 'bank_dashboard.dart';
 import 'bank_insights.dart';
+import 'bank_merchant_review.dart';
 import 'bank_planning_panel.dart';
 
 const bankCategories = <String, String>{
@@ -14,6 +15,7 @@ const bankCategories = <String, String>{
   'INSURANCE': 'Verzekeringen',
   'TRANSPORT': 'Vervoer',
   'HEALTH': 'Zorg',
+  'CLOTHING': 'Kleding',
   'TAX': 'Belastingen',
   'BUSINESS': 'Zakelijk',
   'PENSION': 'Pensioen en sparen',
@@ -301,6 +303,21 @@ class _BankingScreenState extends State<BankingScreen> {
         });
       }
     }
+  }
+
+  Future<void> _merchantReviewSaved() async {
+    final month = _monthKey;
+    final version = _loadVersion;
+    final result = await Future.wait([
+      widget.api.getJson('/api/v1/banking/month?month=$month'),
+      widget.api.getJson('/api/v1/banking/rules'),
+    ]);
+    if (!mounted || month != _monthKey || version != _loadVersion) return;
+    setState(() {
+      _report = result[0];
+      _rules = rows(result[1]['rules']);
+    });
+    await _loadInsights();
   }
 
   Future<void> _connect([String? iban]) => _action(() async {
@@ -644,6 +661,12 @@ class _BankingScreenState extends State<BankingScreen> {
                               ),
                             ),
 
+                            BankMerchantReview(
+                              api: widget.api,
+                              categories: bankCategories,
+                              enabled: !_planDirty,
+                              onSaved: _merchantReviewSaved,
+                            ),
                             ExpansionTile(
                               title: Text(
                                 'Rekeningen en gegevens (${rows(_status?['accounts']).length})',
@@ -732,7 +755,18 @@ class _BankingScreenState extends State<BankingScreen> {
                                   .map(
                                     (r) => ListTile(
                                       title: Text(
-                                        '${r['label'] ?? ''} ${r['contains']} ${r['iban']}',
+                                        [
+                                              r['label'],
+                                              r['merchant'],
+                                              r['contains'],
+                                              r['iban'],
+                                            ]
+                                            .where(
+                                              (value) =>
+                                                  value != null &&
+                                                  '$value'.trim().isNotEmpty,
+                                            )
+                                            .join(' · '),
                                       ),
                                       subtitle: Text(
                                         bankCategories[r['category']] ?? '',
