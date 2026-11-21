@@ -56,6 +56,21 @@ class BankingTest {
         assertEquals(1, report.transactions.size)
         assertEquals("10.05", report.extra.toPlainString())
     }
+    @Test fun `extra bankregels buiten de periode blokkeren geldige transacties niet`() {
+        seed()
+        fun dated(ref: String, date: LocalDate) = (transaction(ref).deepCopy<com.fasterxml.jackson.databind.node.ObjectNode>())
+            .put("booking_date", date.toString())
+        `when`(gateway.transactions(account.uid, today.minusYears(1), today)).thenReturn(listOf(
+            dated("too-old", today.minusYears(1).minusDays(1)),
+            dated("first-day", today.minusYears(1)),
+            transaction("inside"), dated("last-day", today), dated("future", today.plusDays(1))))
+        service.sync(owner)
+        val imported = listOf(today.minusYears(1).toString().take(7), month, today.toString().take(7)).distinct()
+            .flatMap { service.month(owner, it).transactions }
+        assertEquals(3, imported.size)
+        assertTrue(imported.all { it.date >= today.minusYears(1).toString() && it.date <= today.toString() })
+        assertNotNull(service.connection(owner).lastSync)
+    }
     @Test fun `twee identieke betalingen zonder referentie blijven twee betalingen`() {
         val counts = mutableMapOf<String, Int>()
         val first = parseTransaction(account.id, transaction(""), counts)

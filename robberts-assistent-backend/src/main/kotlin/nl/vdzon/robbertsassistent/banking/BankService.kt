@@ -81,7 +81,9 @@ class BankService(private val settings: BankSettings, private val store: BankSto
             gateway.transactions(account.uid, from, today).forEach rowLoop@{ json ->
                 if (json.path("status").asText("BOOK") != "BOOK") return@rowLoop
                 val row = parseTransaction(account.id, json, occurrences)
-                require(row.date >= from.toString() && row.date <= today.toString()) { "Bankdatum buiten opgevraagde periode" }
+                // De bank kan extra boekingsdatums buiten de aangevraagde periode leveren.
+                // Filter op onze eigen periode; zo blokkeert één extra regel niet de hele import.
+                if (row.date < from.toString() || row.date > today.toString()) return@rowLoop
                 val duplicate = seen.put(row.id, row)
                 require(duplicate == null || duplicate == row) { "Tegenstrijdige bankreferenties" }
             }
