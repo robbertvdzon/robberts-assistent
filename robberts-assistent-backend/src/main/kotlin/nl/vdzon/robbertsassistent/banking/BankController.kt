@@ -43,6 +43,13 @@ class BankController(private val auth: AuthService, private val bank: BankServic
     @GetMapping("/month") fun month(@RequestHeader("Authorization", required = false) header: String?,
         @RequestParam(required = false) month: String?) = privateResponse(bank.month(owner(header), month ?: YearMonth.now(ZoneId.of("Europe/Amsterdam")).toString()))
     @GetMapping("/rules") fun rules(@RequestHeader("Authorization", required = false) header: String?) = privateResponse(bank.rules(owner(header)))
+    @GetMapping("/history") fun history(@RequestHeader("Authorization", required = false) header: String?,
+        @RequestParam(required = false) end: String?) = privateResponse(bank.history(owner(header),
+            end ?: YearMonth.now(ZoneId.of("Europe/Amsterdam")).toString()))
+    @GetMapping("/planning") fun planning(@RequestHeader("Authorization", required = false) header: String?,
+        @RequestParam year: Int) = privateResponse(bank.planning(owner(header), year))
+    @PutMapping("/planning") fun savePlanning(@RequestHeader("Authorization", required = false) header: String?,
+        @RequestParam year: Int, @RequestBody planning: BankPlanning) = privateResponse(bank.savePlanning(owner(header), year, planning))
     @PutMapping("/rules") fun saveRules(@RequestHeader("Authorization", required = false) header: String?, @RequestBody rules: BankRules) =
         privateResponse(bank.saveRules(owner(header), rules))
     @PutMapping("/month/{month}/transactions/{id}/category") fun classify(@RequestHeader("Authorization", required = false) header: String?,

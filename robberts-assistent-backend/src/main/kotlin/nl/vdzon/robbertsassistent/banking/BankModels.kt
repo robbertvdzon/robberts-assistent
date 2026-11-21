@@ -8,7 +8,7 @@ enum class BankCategory(val label: String) {
     REVIEW("Nog te beoordelen"), GROCERIES("Boodschappen"), HOUSING("Wonen en vaste lasten"),
     INSURANCE("Verzekeringen"), TRANSPORT("Vervoer"), HEALTH("Zorg"), TAX("Belastingen"),
     BUSINESS("Zakelijk"), PENSION("Pensioen en sparen"), CHARITY("Goede doelen"),
-    BANK_FEES("Bankkosten"), CREDIT_CARD("Creditcard, nog zonder details"), EXTRA("Overig / extra"), INTERNAL("Interne overboeking"), INCOME("Inkomsten")
+    BANK_FEES("Bankkosten"), CREDIT_CARD("Creditcard, nog zonder details"), HOLIDAY("Vakantie"), EXTRA("Overig / extra"), INTERNAL("Interne overboeking"), INCOME("Inkomsten")
 }
 data class BankAccount(val id: String, val uid: String, val iban: String, val name: String,
     val sessionId: String, val validUntil: Instant)

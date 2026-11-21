@@ -133,6 +133,48 @@ class BankService(private val settings: BankSettings, private val store: BankSto
             (if (connection.accounts.any { it.validUntil <= Instant.now() }) listOf("Banktoestemming is verlopen; vernieuw de koppeling.") else emptyList())
         return BankLedger.month(validMonth, rows, warnings.distinct())
     }
+    fun history(owner: String, end: String): BankHistory {
+        requireOwner(owner)
+        require(end.matches(Regex("\\d{4}-(0[1-9]|1[0-2])")))
+        val last = YearMonth.parse(end)
+        require(last.year in 1900..2200)
+        val connection = connection(owner)
+        val rubrication = rules(owner)
+        // Read shared metadata once; each historical month reads only its own encrypted record.
+        val months = (11L downTo 0L).map { offset ->
+            val month = last.minusMonths(offset).toString()
+            val rows = transactions(owner, month).map {
+                BankLedger.classify(it, connection.accounts, rubrication.rules, rubrication.ownIbans)
+            }
+            BankLedger.month(month, rows, emptyList())
+        }
+        val dates = months.flatMap { it.transactions }.map { it.date }
+        val warnings = connection.warnings + listOf(
+            "Datums tonen opgeslagen boekingen. Een lege maand betekent niet dat er geen uitgaven waren.",
+            "Interne overboekingen zijn uitgesloten; creditcardbetalingen zijn zonder kaartdetails niet verder uitgesplitst.",
+        ) + if (connection.accounts.any { it.validUntil <= Instant.now() })
+            listOf("Banktoestemming is verlopen; vernieuw de koppeling.") else emptyList()
+        return BankHistory(months, dates.minOrNull(), dates.maxOrNull(), warnings.distinct())
+    }
+    fun planning(owner: String, year: Int): BankPlanning {
+        requireOwner(owner)
+        require(year in 1900..2200)
+        store.read(owner, "planning-$year", BankPlanning::class.java)?.let { return it }
+        val previousYear = store.keys(owner).mapNotNull { key ->
+            Regex("planning-(\\d{4})").matchEntire(key)?.groupValues?.get(1)?.toIntOrNull()
+        }.filter { it < year && it in 1900..2200 }.maxOrNull() ?: return BankPlanning(year)
+        val previous = store.read(owner, "planning-$previousYear", BankPlanning::class.java) ?: return BankPlanning(year)
+        val annual = previous.items.filter { it.annual }.map { it.copy(certainty = BankPlanCertainty.ESTIMATE) }
+        return BankPlanning(year, items = annual, inheritedFromYear = previousYear.takeIf { annual.isNotEmpty() })
+    }
+    fun savePlanning(owner: String, year: Int, planning: BankPlanning): BankPlanning {
+        requireOwner(owner)
+        val valid = planning.validated(year)
+        return store.exclusive(owner) {
+            store.write(owner, "planning-$year", valid)
+            valid
+        }
+    }
     fun saveRules(owner: String, rules: BankRules): BankRules = store.exclusive(owner) {
         requireOwner(owner)
         require(rules.rules.size <= 500)

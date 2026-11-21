@@ -133,3 +133,23 @@ verlopen states worden functioneel altijd geweigerd.
 
 Officiële documentatie: [API](https://enablebanking.com/docs/api/reference/) en
 [Eigen rekeningen activeren](https://enablebanking.com/docs/api/linked-accounts).
+
+## Financieel overzicht en jaarplanning
+
+Bankzaken bevat een maandoverzicht, categoriedetails en een jaarplanning. De URL
+bewaart maand, weergave, categorie en planningsjaar. Het maandoverzicht rekent in
+gehele centen uit dezelfde transacties als de details. Interne overboekingen zijn
+uitgesloten; ontvangsten binnen uitgavencategorieën worden apart benoemd, omdat
+bijvoorbeeld een pensioenopname geen winkelterugbetaling is. Klik op een categorie
+en daarna een aanbieder om alle boekingen en de rubriceringsbron te bekijken.
+Polisnamen worden niet uit alleen een aanbiedersnaam verzonnen.
+
+`GET /api/v1/banking/history?end=YYYY-MM` levert twaalf maanden met alleen de
+beschikbare boekingen. Lege, eerste en lopende maanden zijn niet automatisch
+volledig. `GET/PUT /api/v1/banking/planning?year=YYYY` bewaart de maandbasis,
+beginbuffer, categoriebudgetten en losse jaarposten versleuteld in de bestaande
+bankopslag. Een nieuw jaar kan jaarlijks herhaalde posten uit een eerder opgeslagen
+jaar als schattingen overnemen. De voorspelling vereist expliciete maandinkomsten
+en maanduitgaven; reserveringen en categoriebudgetten tellen niet nogmaals als
+uitgave. Vakantie heeft de eigen categorie `HOLIDAY`; bestaande handmatige
+indelingen veranderen daardoor niet vanzelf.

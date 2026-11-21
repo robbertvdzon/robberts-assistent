@@ -10,6 +10,8 @@ import org.mockito.Mockito.*
 import org.springframework.http.HttpStatus
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
+import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
@@ -78,5 +80,53 @@ class BankControllerTest {
         val firebase = mock(FirebaseProvider::class.java)
         assertThrows(IllegalStateException::class.java) { BankConfig().bankStore(settings, firebase, mapper, secrets) }
         verifyNoInteractions(firebase)
+    }
+    @Test fun `historie en planning vereisen eigenaar en zijn niet cachebaar`() {
+        listOf("/api/v1/banking/history?end=2026-11", "/api/v1/banking/planning?year=2027").forEach { url ->
+            mvc.perform(get(url)).andExpect(status().isUnauthorized)
+            mvc.perform(get(url).header("Authorization", "Bearer other")).andExpect(status().isForbidden)
+            mvc.perform(get(url).header("Authorization", "Bearer alias"))
+                .andExpect(status().isOk).andExpect(header().string("Cache-Control", "no-store"))
+        }
+        val body = """{"year":2027,"monthlyIncome":6850,"items":[{"id":"trip","title":"Vakantie","amount":3000,"month":7,"annual":true}]}"""
+        mvc.perform(put("/api/v1/banking/planning?year=2027").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isUnauthorized)
+        mvc.perform(put("/api/v1/banking/planning?year=2027").header("Authorization", "Bearer other")
+            .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden)
+        mvc.perform(put("/api/v1/banking/planning?year=2027").header("Authorization", "Bearer alias")
+            .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk).andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(jsonPath("$.monthlyIncome").value(6850)).andExpect(jsonPath("$.items[0].title").value("Vakantie"))
+        mvc.perform(get("/api/v1/banking/planning?year=2027").header("Authorization", "Bearer owner"))
+            .andExpect(jsonPath("$.items[0].title").value("Vakantie"))
+        mvc.perform(put("/api/v1/banking/planning?year=2028").header("Authorization", "Bearer owner")
+            .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest)
+        verifyNoInteractions(gateway)
+    }
+    @Test fun `planning endpoint weigert ongeldige jaartallen en ongeldige json zonder eerdere planning te wijzigen`() {
+        val valid = """{"year":2027,"monthlyIncome":6850,"items":[]}"""
+        mvc.perform(put("/api/v1/banking/planning?year=2027").header("Authorization", "Bearer owner")
+            .contentType(MediaType.APPLICATION_JSON).content(valid)).andExpect(status().isOk)
+        listOf("1899", "2201", "geen-jaar").forEach { year ->
+            mvc.perform(get("/api/v1/banking/planning?year=$year").header("Authorization", "Bearer owner"))
+                .andExpect(status().isBadRequest)
+        }
+        val invalid = listOf(
+            """{"year":2027,"monthlyIncome":-1}""",
+            """{"year":2027,"monthlyIncome":1.001}""",
+            """{"year":2027,"items":[{"id":"trip","title":"Vakantie","amount":100,"month":13}]}""",
+            """{"year":2027,"items":[{"id":"trip","title":"Vakantie","amount":100,"month":2,"kind":"TRANSFER"}]}""",
+            """{"year":2027,"items":[{"id":"trip","amount":100,"month":2}]}""",
+            """{"year":2027,"budgets":{"UNKNOWN":100}}""",
+            """{"year":2027,"monthlyIncome":NaN}""",
+        )
+        invalid.forEach { body ->
+            mvc.perform(put("/api/v1/banking/planning?year=2027").header("Authorization", "Bearer owner")
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest)
+            mvc.perform(get("/api/v1/banking/planning?year=2027").header("Authorization", "Bearer owner"))
+                .andExpect(jsonPath("$.monthlyIncome").value(6850))
+        }
+        mvc.perform(get("/api/v1/banking/history?end=2026-13").header("Authorization", "Bearer owner"))
+            .andExpect(status().isBadRequest)
     }
 }

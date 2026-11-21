@@ -240,6 +240,13 @@ class _RootScreenState extends State<RootScreen> {
               detailName,
               api,
               month: location?.queryParameters['month'],
+              location: location,
+              onBankLocationChanged: (params) => navigate(
+                Uri(
+                  path: '/meer/bankzaken',
+                  queryParameters: params,
+                ).toString(),
+              ),
               onMonthChanged: (month) =>
                   navigate('/meer/bankzaken?month=$month'),
             ),

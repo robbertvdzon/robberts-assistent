@@ -37,11 +37,17 @@ class MoreScreen extends StatelessWidget {
     ApiClient api, {
     String? month,
     ValueChanged<String>? onMonthChanged,
+    Uri? location,
+    ValueChanged<Map<String, String>>? onBankLocationChanged,
   }) => switch (name) {
     'bankzaken' => BankingScreen(
       api: api,
       initialMonth: month,
       onMonthChanged: onMonthChanged,
+      initialView: location?.queryParameters['view'] ?? 'month',
+      initialCategory: location?.queryParameters['category'],
+      initialYear: int.tryParse(location?.queryParameters['year'] ?? ''),
+      onLocationChanged: onBankLocationChanged,
     ),
     'moestuin' => GardenScreen(api: api),
     'health' => HealthCheckScreen(api: api),
