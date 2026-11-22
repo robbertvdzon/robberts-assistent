@@ -271,11 +271,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
     if (widget.onNavigate == null) return home;
-    return PopScope(
-      canPop: widget.detail == null,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && widget.detail != null) widget.onNavigate!('/meer');
-      },
+    // De terugknop van de telefoon komt bij de buitenste navigator aan, en die heeft maar één
+    // pagina: zonder deze afhandeling sloot terug de app, ook als er binnenin een scherm open stond
+    // (een eetmoment, een bak, een instellingenscherm). NavigatorPopHandler geeft terug door aan de
+    // navigator hierbinnen zolang die iets te sluiten heeft; pas daarna verlaat terug de app.
+    return NavigatorPopHandler<Object?>(
+      onPopWithResult: (_) => _detailNavigator.currentState?.maybePop(),
       child: Navigator(
         key: _detailNavigator,
         pages: [

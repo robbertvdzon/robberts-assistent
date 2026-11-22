@@ -15,6 +15,7 @@ import 'package:robberts_assistent/couplings_screen.dart';
 import 'package:robberts_assistent/fcm_service.dart';
 import 'package:robberts_assistent/health_check_screen.dart';
 import 'package:robberts_assistent/home_screen.dart';
+import 'package:robberts_assistent/main.dart';
 import 'package:robberts_assistent/memory_screen.dart';
 import 'package:robberts_assistent/more_screen.dart';
 import 'package:robberts_assistent/nightly_checks_screen.dart';
@@ -447,6 +448,37 @@ void main() {
     expect(find.text('Slap'), findsOneWidget);
     expect(AppShortcuts.pending.value, isNull);
   });
+
+  testWidgets(
+    'terugknop van de telefoon sluit het open scherm en niet de app',
+    (tester) async {
+      final router = createAppRouter(
+        initialLocation: '/dagboek',
+        rootBuilder: (uri) => HomeScreen(
+          api: _FakeApiClient(),
+          onLoggedOut: () {},
+          initialTab: 2,
+          onNavigate: (_) {},
+        ),
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pump();
+
+      // Een scherm openen vanuit het dagboek zelf, zoals een eetmoment: dat komt op de
+      // navigator binnen het startscherm, niet op de buitenste.
+      await tester.tap(find.text('Gevoel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hoe voel je je?'), findsOneWidget);
+
+      // De systeem-terugknop komt bij de buitenste navigator binnen.
+      final handled = await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(handled, isTrue);
+      expect(find.text('Hoe voel je je?'), findsNothing);
+      expect(find.byType(NavigationBar), findsOneWidget);
+    },
+  );
 
   testWidgets('snelkoppeling Gewicht opent het dagboek met het invoerblad', (
     tester,
