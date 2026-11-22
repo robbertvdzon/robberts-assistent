@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'api_client.dart';
-import 'status_pill.dart';
 
 class WatchesScreen extends StatefulWidget {
   const WatchesScreen({super.key, required this.api});
@@ -187,36 +187,13 @@ class _WatchesScreenState extends State<WatchesScreen> {
             ),
           )
         : ListView(
-            children: _watches
-                .map(
-                  (watch) => ListTile(
-                    title: Text(watch.title),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(watch.statusDescription),
-                        const SizedBox(height: 6),
-                        StatusPill(variant: _statusVariant(watch.status)),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: 'Bewerk ${watch.title}',
-                          onPressed: () => _edit(watch),
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
-                        IconButton(
-                          tooltip: 'Verwijder ${watch.title}',
-                          onPressed: () => _delete(watch),
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
+            padding: EdgeInsets.fromLTRB(
+              12,
+              8,
+              12,
+              88 + MediaQuery.viewPaddingOf(context).bottom,
+            ),
+            children: [for (final watch in _watches) _card(watch)],
           ),
     floatingActionButton: FloatingActionButton(
       heroTag: 'nieuwe-zoekopdracht',
@@ -227,12 +204,241 @@ class _WatchesScreenState extends State<WatchesScreen> {
     ),
   );
 
-  StatusPillVariant _statusVariant(String status) => switch (status) {
-    'GEVONDEN' => StatusPillVariant.good,
-    'NIET_GEVONDEN' => StatusPillVariant.warning,
-    'ONBEKEND' => StatusPillVariant.critical,
-    _ => StatusPillVariant.neutral,
-  };
+  Future<void> _acknowledge(Watch watch) async {
+    try {
+      final watches = await widget.api.acknowledgeWatch(watch.id);
+      if (mounted) setState(() => _watches = watches);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Bevestigen mislukt: $e')));
+      }
+    }
+  }
+
+  Future<void> _openPage(Watch watch) async {
+    final uri = Uri.tryParse(watch.url);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Niet te openen: de zoekopdracht zelf blijft bruikbaar.
+    }
+  }
+
+  /// Eén zoekopdracht: bovenaan in woorden wat de stand is, daaronder wat de pagina zei en hoe
+  /// lang het al zo is. Een vondst blijft opvallen tot hij met 'Gezien' is bevestigd.
+  Widget _card(Watch watch) {
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final state = watchState(watch, DateTime.now());
+    return Card(
+      key: ValueKey('zoekopdracht-${watch.id}'),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      color: watch.needsAcknowledge ? const Color(0xFFE9F6E9) : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    watch.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Bewerk ${watch.title}',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _edit(watch),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Verwijder ${watch.title}',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _delete(watch),
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Icon(state.icon, size: 20, color: state.color),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    state.headline,
+                    style: TextStyle(
+                      color: state.color,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(watch.statusDescription),
+            ),
+            if (watch.note.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, right: 8),
+                child: Text(watch.note),
+              ),
+            if (state.detail.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, right: 8),
+                child: Text(state.detail, style: muted),
+              ),
+            Wrap(
+              spacing: 4,
+              children: [
+                if (watch.needsAcknowledge)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, right: 4),
+                    child: FilledButton.icon(
+                      key: ValueKey('gezien-${watch.id}'),
+                      onPressed: () => _acknowledge(watch),
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Gezien'),
+                    ),
+                  ),
+                TextButton.icon(
+                  onPressed: () => _openPage(watch),
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('Pagina openen'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Hoe een zoekopdracht er in woorden voor staat.
+class WatchState {
+  const WatchState(this.icon, this.color, this.headline, this.detail);
+
+  final IconData icon;
+  final Color color;
+  final String headline;
+
+  /// Hoe lang het al zo is en wanneer er voor het laatst is gekeken.
+  final String detail;
+}
+
+const _watchMonths = [
+  'jan',
+  'feb',
+  'mrt',
+  'apr',
+  'mei',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'okt',
+  'nov',
+  'dec',
+];
+
+String _day(DateTime d) => '${d.day} ${_watchMonths[d.month - 1]}';
+
+String _clock(DateTime d) =>
+    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+/// "vandaag", "sinds gisteren", "3 dagen", "2 weken", "3 maanden".
+String watchDuration(DateTime since, DateTime now) {
+  final days = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).difference(DateTime(since.year, since.month, since.day)).inDays;
+  if (days <= 0) return 'vandaag';
+  if (days == 1) return '1 dag';
+  if (days < 14) return '$days dagen';
+  if (days < 60) return '${days ~/ 7} weken';
+  return '${days ~/ 30} maanden';
+}
+
+WatchState watchState(Watch watch, DateTime now) {
+  const green = Color(0xFF0A6D0A);
+  const grey = Color(0xFF4B545E);
+  const amber = Color(0xFF8A5C05);
+  final checked = watch.lastCheckedAt;
+  final lastCheck = checked == null
+      ? ''
+      : 'Laatst gecontroleerd: ${_day(checked)} ${_clock(checked)}.';
+  switch (watch.status) {
+    case 'GEVONDEN':
+      final when = watch.foundAt ?? checked;
+      final on = when == null ? '' : ' op ${_day(when)}';
+      if (watch.needsAcknowledge) {
+        return WatchState(
+          Icons.check_circle,
+          green,
+          'Gevonden$on',
+          watch.foundAt != null && watch.notifyOnFound
+              ? 'Je krijgt elke ochtend een herinnering tot je op Gezien tikt.'
+              : 'De zoekopdracht is gestopt. Tik op Gezien om hem af te handelen.',
+        );
+      }
+      return WatchState(
+        Icons.check_circle_outline,
+        grey,
+        'Gevonden$on en gezien',
+        'De zoekopdracht is gestopt. Sla hem opnieuw op om weer te zoeken.',
+      );
+    case 'NIET_GEVONDEN':
+      final since = watch.searchingSince;
+      return WatchState(
+        Icons.search,
+        grey,
+        'Nog niet gevonden',
+        [
+          if (since != null)
+            watchDuration(since, now) == 'vandaag'
+                ? 'Zoekt sinds vandaag.'
+                : 'Zoekt al ${watchDuration(since, now)} (sinds ${_day(since)}).',
+          lastCheck,
+          'Wordt elk uur gecontroleerd tussen 8 en 22 uur.',
+        ].where((s) => s.isNotEmpty).join(' '),
+      );
+    case 'ONBEKEND':
+      final failing = watch.failingSince;
+      return WatchState(
+        Icons.error_outline,
+        amber,
+        'Controleren lukt niet',
+        [
+          if (failing != null)
+            watchDuration(failing, now) == 'vandaag'
+                ? 'Mislukt sinds vandaag.'
+                : 'Mislukt al ${watchDuration(failing, now)} (sinds ${_day(failing)}).',
+          lastCheck,
+          'Wordt elk uur opnieuw geprobeerd.',
+        ].where((s) => s.isNotEmpty).join(' '),
+      );
+    default:
+      return const WatchState(
+        Icons.schedule,
+        grey,
+        'Nog niet gecontroleerd',
+        'De eerste controle volgt binnen een paar minuten (tussen 8 en 22 uur).',
+      );
+  }
 }
 
 class _WatchInput {

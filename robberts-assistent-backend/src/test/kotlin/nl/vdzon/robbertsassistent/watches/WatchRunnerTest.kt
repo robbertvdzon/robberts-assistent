@@ -400,9 +400,68 @@ class WatchRunnerTest {
 
         val eerste = repository.findById("1")!!
         assertEquals(WatchStatus.ONBEKEND, eerste.status)
-        assertEquals("Controle mislukt; de opdracht wordt later opnieuw geprobeerd.", eerste.statusDescription)
+        assertEquals("Controle mislukt: netwerk/http-fout", eerste.statusDescription)
         assertTrue(eerste.active)
         assertEquals(WatchStatus.NIET_GEVONDEN, repository.findById("2")!!.status)
+    }
+
+    @Test
+    fun `een vondst blijft elke dag herinneren tot hij als gezien is bevestigd`() {
+        val repository = InMemoryWatchRepository().also { it.save(watch()) }
+        val push = FakePush()
+        val runner = WatchRunner(repository, FakeFetcher(), FakeEvaluator(WatchAssessment(true, "Twee kaarten.")), push)
+        val foundAt = instant("2026-08-01T10:00:00")
+
+        runner.poll(foundAt)
+        val found = repository.all().single()
+        assertEquals(foundAt, found.foundAt)
+        assertEquals(null, found.acknowledgedAt)
+        assertEquals(1, push.sent.size)
+
+        runner.remind(instant("2026-08-02T09:00:00"))
+        runner.remind(instant("2026-08-03T09:00:00"))
+        assertEquals(3, push.sent.size)
+
+        WatchService(repository).acknowledge(found.id)
+        runner.remind(instant("2026-08-04T09:00:00"))
+        assertEquals(3, push.sent.size)
+        assertTrue(repository.all().single().acknowledgedAt != null)
+    }
+
+    @Test
+    fun `oude vondsten zonder datum en vondsten zonder melding krijgen geen herinnering`() {
+        val repository = InMemoryWatchRepository()
+        repository.save(watch().copy(id = "oud", status = WatchStatus.GEVONDEN, active = false))
+        repository.save(watch(notify = false).copy(id = "stil", status = WatchStatus.GEVONDEN, active = false, foundAt = instant("2026-08-01T10:00:00")))
+        val push = FakePush()
+
+        WatchRunner(repository, FakeFetcher(), FakeEvaluator(), push).remind(instant("2026-08-02T09:00:00"))
+
+        assertEquals(0, push.sent.size)
+    }
+
+    @Test
+    fun `sinds wanneer er gezocht wordt en sinds wanneer het misgaat blijft staan over controles heen`() {
+        val repository = InMemoryWatchRepository().also { it.save(watch()) }
+        val fetcher = FakeFetcher()
+        val runner = WatchRunner(repository, fetcher, FakeEvaluator(), FakePush())
+        val first = instant("2026-08-01T10:00:00")
+
+        runner.poll(first)
+        runner.poll(instant("2026-08-01T12:00:00"))
+        assertEquals(first, repository.all().single().searchingSince)
+        assertEquals(null, repository.all().single().failingSince)
+
+        fetcher.error = true
+        val broken = instant("2026-08-01T14:00:00")
+        runner.poll(broken)
+        runner.poll(instant("2026-08-01T16:00:00"))
+        assertEquals(broken, repository.all().single().failingSince)
+        assertEquals(first, repository.all().single().searchingSince)
+
+        fetcher.error = false
+        runner.poll(instant("2026-08-01T18:00:00"))
+        assertEquals(null, repository.all().single().failingSince)
     }
 
     @Test
@@ -418,7 +477,7 @@ class WatchRunnerTest {
 
         verify(pushService).sendToAll(
             "Zoekopdracht gevonden",
-            "Kaarten: Twee kaarten beschikbaar.",
+            "Kaarten: Twee kaarten beschikbaar. Open de app en tik op Gezien.",
             mapOf("type" to "watch"),
         )
     }

@@ -27,6 +27,14 @@ class WatchEvaluatorTest {
     }
 
     @Test
+    fun `derde regel is context, en geen betekent dat er niets opviel`() {
+        val withNote = WatchAssessmentParser.parse("NIET GEVONDEN\nNog uitverkocht.\nregel 3: Het product lijkt uit het assortiment.")
+        assertEquals("Het product lijkt uit het assortiment.", withNote.note)
+        assertEquals("", WatchAssessmentParser.parse("NIET GEVONDEN\nNog uitverkocht.\nGeen.").note)
+        assertEquals("", WatchAssessmentParser.parse("NIET GEVONDEN\nNog uitverkocht.").note)
+    }
+
+    @Test
     fun `parser weigert ontbrekende omschrijving en onbekende status`() {
         assertFailsWith<IllegalArgumentException> { WatchAssessmentParser.parse("GEVONDEN") }
         assertFailsWith<IllegalStateException> { WatchAssessmentParser.parse("MISSCHIEN\nOnduidelijk.") }

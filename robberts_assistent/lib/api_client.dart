@@ -404,6 +404,14 @@ class ApiClient {
 
   /// Controleert nu meteen alle actieve zoekopdrachten (`POST /api/v1/watches/run-now`) en geeft
   /// de bijgewerkte lijst terug, zodat er na de run geen extra `GET` nodig is.
+  /// Bevestigt dat een gevonden zoekopdracht gezien is; de dagelijkse herinnering stopt.
+  Future<List<Watch>> acknowledgeWatch(String id) async {
+    final body = await postJson('/api/v1/watches/$id/acknowledge');
+    return (body['watches'] as List)
+        .map((e) => Watch.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<Watch>> runWatchesNow() async {
     final body = await postJson('/api/v1/watches/run-now');
     return (body['watches'] as List)
@@ -989,6 +997,9 @@ class BriefingSection {
   final List<BriefingItem> items;
   final BriefingStatus? status;
   final String? tileLabel;
+
+  /// Waarom de tegel 'let op' of 'niet' toont; `null` als het goed is.
+  final String? statusReason;
   const BriefingSection({
     required this.key,
     required this.title,
@@ -996,6 +1007,7 @@ class BriefingSection {
     required this.items,
     this.status,
     this.tileLabel,
+    this.statusReason,
   });
 
   static BriefingSection fromJson(Map<String, dynamic> m) => BriefingSection(
@@ -1007,6 +1019,7 @@ class BriefingSection {
         .toList(),
     status: BriefingStatus.fromJson(m['status']),
     tileLabel: m['tileLabel'] as String?,
+    statusReason: m['statusReason'] as String?,
   );
 }
 
@@ -1216,6 +1229,22 @@ class Watch {
   final DateTime? lastCheckedAt;
   final bool active;
 
+  /// Sinds wanneer de opdracht (opnieuw) zoekt.
+  final DateTime? searchingSince;
+  final DateTime? foundAt;
+
+  /// Wanneer de vondst als gezien is bevestigd; tot dan volgt elke dag een herinnering.
+  final DateTime? acknowledgedAt;
+
+  /// Sinds wanneer de controle achter elkaar mislukt.
+  final DateTime? failingSince;
+
+  /// Wat de AI verder opviel (pagina weg, product uit het assortiment, verwachte datum).
+  final String note;
+
+  bool get found => status == 'GEVONDEN';
+  bool get needsAcknowledge => found && acknowledgedAt == null;
+
   const Watch({
     required this.id,
     required this.title,
@@ -1226,7 +1255,15 @@ class Watch {
     required this.statusDescription,
     this.lastCheckedAt,
     required this.active,
+    this.searchingSince,
+    this.foundAt,
+    this.acknowledgedAt,
+    this.failingSince,
+    this.note = '',
   });
+
+  static DateTime? _time(Object? value) =>
+      value == null ? null : DateTime.parse(value as String).toLocal();
 
   static Watch fromJson(Map<String, dynamic> m) => Watch(
     id: m['id'] as String,
@@ -1241,6 +1278,11 @@ class Watch {
         ? null
         : DateTime.parse(m['lastCheckedAt'] as String).toLocal(),
     active: m['active'] as bool? ?? true,
+    searchingSince: _time(m['searchingSince']),
+    foundAt: _time(m['foundAt']),
+    acknowledgedAt: _time(m['acknowledgedAt']),
+    failingSince: _time(m['failingSince']),
+    note: m['note'] as String? ?? '',
   );
 }
 

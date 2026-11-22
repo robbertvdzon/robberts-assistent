@@ -13,6 +13,8 @@ data class BriefingSection(
     // bestaande/niet-statussecties en bij onbetrouwbare brondata.
     val status: BriefingStatus? = null,
     val tileLabel: String? = null,
+    // Waarom de tegel 'let op' of 'niet' toont, in gewone woorden; null als het goed is.
+    val statusReason: String? = null,
 )
 
 /** Betekenisvolle status van een compacte briefingtegel; de enum-namen zijn ook de JSON-waarden. */

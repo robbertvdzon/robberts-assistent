@@ -11,7 +11,7 @@ class PushServiceWatchNotifier(private val pushService: PushService) : WatchPush
     override fun found(watch: Watch) {
         pushService.sendToAll(
             title = "Zoekopdracht gevonden",
-            body = "${watch.title}: ${watch.statusDescription}",
+            body = "${watch.title}: ${watch.statusDescription} Open de app en tik op Gezien.",
             data = mapOf("type" to "watch"),
         )
     }
@@ -56,8 +56,11 @@ class WatchRunner(
                 watch,
                 watch.copy(
                     status = WatchStatus.ONBEKEND,
-                    statusDescription = "Controle mislukt; de opdracht wordt later opnieuw geprobeerd.",
+                    // De reden erbij: een pagina die niet meer bestaat is iets anders dan een storing.
+                    statusDescription = "Controle mislukt: ${(it.message ?: "onbekende fout").take(200)}",
                     lastCheckedAt = now,
+                    searchingSince = watch.searchingSince ?: now,
+                    failingSince = watch.failingSince ?: now,
                 ),
             )
             return
@@ -66,13 +69,37 @@ class WatchRunner(
         val updated = watch.copy(
             status = if (assessment.found) WatchStatus.GEVONDEN else WatchStatus.NIET_GEVONDEN,
             statusDescription = assessment.description,
+            note = assessment.note,
             lastCheckedAt = now,
             active = !assessment.found,
+            searchingSince = watch.searchingSince ?: now,
+            failingSince = null,
+            foundAt = if (assessment.found) now else null,
+            acknowledgedAt = null,
+            lastRemindedAt = if (assessment.found) now else null,
         )
         val persisted = repository.compareAndSet(watch, updated) ?: return
         if (assessment.found && watch.status != WatchStatus.GEVONDEN && watch.notifyOnFound) {
             runCatching { pushNotifier.found(persisted) }
                 .onFailure { logger.warn("Push van gevonden watch {} mislukte: {}", watch.id, it.message) }
         }
+    }
+
+    /**
+     * Een pushmelding is zo weggeveegd. Zolang een vondst niet als gezien is bevestigd, komt er
+     * daarom elke ochtend opnieuw een melding. Vondsten van vóór deze regeling (zonder `foundAt`)
+     * doen niet mee.
+     */
+    @Scheduled(cron = "0 0 9 * * *", zone = "Europe/Amsterdam")
+    fun remind() = remind(Instant.now())
+
+    internal fun remind(now: Instant) {
+        repository.all()
+            .filter { it.status == WatchStatus.GEVONDEN && it.foundAt != null && it.acknowledgedAt == null && it.notifyOnFound }
+            .forEach { watch ->
+                val persisted = repository.compareAndSet(watch, watch.copy(lastRemindedAt = now)) ?: return@forEach
+                runCatching { pushNotifier.found(persisted) }
+                    .onFailure { logger.warn("Herinnering van watch {} mislukte: {}", watch.id, it.message) }
+            }
     }
 }

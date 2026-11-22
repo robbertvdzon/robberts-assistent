@@ -31,6 +31,11 @@ data class WatchResponse(
     val statusDescription: String,
     val lastCheckedAt: Instant?,
     val active: Boolean,
+    val searchingSince: Instant? = null,
+    val foundAt: Instant? = null,
+    val acknowledgedAt: Instant? = null,
+    val failingSince: Instant? = null,
+    val note: String = "",
 )
 
 data class WatchesResponse(val watches: List<WatchResponse>)
@@ -86,6 +91,17 @@ class WatchesController(
         ).toResponse()
     }
 
+    /** Bevestigt dat de vondst gezien is; de dagelijkse herinnering stopt. */
+    @PostMapping("/api/v1/watches/{id}/acknowledge")
+    fun acknowledge(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: String,
+    ): WatchesResponse {
+        authService.requireAuthorization(authorization)
+        watchService.acknowledge(id)
+        return response()
+    }
+
     @DeleteMapping("/api/v1/watches/{id}")
     fun delete(
         @RequestHeader("Authorization", required = false) authorization: String?,
@@ -117,4 +133,9 @@ private fun Watch.toResponse() = WatchResponse(
     statusDescription = statusDescription,
     lastCheckedAt = lastCheckedAt,
     active = active,
+    searchingSince = searchingSince,
+    foundAt = foundAt,
+    acknowledgedAt = acknowledgedAt,
+    failingSince = failingSince,
+    note = note,
 )

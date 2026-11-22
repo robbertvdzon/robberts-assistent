@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 
-data class WatchAssessment(val found: Boolean, val description: String)
+data class WatchAssessment(val found: Boolean, val description: String, val note: String = "")
 
 interface WatchEvaluator {
     fun assess(instruction: String, pageText: String): WatchAssessment
@@ -32,11 +32,13 @@ object WatchAssessmentParser {
         val sameLine = lines[0].drop(if (found) "GEVONDEN".length else "NIET GEVONDEN".length).trimStart(' ', ':', '.', '-', ',').trim()
         val description = lines.getOrNull(1) ?: sameLine
         require(description.isNotEmpty()) { "Beoordelaar gaf geen omschrijving terug" }
-        return WatchAssessment(found, description.take(500))
+        // Een derde regel is de context; "geen" of een streepje betekent dat er niets opviel.
+        val note = lines.getOrNull(2).orEmpty().takeUnless { it.lowercase().trim('.', '-', ' ') in setOf("", "geen", "n.v.t", "nvt") }.orEmpty()
+        return WatchAssessment(found, description.take(500), note.take(300))
     }
 
     private fun clean(line: String): String =
-        line.trim().trim('*', '`', '#', ' ').replace(Regex("(?i)^regel\\s*[12]\\s*[:.-]\\s*"), "").trim('*', '`', ' ')
+        line.trim().trim('*', '`', '#', ' ').replace(Regex("(?i)^regel\\s*[123]\\s*[:.-]\\s*"), "").trim('*', '`', ' ')
 }
 
 @Configuration
@@ -57,6 +59,10 @@ class WatchAiConfig {
                 Antwoord exact met:
                 regel 1: GEVONDEN of NIET GEVONDEN
                 regel 2: een korte Nederlandstalige statusomschrijving
+                regel 3: context die de gebruiker helpt inschatten of wachten nog zin heeft, in één
+                zin, of het woord geen. Bijvoorbeeld: de pagina lijkt niet meer te bestaan of
+                verwijst door, het product lijkt uit het assortiment, er staat een verwachte
+                leverdatum, of de pagina vraagt om in te loggen. Herhaal regel 2 niet.
                 """.trimIndent(),
             )
             .build()

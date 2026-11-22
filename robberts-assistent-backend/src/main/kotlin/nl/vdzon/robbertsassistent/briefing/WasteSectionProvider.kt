@@ -82,7 +82,12 @@ class WasteSectionProvider internal constructor(
         } else {
             BriefingStatus.GOED
         }
-        return BriefingSection(key = "waste", title = "Afval", text = text, status = status, tileLabel = label)
+        val reason = when {
+            status != BriefingStatus.LET_OP -> null
+            firstDate == today -> "Vandaag wordt $label opgehaald."
+            else -> "Morgen wordt $label opgehaald: zet het vanavond buiten."
+        }
+        return BriefingSection(key = "waste", title = "Afval", text = text, status = status, tileLabel = label, statusReason = reason)
     }
 
     private fun shortType(type: String): String {

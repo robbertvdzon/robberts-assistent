@@ -188,6 +188,21 @@ class KiteSectionProviderTest {
         assertFalse(provider.section().text.contains("gegevens van"))
     }
 
+    @Test
+    fun `reden bij geel of rood zegt wat er niet klopt`() {
+        assertNull(KiteSectionProvider.kiteReason(25.0, 270.0, 0.0))
+        assertEquals("De wind is niet aanlandig (ONO) en te weinig wind (6 kn, kiten kan vanaf 15)", KiteSectionProvider.kiteReason(6.0, 67.5, 0.0))
+        assertEquals("Weinig wind (17 kn, ideaal is 20 tot 35)", KiteSectionProvider.kiteReason(17.0, 270.0, 0.0))
+        assertEquals("Regen en te veel wind (50 kn)", KiteSectionProvider.kiteReason(50.0, 270.0, 1.0))
+
+        assertNull(KiteSectionProvider.beachReason(8.0, 0.0, nearLowTide = true))
+        assertEquals("Het is dan geen laagwater", KiteSectionProvider.beachReason(8.0, 0.0, nearLowTide = false))
+        assertEquals("Regen en te veel wind (20 kn, fietsen kan tot 15)", KiteSectionProvider.beachReason(20.0, 0.5, nearLowTide = true))
+        // Met ochtend en avond staat erbij over welk dagdeel het gaat.
+        assertEquals("Avond: regen", reason("Avond", "Regen", 2))
+        assertEquals("Regen", reason("Dag", "Regen", 1))
+    }
+
     // --- 18:00-push: alleen op vrije dagen en alleen als het kan ---
 
     private val zone = java.time.ZoneId.of("Europe/Amsterdam")

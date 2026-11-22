@@ -19,4 +19,15 @@ data class Watch(
     val statusDescription: String = "Nog niet gecontroleerd.",
     val lastCheckedAt: Instant? = null,
     val active: Boolean = true,
+    /** Sinds wanneer de opdracht (opnieuw) zoekt; gezet bij aanmaken, wijzigen of de eerste controle. */
+    val searchingSince: Instant? = null,
+    /** Wanneer de voorwaarde waar werd. Zonder (oude vondsten) komt er geen dagelijkse herinnering. */
+    val foundAt: Instant? = null,
+    /** Wanneer Robbert de vondst als gezien heeft bevestigd; tot dan volgt elke dag een herinnering. */
+    val acknowledgedAt: Instant? = null,
+    val lastRemindedAt: Instant? = null,
+    /** Sinds wanneer de controle achter elkaar mislukt (pagina weg, AI onbereikbaar). */
+    val failingSince: Instant? = null,
+    /** Wat de AI verder opviel op de pagina, bijvoorbeeld dat het product uit het assortiment lijkt. */
+    val note: String = "",
 )

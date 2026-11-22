@@ -46,6 +46,7 @@ class BeachCycleSectionProvider(
                     } + (result.staleSince?.let { "\n${staleNotice(it)}" } ?: ""),
                     status = slot?.beach?.toBriefingStatus(),
                     tileLabel = slot?.beach?.let(::tileLabel),
+                    statusReason = slot?.beachReason?.let { reason(slot.label, it, result.slots.size) },
                 )
             }
         }

@@ -129,6 +129,8 @@ internal class SlotAssessmentProvider(
             nearestLowTideAt = nearestLowTideAt,
             kite = kiteColor,
             beach = beachColor,
+            kiteReason = KiteSectionProvider.kiteReason(speedKn, windHour.directionDeg, precipitationMm),
+            beachReason = KiteSectionProvider.beachReason(speedKn, precipitationMm, nearLowTide),
         )
     }
 
@@ -244,6 +246,10 @@ internal object FreeDayOutlook {
         minByOrNull { Duration.between(time(it), at).abs() }?.takeIf { Duration.between(time(it), at).abs() <= NEAREST_HOUR }
 }
 
+/** De reden voor de tegel; met meerdere dagdelen staat erbij over welk dagdeel het gaat. */
+internal fun reason(label: String, reason: String, slots: Int): String =
+    if (slots > 1) "$label: ${reason.replaceFirstChar { it.lowercase() }}" else reason
+
 internal data class SlotAssessment(
     val label: String,
     val windKn: Int,
@@ -254,6 +260,8 @@ internal data class SlotAssessment(
     val nearestLowTideAt: Instant?,
     val kite: RatingColor,
     val beach: RatingColor,
+    val kiteReason: String? = null,
+    val beachReason: String? = null,
 )
 
 internal sealed interface AssessmentResult {
@@ -302,6 +310,7 @@ class KiteSectionProvider(
                     } + (result.staleSince?.let { "\n${staleNotice(it)}" } ?: ""),
                     status = slot?.kite?.toBriefingStatus(),
                     tileLabel = slot?.let { "${it.windKn} kn ${it.windDirection}" },
+                    statusReason = slot?.kiteReason?.let { reason(slot.label, it, result.slots.size) },
                 )
             }
         }
@@ -341,6 +350,32 @@ class KiteSectionProvider(
                 speedKn in KITE_BORDERLINE_LOW || speedKn in KITE_BORDERLINE_HIGH -> RatingColor.YELLOW
                 else -> RatingColor.RED
             }
+        }
+
+        /** Waarom kiten geel of rood is, in gewone woorden; `null` bij groen. */
+        internal fun kiteReason(speedKn: Double, directionDeg: Double, precipitationMm: Double): String? {
+            val reasons = buildList {
+                if (precipitationMm > DRY_THRESHOLD_MM) add("regen")
+                if (directionDeg !in ONSHORE_SECTOR) add("de wind is niet aanlandig (${compassPoint(directionDeg)})")
+                when {
+                    speedKn < KITE_BORDERLINE_LOW.start -> add("te weinig wind (${speedKn.toInt()} kn, kiten kan vanaf 15)")
+                    speedKn in KITE_BORDERLINE_LOW -> add("weinig wind (${speedKn.toInt()} kn, ideaal is 20 tot 35)")
+                    speedKn in KITE_IDEAL_RANGE -> Unit
+                    speedKn <= KITE_BORDERLINE_HIGH.endInclusive -> add("veel wind (${speedKn.toInt()} kn, ideaal is 20 tot 35)")
+                    else -> add("te veel wind (${speedKn.toInt()} kn)")
+                }
+            }
+            return reasons.takeIf { it.isNotEmpty() }?.joinToString(" en ")?.replaceFirstChar { it.uppercase() }
+        }
+
+        /** Waarom strandfietsen geel of rood is; `null` bij groen. */
+        internal fun beachReason(speedKn: Double, precipitationMm: Double, nearLowTide: Boolean): String? {
+            val reasons = buildList {
+                if (precipitationMm > DRY_THRESHOLD_MM) add("regen")
+                if (speedKn >= BEACH_CYCLE_MAX_WIND_KN) add("te veel wind (${speedKn.toInt()} kn, fietsen kan tot 15)")
+                if (!nearLowTide) add("het is dan geen laagwater")
+            }
+            return reasons.takeIf { it.isNotEmpty() }?.joinToString(" en ")?.replaceFirstChar { it.uppercase() }
         }
 
         internal fun assessBeachCycle(speedKn: Double, precipitationMm: Double, nearLowTide: Boolean): RatingColor {

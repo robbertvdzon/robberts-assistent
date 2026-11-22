@@ -139,6 +139,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
           if (tileSections.isNotEmpty) ...[
             const SizedBox(height: 12),
             _buildTileRow(tileSections),
+            ..._buildTileReasons(tileSections),
             if (expandedSection != null) ...[
               const SizedBox(height: 8),
               Container(
@@ -170,6 +171,40 @@ class _SummaryScreenState extends State<SummaryScreen> {
       ],
     );
   }
+
+  /// Onder de tegels: per tegel die niet goed is één regel met de reden, over de volle breedte
+  /// zodat de zin niet afgekapt wordt.
+  List<Widget> _buildTileReasons(List<BriefingSection> sections) => [
+    for (final section in sections)
+      if (section.status != BriefingStatus.goed &&
+          (section.statusReason?.trim().isNotEmpty ?? false))
+        Padding(
+          key: ValueKey('status-reason-${section.key}'),
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 5, right: 8),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _statusColors[section.status!]!,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '${section.title}: ${section.statusReason!.trim()}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+        ),
+  ];
 
   Widget _buildStatusTile(BriefingSection section) {
     final status = section.status!;

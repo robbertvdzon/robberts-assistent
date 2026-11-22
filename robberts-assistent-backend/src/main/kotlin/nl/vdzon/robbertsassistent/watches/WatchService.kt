@@ -27,12 +27,24 @@ class WatchService(private val repository: WatchRepository) {
                 url = cleanUrl,
                 instruction = cleanInstruction,
                 notifyOnFound = notifyOnFound,
+                searchingSince = Instant.now(),
             ),
         )
     }
 
+    /** Robbert heeft de vondst gezien; daarna stoppen de dagelijkse herinneringen. */
+    fun acknowledge(id: String): Watch {
+        while (true) {
+            val current = repository.findById(id) ?: throw WatchNotFoundException(id)
+            if (current.status != WatchStatus.GEVONDEN || current.acknowledgedAt != null) return current
+            repository.compareAndSet(current, current.copy(acknowledgedAt = Instant.now()))?.let { return it }
+        }
+    }
+
     fun list(): List<Watch> = repository.all().sortedWith(
-        compareByDescending<Watch> { it.active }.thenBy { it.title.lowercase() },
+        // Een vondst die nog niet als gezien is bevestigd staat bovenaan.
+        compareByDescending<Watch> { it.status == WatchStatus.GEVONDEN && it.acknowledgedAt == null }
+            .thenByDescending { it.active }.thenBy { it.title.lowercase() },
     )
 
     fun update(
@@ -58,6 +70,12 @@ class WatchService(private val repository: WatchRepository) {
                 statusDescription = "Nog niet gecontroleerd.",
                 lastCheckedAt = null,
                 active = true,
+                searchingSince = Instant.now(),
+                foundAt = null,
+                acknowledgedAt = null,
+                lastRemindedAt = null,
+                failingSince = null,
+                note = "",
             )
             repository.compareAndSet(current, updated)?.let { return it }
         }

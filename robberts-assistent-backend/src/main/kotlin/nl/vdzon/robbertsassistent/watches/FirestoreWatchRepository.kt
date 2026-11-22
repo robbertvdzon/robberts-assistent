@@ -44,6 +44,12 @@ class FirestoreWatchRepository(private val firestore: Firestore) : WatchReposito
         put("statusDescription", statusDescription)
         lastCheckedAt?.let { put("lastCheckedAtEpochMillis", it.toEpochMilli()) }
         put("active", active)
+        searchingSince?.let { put("searchingSinceEpochMillis", it.toEpochMilli()) }
+        foundAt?.let { put("foundAtEpochMillis", it.toEpochMilli()) }
+        acknowledgedAt?.let { put("acknowledgedAtEpochMillis", it.toEpochMilli()) }
+        lastRemindedAt?.let { put("lastRemindedAtEpochMillis", it.toEpochMilli()) }
+        failingSince?.let { put("failingSinceEpochMillis", it.toEpochMilli()) }
+        put("note", note)
     }
 
     private fun DocumentSnapshot.toWatch(): Watch? {
@@ -63,6 +69,12 @@ class FirestoreWatchRepository(private val firestore: Firestore) : WatchReposito
             statusDescription = getString("statusDescription") ?: "Nog niet gecontroleerd.",
             lastCheckedAt = getLong("lastCheckedAtEpochMillis")?.let(Instant::ofEpochMilli),
             active = getBoolean("active") ?: true,
+            searchingSince = getLong("searchingSinceEpochMillis")?.let(Instant::ofEpochMilli),
+            foundAt = getLong("foundAtEpochMillis")?.let(Instant::ofEpochMilli),
+            acknowledgedAt = getLong("acknowledgedAtEpochMillis")?.let(Instant::ofEpochMilli),
+            lastRemindedAt = getLong("lastRemindedAtEpochMillis")?.let(Instant::ofEpochMilli),
+            failingSince = getLong("failingSinceEpochMillis")?.let(Instant::ofEpochMilli),
+            note = getString("note").orEmpty(),
         )
     }
 
