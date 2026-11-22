@@ -8,7 +8,8 @@ class BankApi extends ApiClient {
   bool fail = false;
   bool historyFails = false;
   Map<String, dynamic>? categorization;
-  List<Map<String, dynamic>> reviewGroups = [];
+  List<Map<String, dynamic>> reviewRows = [];
+  final classifyBodies = <Map<String, dynamic>>[];
   final writes = <String>[];
   final requests = <String>[];
   final overrides = <String, String>{};
@@ -87,13 +88,8 @@ class BankApi extends ApiClient {
     requests.add(path);
     if (fail) throw StateError('offline');
     final uri = Uri.parse(path);
-    if (uri.path.endsWith('/review-merchants')) {
-      return {
-        'groups': reviewGroups,
-        'transactionCount': reviewGroups.length,
-        'from': '2025-11-21',
-        'to': '2026-11-20',
-      };
+    if (uri.path.endsWith('/review')) {
+      return {'rows': reviewRows, 'from': '2025-11-21', 'to': '2026-11-20'};
     }
     if (uri.path.endsWith('/categorization')) {
       return categorization ?? {'status': 'IDLE'};
@@ -142,6 +138,28 @@ class BankApi extends ApiClient {
     String path, [
     Map<String, dynamic> body = const {},
   ]) async {
+    if (path.endsWith('/review/classify')) {
+      classifyBodies.add(body);
+      final ids = [
+        for (final t in body['transactions'] as List) (t as Map)['id'],
+      ];
+      final first = reviewRows.firstWhere(
+        (row) => ids.contains((row['transaction'] as Map)['id']),
+      );
+      final before = reviewRows.length;
+      reviewRows = reviewRows.where((row) {
+        final t = row['transaction'] as Map;
+        return switch (body['scope']) {
+          'MERCHANT' => row['merchantKey'] != first['merchantKey'],
+          'TEXT' =>
+            !'${t['counterparty']} ${t['description']}'.toLowerCase().contains(
+              '${body['text']}'.toLowerCase(),
+            ),
+          _ => !ids.contains(t['id']),
+        };
+      }).toList();
+      return {'count': before - reviewRows.length};
+    }
     if (path.endsWith('/connect')) {
       connectBodies.add(body);
       // Stop before launching a real browser in this widget test.
@@ -180,11 +198,14 @@ void main() {
     final api = BankApi();
     await tester.pumpWidget(
       MaterialApp(
-        home: BankingScreen(api: api, initialMonth: '2026-10'),
+        home: BankingScreen(
+          api: api,
+          initialMonth: '2026-10',
+          initialView: 'settings',
+        ),
       ),
     );
     await tester.pumpAndSettle();
-    await revealAndTap(tester, find.textContaining('Rekeningen en gegevens'));
     await revealAndTap(tester, find.text('Nieuwe rekening toevoegen'));
     await tester.enterText(
       find.widgetWithText(TextFormField, 'IBAN'),
@@ -206,58 +227,89 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'winkellijst opent binnen Bankzaken met PageStorage en behoudt zoekveld na opnieuw openen',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1100, 1600));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final api = BankApi()
-        ..reviewGroups = [
-          {
-            'key': 'test-shop',
-            'merchant': 'Test Kledingzaak',
-            'count': 1,
-            'spent': 40,
-            'from': '2025-12-03',
-            'to': '2025-12-03',
-            'canLearn': true,
-            'examples': [
-              {
-                'id': 'test-payment',
-                'date': '2025-12-03',
-                'amount': -40,
-                'description': 'Testaankoop',
-              },
-            ],
-          },
-        ];
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PageStorage(
-            bucket: PageStorageBucket(),
-            child: BankingScreen(api: api, initialMonth: '2026-10'),
-          ),
+  testWidgets('indelen verwerkt de hele winkel en houdt de lijst open', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    Map<String, dynamic> row(String id, String merchant, String date) => {
+      'merchant': merchant,
+      'merchantKey': 'key-$merchant',
+      'canLearn': true,
+      'transaction': {
+        'id': id,
+        'date': date,
+        'amount': -10,
+        'counterparty': merchant,
+        'description': 'BEA, Betaalpas $merchant',
+        'category': 'REVIEW',
+      },
+    };
+    final api = BankApi()
+      ..reviewRows = [
+        row('a', 'Testbouwmarkt', '2026-10-03'),
+        row('b', 'Testbouwmarkt', '2026-09-14'),
+        row('c', 'Testsportzaak', '2026-10-01'),
+      ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BankingScreen(
+          api: api,
+          initialMonth: '2026-10',
+          initialView: 'review',
         ),
-      );
-      await tester.pumpAndSettle();
-      await revealAndTap(tester, find.text('Winkels indelen'));
-      expect(find.text('Test Kledingzaak'), findsOneWidget);
-      final search = find.byKey(
-        const PageStorageKey('bank-merchant-search-scroll'),
-      );
-      await tester.ensureVisible(search);
-      await tester.enterText(search, 'Kleding');
-      await tester.pumpAndSettle();
-      await revealAndTap(tester, find.text('Bekijk 1 voorbeeldbetaling(en)'));
-      expect(find.text('Testaankoop'), findsOneWidget);
-      await revealAndTap(tester, find.text('Winkels indelen'));
-      await revealAndTap(tester, find.text('Winkels indelen'));
-      expect(find.text('Test Kledingzaak'), findsOneWidget);
-      expect(find.text('Testaankoop'), findsOneWidget);
-      expect(find.text('Kleding'), findsWidgets);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('3 betalingen nog in te delen'), findsOneWidget);
+    expect(find.text('BEA, Betaalpas Testsportzaak'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('review-row-a')));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('2 betalingen bij Testbouwmarkt'),
+      findsOneWidget,
+    );
+    expect(find.text('Kies eerst een categorie'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('review-category')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Klussen').last);
+    await tester.pumpAndSettle();
+    expect(find.text('2 betalingen indelen'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('review-apply')));
+    await tester.pumpAndSettle();
+
+    expect(api.classifyBodies.single['scope'], 'MERCHANT');
+    expect(api.classifyBodies.single['category'], 'DIY');
+    expect(api.classifyBodies.single['transactions'], [
+      {'month': '2026-10', 'id': 'a'},
+    ]);
+    expect(
+      find.textContaining('2 betalingen ingedeeld als Klussen'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('review-row-a')), findsNothing);
+    expect(find.byKey(const ValueKey('review-row-b')), findsNothing);
+    expect(find.byKey(const ValueKey('review-row-c')), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Indelen'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('review-search')),
+      'sportzaak',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('review-select-visible')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('review-scope-TEXT')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 betaling bij 1 winkel(s)'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('review-apply')));
+    await tester.pumpAndSettle();
+    expect(api.classifyBodies.last['scope'], 'TEXT');
+    expect(api.classifyBodies.last['text'], 'sportzaak');
+    expect(find.text('Alles is ingedeeld.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('rubricering toont fractie naast categoriepercentages', (
     tester,
@@ -273,7 +325,11 @@ void main() {
       };
     await tester.pumpWidget(
       MaterialApp(
-        home: BankingScreen(api: api, initialMonth: '2026-10'),
+        home: BankingScreen(
+          api: api,
+          initialMonth: '2026-10',
+          initialView: 'settings',
+        ),
       ),
     );
     await tester.pumpAndSettle();

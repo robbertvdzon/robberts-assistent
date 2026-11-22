@@ -224,6 +224,53 @@ class BankService(private val settings: BankSettings, private val store: BankSto
             BankReviewMerchantResult(group.count)
         }
     }
+    fun reviewList(owner: String): BankReviewList = bankReviewList(allTransactions(owner))
+    /** Deelt openstaande betalingen in één keer in; het bereik bepaalt of er ook een regel ontstaat. */
+    fun classifyReview(owner: String, request: BankReviewClassifyRequest): BankReviewClassifyResult {
+        requireOwner(owner)
+        require(request.category !in setOf(BankCategory.REVIEW, BankCategory.INTERNAL, BankCategory.INCOME))
+        require(request.transactions.size in 1..2000)
+        require(request.transactions.all { it.id.matches(Regex("[a-f0-9]{64}")) && it.month.matches(Regex("\\d{4}-(0[1-9]|1[0-2])")) })
+        return store.exclusive(owner) {
+            val review = allTransactions(owner).filter { it.category == BankCategory.REVIEW }
+            val wanted = request.transactions.map { it.id }.toSet()
+            val chosen = review.filter { it.id in wanted }
+            if (chosen.isEmpty()) throw ResponseStatusException(HttpStatus.NOT_FOUND, "Deze betalingen staan niet meer open. Ververs de lijst.")
+            when (request.scope) {
+                BankReviewScope.ONLY -> {
+                    chosen.groupBy { it.date.take(7) }.forEach { (month, picked) ->
+                        val ids = picked.map { it.id }.toSet()
+                        store.write(owner, "month-$month", BankTransactions(transactions(owner, month).map {
+                            if (it.id in ids) it.copy(category = request.category, manual = true, classificationSource = "USER",
+                                question = "", reason = "Door jou bevestigd") else it
+                        }))
+                    }
+                    BankReviewClassifyResult(chosen.size)
+                }
+                BankReviewScope.MERCHANT -> {
+                    require(chosen.all(::bankCanLearnMerchant)) { "Deze betaling kan niet als winkel worden onthouden." }
+                    val identity = chosen.map { bankMerchantIdentity(it.counterparty) }.distinct().also { require(it.size == 1) }.single()
+                    val existing = rules(owner)
+                    val others = existing.rules.filterNot { it.merchant.isNotBlank() && bankMerchantIdentity(it.merchant) == identity }
+                    require(others.size < 500)
+                    val learned = BankRule("merchant-${bankHash(identity)}", "", "", request.category,
+                        label = "Door jou gekozen voor ${bankMerchantLabel(chosen.first().counterparty).take(100)}", learned = true, merchant = identity)
+                    store.write(owner, "rules", existing.copy(rules = listOf(learned) + others))
+                    BankReviewClassifyResult(review.count { bankCanLearnMerchant(it) && bankMerchantIdentity(it.counterparty) == identity })
+                }
+                BankReviewScope.TEXT -> {
+                    val text = request.text.trim()
+                    require(text.length in 3..200)
+                    val existing = rules(owner)
+                    require(existing.rules.size < 500)
+                    val learned = BankRule(java.util.UUID.randomUUID().toString(), text, "", request.category,
+                        label = "Door jou gekozen voor tekst", learned = true)
+                    store.write(owner, "rules", existing.copy(rules = listOf(learned) + existing.rules))
+                    BankReviewClassifyResult(review.count { bankReviewText(it).contains(text, true) })
+                }
+            }
+        }
+    }
     fun classify(owner: String, month: String, id: String, category: BankCategory, remember: Boolean = false, matchText: String = ""): Unit = store.exclusive(owner) {
         requireOwner(owner)
         YearMonth.parse(month)

@@ -148,6 +148,15 @@ Configuratie, beperkingen en ingebruikname staan in
 [docs/bankkoppeling-setup.md](docs/bankkoppeling-setup.md). Echte bankconfiguratie
 mag niet in previews met overgeslagen Google-authenticatie worden gezet.
 
+**Indelen** (22 nov 2026, tab Indelen in Bankzaken, `lib/bank_review_panel.dart`): één doorzoekbare
+lijst van alle openstaande betalingen over alle maanden (`GET /api/v1/banking/review`). Je selecteert,
+kiest een categorie en het bereik (`POST /api/v1/banking/review/classify`, `BankReview.kt`): `ONLY`
+zet alleen de selectie vast, `MERCHANT` maakt een winkelregel, `TEXT` een tekstregel; regels gelden
+ook voor volgende betalingen. De lijst blijft na het indelen staan. Dit vervangt het paneel "Winkels
+indelen" (de endpoints `review-merchants` bestaan nog, zonder app-gebruik). Rekeningen, regels en
+"Alle transacties rubriceren" staan sindsdien op het tabblad Instellingen. Nieuwe categorie `DIY`
+(Klussen).
+
 **Factuurcontrole** (21 nov 2026, tab Facturen in Bankzaken, `lib/bank_invoices_panel.dart`):
 controleert of verkoopfacturen betaald zijn. Rompslomp houdt geen betalingen bij en de API is op
 het gratis account dicht, dus de facturen komen uit een handmatig ingelezen export (Facturen →

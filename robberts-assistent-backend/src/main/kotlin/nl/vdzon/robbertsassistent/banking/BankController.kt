@@ -57,6 +57,10 @@ class BankController(private val auth: AuthService, private val bank: BankServic
     @PutMapping("/review-merchants/{key}") fun classifyMerchant(@RequestHeader("Authorization", required = false) header: String?,
         @PathVariable key: String, @RequestBody request: BankReviewMerchantRequest) =
         privateResponse(bank.classifyMerchant(owner(header), key, request.category))
+    @GetMapping("/review") fun review(@RequestHeader("Authorization", required = false) header: String?) =
+        privateResponse(bank.reviewList(owner(header)))
+    @PostMapping("/review/classify") fun classifyReview(@RequestHeader("Authorization", required = false) header: String?,
+        @RequestBody request: BankReviewClassifyRequest) = privateResponse(bank.classifyReview(owner(header), request))
     @PutMapping("/month/{month}/transactions/{id}/category") fun classify(@RequestHeader("Authorization", required = false) header: String?,
         @PathVariable month: String, @PathVariable id: String, @RequestBody request: BankCategoryRequest): ResponseEntity<Map<String, Boolean>> {
         bank.classify(owner(header), month, id, request.category, request.remember, request.matchText)

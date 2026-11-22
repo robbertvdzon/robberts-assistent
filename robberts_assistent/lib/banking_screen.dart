@@ -6,13 +6,14 @@ import 'api_client.dart';
 import 'bank_dashboard.dart';
 import 'bank_insights.dart';
 import 'bank_invoices_panel.dart';
-import 'bank_merchant_review.dart';
+import 'bank_review_panel.dart';
 import 'bank_planning_panel.dart';
 
 const bankCategories = <String, String>{
   'REVIEW': 'Nog te beoordelen',
   'GROCERIES': 'Boodschappen',
   'HOUSING': 'Wonen en vaste lasten',
+  'DIY': 'Klussen',
   'INSURANCE': 'Verzekeringen',
   'TRANSPORT': 'Vervoer',
   'HEALTH': 'Zorg',
@@ -53,6 +54,14 @@ class BankingScreen extends StatefulWidget {
 }
 
 class _BankingScreenState extends State<BankingScreen> {
+  static const _views = {
+    'month': 'Maandoverzicht',
+    'review': 'Indelen',
+    'detail': 'Categorie uitpluizen',
+    'plan': 'Jaarplanning & budget',
+    'invoices': 'Facturen',
+    'settings': 'Instellingen',
+  };
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   Map<String, dynamic>? _status;
   Map<String, dynamic>? _report;
@@ -91,7 +100,7 @@ class _BankingScreenState extends State<BankingScreen> {
   }
 
   void _readLocation() {
-    _view = ['month', 'detail', 'plan', 'invoices'].contains(widget.initialView)
+    _view = _views.containsKey(widget.initialView)
         ? widget.initialView
         : 'month';
     _category = bankCategories.containsKey(widget.initialCategory)
@@ -554,6 +563,28 @@ class _BankingScreenState extends State<BankingScreen> {
     });
   }
 
+  /// Lokale tijd in plaats van de ruwe ISO-tijd van de backend.
+  String _when(String iso, {bool time = true}) {
+    final moment = DateTime.tryParse(iso)?.toLocal();
+    if (moment == null) return iso;
+    String two(int value) => value.toString().padLeft(2, '0');
+    final date = '${two(moment.day)}-${two(moment.month)}-${moment.year}';
+    return time ? '$date ${two(moment.hour)}:${two(moment.minute)}' : date;
+  }
+
+  Widget _tabs() => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      for (final entry in _views.entries)
+        ChoiceChip(
+          label: Text(entry.value),
+          selected: _view == entry.key,
+          onSelected: _planDirty ? null : (_) => _navigate(view: entry.key),
+        ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final configured = _status?['configured'] == true;
@@ -570,6 +601,29 @@ class _BankingScreenState extends State<BankingScreen> {
       ),
       body: _busy
           ? const Center(child: CircularProgressIndicator())
+          : configured && _view == 'review'
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _tabs(),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: BankReviewPanel(
+                          api: widget.api,
+                          categories: bankCategories,
+                          onSaved: _merchantReviewSaved,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -603,27 +657,192 @@ class _BankingScreenState extends State<BankingScreen> {
                               ),
                             ),
                           if (configured) ...[
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final entry in {
-                                  'month': 'Maandoverzicht',
-                                  'detail': 'Categorie uitpluizen',
-                                  'plan': 'Jaarplanning & budget',
-                                  'invoices': 'Facturen',
-                                }.entries)
-                                  ChoiceChip(
-                                    label: Text(entry.value),
-                                    selected: _view == entry.key,
-                                    onSelected: _planDirty
-                                        ? null
-                                        : (_) => _navigate(view: entry.key),
-                                  ),
-                              ],
-                            ),
+                            _tabs(),
                             const SizedBox(height: 20),
-                            if (_view == 'invoices')
+                            if (_view == 'settings') ...[
+                              Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Rubricering: vaste regels → AI → jouw antwoord bij twijfel',
+                                      ),
+                                      if (_job['status'] == 'RUNNING') ...[
+                                        LinearProgressIndicator(
+                                          value:
+                                              (_job['total'] as num? ?? 0) > 0
+                                              ? ((_job['completed'] as num? ??
+                                                            0) /
+                                                        (_job['total'] as num))
+                                                    .clamp(0.0, 1.0)
+                                              : null,
+                                        ),
+                                        Text(
+                                          '${_job['completed'] ?? 0} van ${_job['total'] ?? 0} overige betalingen beoordeeld',
+                                        ),
+                                      ],
+                                      if (_job['message'] != null)
+                                        Text('${_job['message']}'),
+                                      FilledButton.tonal(
+                                        onPressed: _job['status'] == 'RUNNING'
+                                            ? null
+                                            : () => _action(() async {
+                                                await widget.api.postJson(
+                                                  '/api/v1/banking/categorize',
+                                                );
+                                              }),
+                                        child: const Text(
+                                          'Alle transacties rubriceren',
+                                        ),
+                                      ),
+                                      const Text(
+                                        'Dit past de regels en de AI opnieuw toe op alles wat je niet zelf hebt ingedeeld. Wat daarna openstaat, vind je bij Indelen.',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              ExpansionTile(
+                                initiallyExpanded: true,
+                                title: Text(
+                                  'Rekeningen en gegevens (${rows(_status?['accounts']).length})',
+                                ),
+                                children: [
+                                  const Text(
+                                    'Alleen lezen · betalingen uitvoeren is niet mogelijk',
+                                  ),
+                                  ...rows(_status!['accounts']).map(
+                                    (a) => ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: const Icon(
+                                        Icons.account_balance_outlined,
+                                      ),
+                                      title: Text('${a['name']}'),
+                                      subtitle: Text(
+                                        '${a['iban']}\nToestemming tot ${_when('${a['validUntil']}', time: false)}',
+                                      ),
+                                    ),
+                                  ),
+                                  Wrap(
+                                    spacing: 8,
+                                    children: [
+                                      OutlinedButton.icon(
+                                        onPressed: () => _connect(),
+                                        icon: const Icon(Icons.link),
+                                        label: const Text(
+                                          'Rekening koppelen / vernieuwen',
+                                        ),
+                                      ),
+                                      OutlinedButton.icon(
+                                        onPressed: _addAccount,
+                                        icon: const Icon(Icons.add),
+                                        label: const Text(
+                                          'Nieuwe rekening toevoegen',
+                                        ),
+                                      ),
+                                      FilledButton.icon(
+                                        onPressed: () => _action(() async {
+                                          await widget.api.postJson(
+                                            '/api/v1/banking/sync',
+                                          );
+                                        }),
+                                        icon: const Icon(Icons.sync),
+                                        label: const Text(
+                                          'Bankgegevens bijwerken',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (_status!['lastSync'] != null)
+                                    Text(
+                                      'Laatst opgehaald: ${_when('${_status!['lastSync']}')}',
+                                    ),
+                                  ...rows(_status!['availableAccounts'])
+                                      .where((a) => a['connected'] != true)
+                                      .map(
+                                        (a) => ListTile(
+                                          contentPadding: EdgeInsets.zero,
+                                          title: Text(
+                                            'Nog niet zichtbaar: ${a['iban']}',
+                                          ),
+                                          subtitle: const Text(
+                                            'Deze rekening is nog niet door de bank teruggegeven aan de assistent.',
+                                          ),
+                                          trailing: OutlinedButton(
+                                            onPressed: () =>
+                                                _connect('${a['iban']}'),
+                                            child: const Text(
+                                              'Deze rekening koppelen',
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                  if (_report != null)
+                                    ...((_report!['warnings'] as List?) ?? [])
+                                        .map(
+                                          (w) => Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 4,
+                                            ),
+                                            child: Text('$w'),
+                                          ),
+                                        ),
+                                ],
+                              ),
+                              ExpansionTile(
+                                title: Text(
+                                  'Rubriceringsregels (${_rules.length})',
+                                ),
+                                children: _rules
+                                    .map(
+                                      (r) => ListTile(
+                                        title: Text(
+                                          [
+                                                r['label'],
+                                                r['merchant'],
+                                                r['contains'],
+                                                r['iban'],
+                                              ]
+                                              .where(
+                                                (value) =>
+                                                    value != null &&
+                                                    '$value'.trim().isNotEmpty,
+                                              )
+                                              .join(' · '),
+                                        ),
+                                        subtitle: Text(
+                                          bankCategories[r['category']] ?? '',
+                                        ),
+                                        trailing: IconButton(
+                                          tooltip: 'Regel verwijderen',
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                          ),
+                                          onPressed: () => _action(() async {
+                                            await widget.api.putJson(
+                                              '/api/v1/banking/rules',
+                                              {
+                                                'rules': _rules
+                                                    .where(
+                                                      (other) =>
+                                                          other['id'] !=
+                                                          r['id'],
+                                                    )
+                                                    .toList(),
+                                              },
+                                            );
+                                          }),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ] else if (_view == 'invoices')
                               BankInvoicesPanel(api: widget.api)
                             else if (_view != 'plan') ...[
                               Row(
@@ -664,7 +883,9 @@ class _BankingScreenState extends State<BankingScreen> {
                                   detail: _view == 'detail',
                                   selectedCategory: _category,
                                   onCategory: (c) =>
-                                      _navigate(view: 'detail', category: c),
+                                      c == 'REVIEW' && _view == 'month'
+                                      ? _navigate(view: 'review')
+                                      : _navigate(view: 'detail', category: c),
                                   onClassify: _classify,
                                   onRule: _rule,
                                 ),
@@ -687,189 +908,6 @@ class _BankingScreenState extends State<BankingScreen> {
                                 },
                                 onYearChanged: (y) => _navigate(year: y),
                               ),
-                            const SizedBox(height: 20),
-                            Card(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Rubricering: vaste regels → AI → jouw antwoord bij twijfel',
-                                    ),
-                                    if (_job['status'] == 'RUNNING') ...[
-                                      LinearProgressIndicator(
-                                        value: (_job['total'] as num? ?? 0) > 0
-                                            ? ((_job['completed'] as num? ??
-                                                          0) /
-                                                      (_job['total'] as num))
-                                                  .clamp(0.0, 1.0)
-                                            : null,
-                                      ),
-                                      Text(
-                                        '${_job['completed'] ?? 0} van ${_job['total'] ?? 0} overige betalingen beoordeeld',
-                                      ),
-                                    ],
-                                    if (_job['message'] != null)
-                                      Text('${_job['message']}'),
-                                    FilledButton.tonal(
-                                      onPressed: _job['status'] == 'RUNNING'
-                                          ? null
-                                          : () => _action(() async {
-                                              await widget.api.postJson(
-                                                '/api/v1/banking/categorize',
-                                              );
-                                            }),
-                                      child: const Text(
-                                        'Alle transacties rubriceren',
-                                      ),
-                                    ),
-                                    const Text(
-                                      'Tik bij een vraag op de betaling om te antwoorden. Je kunt aangeven of je antwoord als regel onthouden mag worden.',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            BankMerchantReview(
-                              api: widget.api,
-                              categories: bankCategories,
-                              enabled: !_planDirty,
-                              onSaved: _merchantReviewSaved,
-                            ),
-                            ExpansionTile(
-                              title: Text(
-                                'Rekeningen en gegevens (${rows(_status?['accounts']).length})',
-                              ),
-                              children: [
-                                const Text(
-                                  'Alleen lezen · betalingen uitvoeren is niet mogelijk',
-                                ),
-                                ...rows(_status!['accounts']).map(
-                                  (a) => ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(
-                                      Icons.account_balance_outlined,
-                                    ),
-                                    title: Text('${a['name']}'),
-                                    subtitle: Text(
-                                      '${a['iban']}\nToestemming tot ${a['validUntil']}',
-                                    ),
-                                  ),
-                                ),
-                                Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: () => _connect(),
-                                      icon: const Icon(Icons.link),
-                                      label: const Text(
-                                        'Rekening koppelen / vernieuwen',
-                                      ),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: _addAccount,
-                                      icon: const Icon(Icons.add),
-                                      label: const Text(
-                                        'Nieuwe rekening toevoegen',
-                                      ),
-                                    ),
-                                    FilledButton.icon(
-                                      onPressed: () => _action(() async {
-                                        await widget.api.postJson(
-                                          '/api/v1/banking/sync',
-                                        );
-                                      }),
-                                      icon: const Icon(Icons.sync),
-                                      label: const Text(
-                                        'Bankgegevens bijwerken',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (_status!['lastSync'] != null)
-                                  Text(
-                                    'Laatst opgehaald: ${_status!['lastSync']}',
-                                  ),
-                                ...rows(_status!['availableAccounts'])
-                                    .where((a) => a['connected'] != true)
-                                    .map(
-                                      (a) => ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        title: Text(
-                                          'Nog niet zichtbaar: ${a['iban']}',
-                                        ),
-                                        subtitle: const Text(
-                                          'Deze rekening is nog niet door de bank teruggegeven aan de assistent.',
-                                        ),
-                                        trailing: OutlinedButton(
-                                          onPressed: () =>
-                                              _connect('${a['iban']}'),
-                                          child: const Text(
-                                            'Deze rekening koppelen',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                if (_report != null)
-                                  ...((_report!['warnings'] as List?) ?? [])
-                                      .map(
-                                        (w) => Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 4,
-                                          ),
-                                          child: Text('$w'),
-                                        ),
-                                      ),
-                              ],
-                            ),
-                            ExpansionTile(
-                              title: Text(
-                                'Rubriceringsregels (${_rules.length})',
-                              ),
-                              children: _rules
-                                  .map(
-                                    (r) => ListTile(
-                                      title: Text(
-                                        [
-                                              r['label'],
-                                              r['merchant'],
-                                              r['contains'],
-                                              r['iban'],
-                                            ]
-                                            .where(
-                                              (value) =>
-                                                  value != null &&
-                                                  '$value'.trim().isNotEmpty,
-                                            )
-                                            .join(' · '),
-                                      ),
-                                      subtitle: Text(
-                                        bankCategories[r['category']] ?? '',
-                                      ),
-                                      trailing: IconButton(
-                                        tooltip: 'Regel verwijderen',
-                                        icon: const Icon(Icons.delete_outline),
-                                        onPressed: () => _action(() async {
-                                          await widget.api.putJson(
-                                            '/api/v1/banking/rules',
-                                            {
-                                              'rules': _rules
-                                                  .where(
-                                                    (other) =>
-                                                        other['id'] != r['id'],
-                                                  )
-                                                  .toList(),
-                                            },
-                                          );
-                                        }),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
                           ],
                         ],
                       ),

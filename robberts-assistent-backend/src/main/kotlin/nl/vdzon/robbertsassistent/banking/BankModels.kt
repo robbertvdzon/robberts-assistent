@@ -5,7 +5,7 @@ import java.security.MessageDigest
 import java.time.Instant
 
 enum class BankCategory(val label: String) {
-    REVIEW("Nog te beoordelen"), GROCERIES("Boodschappen"), HOUSING("Wonen en vaste lasten"),
+    REVIEW("Nog te beoordelen"), GROCERIES("Boodschappen"), HOUSING("Wonen en vaste lasten"), DIY("Klussen"),
     INSURANCE("Verzekeringen"), TRANSPORT("Vervoer"), HEALTH("Zorg"), CLOTHING("Kleding"), TAX("Belastingen"),
     BUSINESS("Zakelijk"), PENSION("Pensioen en sparen"), CHARITY("Goede doelen"),
     BANK_FEES("Bankkosten"), CREDIT_CARD("Creditcard, nog zonder details"), HOLIDAY("Vakantie"), EXTRA("Overig / extra"), INTERNAL("Interne overboeking"), INCOME("Inkomsten")
