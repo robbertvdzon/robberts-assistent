@@ -19,6 +19,7 @@ import 'package:robberts_assistent/main.dart';
 import 'package:robberts_assistent/memory_screen.dart';
 import 'package:robberts_assistent/more_screen.dart';
 import 'package:robberts_assistent/nightly_checks_screen.dart';
+import 'package:robberts_assistent/notifications_screen.dart';
 import 'package:robberts_assistent/summary_screen.dart';
 import 'package:robberts_assistent/updates_screen.dart';
 import 'package:robberts_assistent/watches_screen.dart';
@@ -97,6 +98,22 @@ void main() {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(updaterChannel, (call) async => -1);
 
+  testWidgets('bel bovenin opent de meldingengeschiedenis', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(api: _FakeApiClient(), onLoggedOut: () {}),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Meldingen'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NotificationsScreen), findsOneWidget);
+    expect(
+      find.text('Nog geen meldingen. Nieuwe meldingen worden hier bewaard.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'bottom-nav telt precies 5 tabs en Meer toont alle overige schermen',
     (tester) async {
@@ -122,11 +139,16 @@ void main() {
       expect(find.text('Health check'), findsOneWidget);
       expect(find.text('Zoekopdrachten'), findsOneWidget);
       expect(find.text('Koppelingen'), findsOneWidget);
-      expect(find.text('Nachtchecks'), findsOneWidget);
       expect(find.text('Bankzaken'), findsOneWidget);
       // Onder 'Beheer' staan de instellingen; de lijst is langer dan het testscherm.
       expect(find.text('Moestuin'), findsOneWidget);
       expect(find.text('Vacatures'), findsOneWidget);
+      await tester.dragUntilVisible(
+        find.text('Nachtchecks'),
+        find.byType(MoreScreen),
+        const Offset(0, -100),
+      );
+      expect(find.text('Nachtchecks'), findsOneWidget);
       await tester.dragUntilVisible(
         find.text('Updates'),
         find.byType(MoreScreen),

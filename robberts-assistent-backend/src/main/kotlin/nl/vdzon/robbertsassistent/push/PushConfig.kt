@@ -14,6 +14,10 @@ class PushConfig {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Bean
+    fun notificationHistory(firebase: FirebaseProvider): NotificationHistory =
+        if (firebase.isConfigured) FirestoreNotificationHistory(firebase.firestore()) else InMemoryNotificationHistory()
+
+    @Bean
     fun fcmTokenStore(firebase: FirebaseProvider): FcmTokenStore {
         if (!firebase.isConfigured) {
             logger.info("FCM-tokens: in-memory (geen Firebase-config)")

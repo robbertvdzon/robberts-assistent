@@ -9,6 +9,7 @@ import 'health_check_screen.dart';
 import 'jobs_screen.dart';
 import 'memory_screen.dart';
 import 'nightly_checks_screen.dart';
+import 'notifications_screen.dart';
 import 'reference_meals_screen.dart';
 import 'updates_screen.dart';
 import 'watches_screen.dart';
@@ -20,6 +21,7 @@ class MoreScreen extends StatelessWidget {
   final ValueChanged<String>? onOpen;
 
   static const paths = [
+    'meldingen',
     'bankzaken',
     'moestuin',
     'health',
@@ -40,6 +42,7 @@ class MoreScreen extends StatelessWidget {
     Uri? location,
     ValueChanged<Map<String, String>>? onBankLocationChanged,
   }) => switch (name) {
+    'meldingen' => NotificationsScreen(api: api),
     'bankzaken' => BankingScreen(
       api: api,
       initialMonth: month,
@@ -67,6 +70,12 @@ class MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = <(String, IconData, String, String?)>[
+      (
+        'meldingen',
+        Icons.notifications_outlined,
+        'Meldingen',
+        'Alle meldingen en hun geschiedenis',
+      ),
       (
         'bankzaken',
         Icons.account_balance_outlined,

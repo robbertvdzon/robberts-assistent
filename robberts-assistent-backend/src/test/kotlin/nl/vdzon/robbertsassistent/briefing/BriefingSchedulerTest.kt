@@ -3,6 +3,7 @@ package nl.vdzon.robbertsassistent.briefing
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import nl.vdzon.robbertsassistent.firebase.FirebaseProvider
 import nl.vdzon.robbertsassistent.push.InMemoryFcmTokenStore
+import nl.vdzon.robbertsassistent.push.InMemoryNotificationHistory
 import nl.vdzon.robbertsassistent.push.PushService
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,7 +25,7 @@ class BriefingSchedulerTest {
     /** Zonder Firebase-config blijft `PushService.sendToAll` een no-op (geen crash), zie `PushService`. */
     private fun pushService(): PushService {
         val secrets = AppSecrets(rememberSecret = "x", googleClientId = "x", allowedEmails = setOf("robbert@vdzon.com"))
-        return PushService(FirebaseProvider(secrets), InMemoryFcmTokenStore())
+        return PushService(FirebaseProvider(secrets), InMemoryFcmTokenStore(), InMemoryNotificationHistory())
     }
 
     @Test

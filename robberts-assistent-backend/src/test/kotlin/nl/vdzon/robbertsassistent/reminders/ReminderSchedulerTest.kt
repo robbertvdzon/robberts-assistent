@@ -4,6 +4,7 @@ import nl.vdzon.robbertsassistent.config.AppSecrets
 import nl.vdzon.robbertsassistent.firebase.FirebaseProvider
 import nl.vdzon.robbertsassistent.notifier.Notifier
 import nl.vdzon.robbertsassistent.push.InMemoryFcmTokenStore
+import nl.vdzon.robbertsassistent.push.InMemoryNotificationHistory
 import nl.vdzon.robbertsassistent.push.PushService
 import nl.vdzon.robbertsassistent.scheduling.Recurrence
 import nl.vdzon.robbertsassistent.scheduling.RecurrenceUnit
@@ -24,6 +25,7 @@ class ReminderSchedulerTest {
     private fun pushService() = PushService(
         FirebaseProvider(AppSecrets(rememberSecret = "x", googleClientId = "x", allowedEmails = setOf("robbert@vdzon.com"))),
         InMemoryFcmTokenStore(),
+        InMemoryNotificationHistory(),
     )
 
     @Test

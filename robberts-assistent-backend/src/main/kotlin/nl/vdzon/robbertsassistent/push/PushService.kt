@@ -6,18 +6,21 @@ import com.google.firebase.messaging.FirebaseMessagingException
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
 import com.google.firebase.messaging.Notification
+import java.time.Instant
+import java.util.UUID
 import nl.vdzon.robbertsassistent.firebase.FirebaseProvider
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 /**
- * Stuurt push-notificaties (FCM) naar de geregistreerde telefoon(s). Zonder Firebase of zonder
- * geregistreerde tokens is het een no-op (return 0). Verlopen/ongeldige tokens worden opgeruimd.
+ * Bewaart meldingen en stuurt ze via FCM naar de geregistreerde telefoon(s). Zonder Firebase
+ * of tokens blijft de historie beschikbaar en is het verzonden aantal 0. Ongeldige tokens worden opgeruimd.
  */
 @Service
 class PushService(
     private val firebase: FirebaseProvider,
     private val tokenStore: FcmTokenStore,
+    private val history: NotificationHistory,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -28,6 +31,10 @@ class PushService(
      * zie `FcmService` in `robberts_assistent`.
      */
     fun sendToAll(title: String, body: String, data: Map<String, String> = emptyMap()): Int {
+        val notification = AppNotification(UUID.randomUUID().toString(), title, body, data.toMap(), Instant.now())
+        // Ook bewaren als er geen toestel beschikbaar is. Een opslagstoring mag push niet blokkeren.
+        runCatching { history.save(notification) }
+            .onFailure { logger.error("Melding opslaan mislukt ({}): {}", notification.id, it.message) }
         if (!firebase.isConfigured) {
             logger.info("Push overgeslagen: Firebase niet geconfigureerd")
             return 0
@@ -60,6 +67,7 @@ class PushService(
                     .putData("title", title)
                     .putData("body", body)
                     .putAllData(data)
+                    .putData("notificationId", notification.id)
                     .build()
                 messaging.send(message)
                 sent++

@@ -25,9 +25,13 @@ class AppHeaderTitle extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       const Padding(padding: EdgeInsets.only(right: 8), child: AppLogo()),
-      Text(
-        "Robbert's assistent",
-        style: DefaultTextStyle.of(context).style.copyWith(fontSize: 13),
+      Flexible(
+        child: Text(
+          "Robbert's assistent",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: DefaultTextStyle.of(context).style.copyWith(fontSize: 13),
+        ),
       ),
     ],
   );

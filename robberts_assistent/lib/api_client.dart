@@ -58,6 +58,28 @@ class ApiClient {
     if (token != null) 'Authorization': 'Bearer $token',
   };
 
+  Future<NotificationPage> notifications({String? before}) async {
+    final query = before == null
+        ? ''
+        : '?${Uri(queryParameters: {'before': before}).query}';
+    final json = await getJson('/api/v1/notifications$query');
+    return NotificationPage(
+      items: (json['items'] as List? ?? [])
+          .map(
+            (item) => AppNotification.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .toList(),
+      nextCursor: json['nextCursor'] as String?,
+    );
+  }
+
+  Future<AppNotification> markNotificationRead(String id) async =>
+      AppNotification.fromJson(
+        await postJson('/api/v1/notifications/${Uri.encodeComponent(id)}/read'),
+      );
+
   Future<Map<String, dynamic>> getJson(String path) async {
     final response = await http.get(
       Uri.parse('$baseUrl$path'),
@@ -2198,4 +2220,39 @@ class AiModels {
     }).toList(),
     optionsError: m['optionsError'] as String?,
   );
+}
+
+/// Een bewaarde melding; lezen verwijdert hem niet uit de geschiedenis.
+class AppNotification {
+  final String id;
+  final String title;
+  final String body;
+  final Map<String, String> data;
+  final DateTime createdAt;
+  final DateTime? readAt;
+
+  const AppNotification({
+    required this.id,
+    required this.title,
+    required this.body,
+    this.data = const {},
+    required this.createdAt,
+    this.readAt,
+  });
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) =>
+      AppNotification(
+        id: json['id'] as String,
+        title: json['title'] as String? ?? '',
+        body: json['body'] as String? ?? '',
+        data: Map<String, String>.from(json['data'] as Map? ?? {}),
+        createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+        readAt: DateTime.tryParse(json['readAt'] as String? ?? '')?.toLocal(),
+      );
+}
+
+class NotificationPage {
+  final List<AppNotification> items;
+  final String? nextCursor;
+  const NotificationPage({required this.items, this.nextCursor});
 }

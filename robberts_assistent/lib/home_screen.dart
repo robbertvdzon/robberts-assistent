@@ -231,6 +231,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         title: const AppHeaderTitle(),
         actions: [
           IconButton(
+            tooltip: 'Meldingen',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              if (widget.onNavigate != null) {
+                widget.onNavigate!('/meer/meldingen');
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => MoreScreen.detail('meldingen', widget.api),
+                  ),
+                );
+              }
+            },
+          ),
+          IconButton(
             tooltip: 'Uitloggen',
             icon: const Icon(Icons.logout),
             onPressed: widget.onLoggedOut,

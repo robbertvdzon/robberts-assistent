@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
@@ -35,7 +38,8 @@ const _channelName = 'Assistent-meldingen';
 class FcmService {
   static bool _done = false;
   static final _local = FlutterLocalNotificationsPlugin();
-  static var _notifId = 0;
+  static var _notifId = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
+  static ApiClient? _api;
 
   /// Niet-`null` zodra een tik op een push (of een koude start ervandaan) om navigatie vraagt.
   /// `HomeScreen` luistert hierop, navigeert naar het doel en consumeert de waarde.
@@ -45,21 +49,45 @@ class FcmService {
     handlePushData(message.data);
   }
 
+  static DeepLinkTarget? targetForPushData(Map<String, dynamic> data) =>
+      switch (data['type']) {
+        _briefingPushType => DeepLinkTarget.today,
+        _watchPushType => DeepLinkTarget.watches,
+        _mealPushType => DeepLinkTarget.food,
+        _checkInPushType => DeepLinkTarget.checkIn,
+        _napPushType => DeepLinkTarget.nap,
+        'jobs' => DeepLinkTarget.jobs,
+        _ => null,
+      };
+
   static void handlePushData(Map<String, dynamic> data) {
-    if (data['type'] == _briefingPushType) {
-      deepLinkTarget.value = DeepLinkTarget.today;
-    } else if (data['type'] == _watchPushType) {
-      deepLinkTarget.value = DeepLinkTarget.watches;
-    } else if (data['type'] == _mealPushType) {
-      deepLinkTarget.value = DeepLinkTarget.food;
-    } else if (data['type'] == _checkInPushType) {
-      deepLinkTarget.value = DeepLinkTarget.checkIn;
-    } else if (data['type'] == _napPushType) {
-      deepLinkTarget.value = DeepLinkTarget.nap;
-    } else if (data['type'] == 'jobs') {
-      // Moet gelijk zijn aan het `type` dat `jobs.JobSearchService` meestuurt.
-      deepLinkTarget.value = DeepLinkTarget.jobs;
+    final id = data['notificationId'];
+    final api = _api;
+    if (id is String && api != null) unawaited(_markRead(api, id));
+    final target = targetForPushData(data);
+    if (target != null) deepLinkTarget.value = target;
+  }
+
+  static Future<void> _markRead(ApiClient api, String id) async {
+    try {
+      await api.markNotificationRead(id);
+    } catch (_) {
+      // Navigeren blijft werken als de gelezenstatus tijdelijk niet opgeslagen kan worden.
     }
+  }
+
+  @visibleForTesting
+  static void handleLocalPayload(String? payload) {
+    if (payload == null) return;
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map) {
+        handlePushData(Map<String, dynamic>.from(decoded));
+        return;
+      }
+    } catch (_) {}
+    // Oude meldingen en de doorlopende dutje-melding hebben alleen een type.
+    handlePushData({'type': payload});
   }
 
   static const _napNotificationId = 900001;
@@ -108,11 +136,11 @@ class FcmService {
     final details = await (localNotifications ?? _local)
         .getNotificationAppLaunchDetails();
     if (details?.didNotificationLaunchApp != true) return;
-    final type = details?.notificationResponse?.payload;
-    if (type != null) handlePushData({'type': type});
+    handleLocalPayload(details?.notificationResponse?.payload);
   }
 
   static Future<void> setup(ApiClient api) async {
+    _api = api;
     if (kIsWeb || _done) {
       return; // FCM-web vereist extra config; alleen Android voor nu.
     }
@@ -127,8 +155,7 @@ class FcmService {
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
         onDidReceiveNotificationResponse: (response) {
-          final type = response.payload;
-          if (type != null) handlePushData({'type': type});
+          handleLocalPayload(response.payload);
         },
       );
       await handleInitialLocalNotification();
@@ -180,7 +207,7 @@ class FcmService {
               priority: Priority.high,
             ),
           ),
-          payload: message.data['type']?.toString(),
+          payload: jsonEncode(message.data),
         );
       });
     } catch (_) {

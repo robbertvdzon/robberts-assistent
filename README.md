@@ -18,6 +18,9 @@ vier Flutter/Android-apps.
   meteen controleren. Een start via Google Assistent/Gemini opent meteen een nieuw
   gesprek in praatmodus; elke app-start wordt daarnaast als één regel in de backend
   gelogd (`grep APP_LAUNCH`) zodat de herkenning later scherper gezet kan worden.
+  Via het belletje bovenin of Meer → Meldingen staat de blijvende pushgeschiedenis, met volledige
+  tekst, datum, gelezenstatus en een knop naar het bijbehorende scherm. De geschiedenis wordt op
+  de backend bewaard vanaf het moment dat deze functie actief is; lezen verwijdert niets.
 - **`groentetuin/`** — moestuin-chat met tekst en foto's, als APK en web-app.
 - **`notities/`** — auto-opslaande notitie-app, als APK.
 - **`wind/`** — handsfree Wind-app: Android App Actions starten een
