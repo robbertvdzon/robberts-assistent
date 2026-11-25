@@ -4,6 +4,21 @@ Status (18 november 2026): **alle zes stappen zijn gebouwd, op de onderdelen hie
 
 Aanvulling 20 november 2026: de referentiefoto's komen uit een **referentiebibliotheek** (elke unieke combinatie van gerecht, servies en hoeveelheid één keer; dubbelen worden gemarkeerd en niet opnieuw gebruikt) in plaats van drie gewogen maaltijden op kloktijd, en bij een eetmoment is vast te leggen welk **deel is opgegeten**: de portie blijft heel voor de referenties, de dag telt minder.
 
+Aanvulling 25 november 2026: ontbreekt om **12:00** het ontbijt of om **17:00** de lunch,
+dan vult de backend het meest voorkomende gerecht uit de afgelopen 60 dagen automatisch in.
+Zonder aparte maaltijdsoort bepalen Nederlandse lokale tijden het tijdvak: ontbijt 00:00–12:00,
+lunch 12:00–17:00 (eindtijd exclusief). Bestaande invoer, ook een nog lopende of mislukte analyse,
+voorkomt een tweede maaltijd. Voor de historie tellen bruikbare voorstellen en bevestigde maaltijden;
+automatische invoer telt niet mee. Gerechten worden gegroepeerd op de combinatie van onderdeelnamen,
+ongeacht hoofdletters, titel en portiegrootte. Bij gelijkspel wint het meest recente gerecht.
+De laatst gegeten portie en het lokale tijdstip worden overgenomen, zonder foto's; voedingswaarden
+zijn als schatting gemarkeerd. De invoer krijgt status `VOORSTEL`, telt direct mee en vermeldt waarom
+hij is toegevoegd. Een bestaande heads-up-push meldt dat je hem kunt wissen als je echt niet hebt
+ontbeten/geluncht; tikken opent Dagboek, waar het eetmoment te bekijken en te verwijderen is.
+Zonder bruikbare historie wordt alleen een herinnering verstuurd. De avondherinnering om 20:45
+blijft bestaan; een automatisch ingevulde late lunch geldt daarbij niet als avondeten.
+De twee nieuwe taken draaien op hun vaste tijd, zonder achteraf gemiste dagen in te vullen.
+
 Gebouwd:
 
 - Stap 1: backendmodule `nutrition`, scherm Eten onder Meer (`lib/food_screen.dart`).

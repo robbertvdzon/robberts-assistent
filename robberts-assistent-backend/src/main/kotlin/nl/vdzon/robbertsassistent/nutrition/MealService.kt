@@ -5,6 +5,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -20,6 +21,12 @@ class MealNotFoundException(id: String) : RuntimeException("Maaltijd $id niet ge
 
 /** Eén dag eten: de maaltijden in volgorde en de opgetelde waarden. */
 data class NutritionDay(val date: LocalDate, val meals: List<Meal>, val totals: NutritionTotals)
+
+sealed interface MissingMealResult {
+    data object AlreadyPresent : MissingMealResult
+    data object NoHistory : MissingMealResult
+    data class Created(val meal: Meal) : MissingMealResult
+}
 
 /**
  * Kern van het eetdagboek. Een nieuw eetmoment wordt direct opgeslagen met status ANALYSEREN; de
@@ -215,9 +222,57 @@ class MealService(
     /** Maaltijden met `from <= eatenAt < to`, oplopend; voor het weekoverzicht en de verbanden. */
     fun between(from: Instant, to: Instant): List<Meal> = meals.findBetween(from, to)
 
-    /** Of er vandaag vanaf [fromHour] uur (Nederlandse tijd) al iets is vastgelegd. */
+    /** Of er vanaf [fromHour] iets is vastgelegd; automatisch ontbijt/lunch is geen avondeten. */
     fun hasMealSince(date: LocalDate, fromHour: Int): Boolean =
-        meals.findBetween(date.atTime(fromHour, 0).atZone(ZONE).toInstant(), date.plusDays(1).atStartOfDay(ZONE).toInstant()).isNotEmpty()
+        meals.findBetween(date.atTime(fromHour, 0).atZone(ZONE).toInstant(), date.plusDays(1).atStartOfDay(ZONE).toInstant())
+            .any { it.automaticSourceMealId.isEmpty() }
+
+    /**
+     * Neemt het meest voorkomende gerecht uit de afgelopen 60 dagen over als voorstel.
+     * Zonder maaltijdsoort is het lokale tijdvak leidend. Automatische invoer leert zichzelf
+     * niet aan: alleen door de gebruiker vastgelegde maaltijden dienen als voorbeeld.
+     */
+    @Synchronized
+    fun fillMissingMeal(date: LocalDate, fromHour: Int, toHour: Int, label: String, now: Instant): MissingMealResult {
+        val from = date.atTime(fromHour, 0).atZone(ZONE).toInstant()
+        val to = date.atTime(toHour, 0).atZone(ZONE).toInstant()
+        if (meals.findBetween(from, to).isNotEmpty()) return MissingMealResult.AlreadyPresent
+        val id = UUID.nameUUIDFromBytes("automatic-meal:$date:$fromHour".toByteArray(Charsets.UTF_8)).toString()
+        // Ook na verplaatsen van de automatische maaltijd geen tweede invoer maken.
+        if (meals.findById(id) != null) return MissingMealResult.AlreadyPresent
+
+        val history = meals.findBetween(date.minusDays(60).atStartOfDay(ZONE).toInstant(), date.atStartOfDay(ZONE).toInstant())
+            .filter {
+                it.eatenAt.atZone(ZONE).hour in fromHour until toHour &&
+                    it.status in setOf(MealStatus.VOORSTEL, MealStatus.BEVESTIGD, MealStatus.VERBETERD) &&
+                    it.items.isNotEmpty() && it.automaticSourceMealId.isEmpty()
+            }
+        // Titels en hoeveelheden kunnen verschillen; de combinatie van onderdelen bepaalt het gerecht.
+        // Bij gelijke aantallen wint het meest recente gerecht, met de laatst gegeten portie.
+        val source = history.groupBy { meal ->
+            meal.items.map { it.name.trim().lowercase(Locale.ROOT).replace(Regex("\\s+"), " ") }.sorted()
+        }.values.maxWithOrNull(compareBy<List<Meal>> { it.size }.thenBy { group -> group.maxOf { it.eatenAt } })
+            ?.maxByOrNull { it.eatenAt } ?: return MissingMealResult.NoHistory
+        val items = source.eatenItems.map { it.copy(basis = ItemBasis.GESCHAT, uncertain = true) }
+        return MissingMealResult.Created(
+            meals.save(
+                Meal(
+                    id = id,
+                    eatenAt = date.atTime(source.eatenAt.atZone(ZONE).toLocalTime()).atZone(ZONE).toInstant(),
+                    title = source.title.ifBlank { label },
+                    status = MealStatus.VOORSTEL,
+                    items = items,
+                    aiProposal = items,
+                    remark = "$label automatisch ingevuld op basis van je meest gegeten ${label.lowercase(Locale.ROOT)}. " +
+                        "Je kunt deze invoer wissen als je echt niet hebt gegeten.",
+                    referenceRole = ReferenceRole.GEEN,
+                    automaticSourceMealId = source.id,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            ),
+        )
+    }
 
     fun memoryText(): String = memory.current()
     fun updateMemory(text: String): String = memory.update(text.trim())

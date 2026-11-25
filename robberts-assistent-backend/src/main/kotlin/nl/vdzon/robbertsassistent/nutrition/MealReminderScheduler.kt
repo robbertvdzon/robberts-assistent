@@ -8,8 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 /**
- * Eén rustige herinnering per dag: staat er om 20:45 nog geen eetmoment vanaf 16:00, dan gaat er
- * een push uit. Vergeten vast te leggen is de grootste bedreiging voor een eetdagboek.
+ * Ontbrekend ontbijt/lunch automatisch invullen met een popup; 's avonds alleen herinneren.
  */
 @Component
 class MealReminderScheduler(
@@ -18,6 +17,31 @@ class MealReminderScheduler(
     private val clock: Clock = Clock.systemUTC(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    @Scheduled(cron = "0 0 12 * * *", zone = "Europe/Amsterdam")
+    fun fillBreakfast() = fillMissing(0, 12, "Ontbijt", "ontbeten")
+
+    @Scheduled(cron = "0 0 17 * * *", zone = "Europe/Amsterdam")
+    fun fillLunch() = fillMissing(12, 17, "Lunch", "geluncht")
+
+    private fun fillMissing(fromHour: Int, toHour: Int, label: String, eaten: String) {
+        runCatching {
+            val today = LocalDate.now(clock.withZone(MealService.ZONE))
+            when (val result = meals.fillMissingMeal(today, fromHour, toHour, label, clock.instant())) {
+                MissingMealResult.AlreadyPresent -> return
+                MissingMealResult.NoHistory -> push.sendToAll(
+                    "$label nog vastleggen?",
+                    "Er is nog geen gebruikelijke maaltijd bekend. Vul je ${label.lowercase()} in als je hebt gegeten.",
+                    mapOf("type" to "meal"),
+                )
+                is MissingMealResult.Created -> push.sendToAll(
+                    "$label automatisch ingevuld",
+                    "${result.meal.title}: ${result.meal.kcal} kcal. Je kunt deze invoer wissen als je echt niet hebt $eaten.",
+                    mapOf("type" to "meal", "mealId" to result.meal.id),
+                )
+            }
+        }.onFailure { logger.warn("{} automatisch invullen mislukt: {}", label, it.message) }
+    }
 
     @Scheduled(cron = "0 45 20 * * *", zone = "Europe/Amsterdam")
     fun remind() {

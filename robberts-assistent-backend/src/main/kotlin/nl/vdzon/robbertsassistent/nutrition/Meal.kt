@@ -104,6 +104,8 @@ data class Meal(
     val duplicateOf: String = "",
     /** Door Robbert zelf gezet in het beheerscherm; de AI beoordeelt deze maaltijd dan niet opnieuw. */
     val referenceManual: Boolean = false,
+    /** Automatisch overgenomen uit deze maaltijd; telt niet mee als nieuw bewijs van een eetgewoonte. */
+    val automaticSourceMealId: String = "",
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {
