@@ -14,9 +14,11 @@ class JobSearchServiceTest {
         var learned: LearnedPreferences? = null
         var fail = false
         var lastSettings: JobSearchSettings? = null
+        var duringFind: (() -> Unit)? = null
 
         override fun find(settings: JobSearchSettings, known: List<JobLead>): List<FoundJob> {
             lastSettings = settings
+            duringFind?.invoke()
             if (fail) error("runtime stuk")
             return found
         }
@@ -62,6 +64,22 @@ class JobSearchServiceTest {
     fun `toekomstige datum wordt niet als publicatiedatum opgeslagen`() {
         finder.found = listOf(job("Kotlin", "Acme").copy(publishedOn = LocalDate.of(2099, 1, 1)))
         assertEquals(null, service.run(notify = false).single().publishedOn)
+    }
+
+    @Test
+    fun `datum aanvullen bewaart ook een oordeel dat tijdens het zoeken veranderde`() {
+        finder.found = listOf(job("Kotlin", "Acme"))
+        val lead = service.run(notify = false).single()
+        finder.found = listOf(job("Kotlin", "Acme").copy(publishedOn = LocalDate.parse("2026-11-01")))
+        finder.duringFind = {
+            repository.saveLead(lead.copy(verdict = LeadVerdict.INTERESSANT, reason = "net beoordeeld"))
+        }
+        service.run(notify = false)
+        val updated = service.leads().single()
+        assertEquals(LeadVerdict.INTERESSANT, updated.verdict)
+        assertEquals("net beoordeeld", updated.reason)
+        assertEquals(lead.foundAt, updated.foundAt)
+        assertEquals(LocalDate.parse("2026-11-01"), updated.publishedOn)
     }
 
     @Test

@@ -75,6 +75,8 @@ interface JobRepository {
     fun leads(): List<JobLead>
     fun findLead(id: String): JobLead?
     fun saveLead(lead: JobLead): JobLead
+    /** Alleen de ontbrekende datum aanvullen, zonder een gelijktijdig oordeel te overschrijven. */
+    fun fillPublishedOn(id: String, date: LocalDate)
 }
 
 class InMemoryJobRepository : JobRepository {
@@ -90,6 +92,11 @@ class InMemoryJobRepository : JobRepository {
     override fun leads() = leads.values.toList()
     override fun findLead(id: String) = leads[id]
     override fun saveLead(lead: JobLead) = lead.also { leads[it.id] = it }
+    override fun fillPublishedOn(id: String, date: LocalDate) {
+        leads.computeIfPresent(id) { _, current ->
+            if (current.publishedOn == null) current.copy(publishedOn = date) else current
+        }
+    }
 }
 
 /** `job-search/settings` en één document per vacature in `job-leads`. */
@@ -124,6 +131,17 @@ class FirestoreJobRepository(private val firestore: Firestore) : JobRepository {
     override fun leads(): List<JobLead> = leadCollection.get().get().documents.map { it.toLead() }
 
     override fun findLead(id: String): JobLead? = leadCollection.document(id).get().get().takeIf { it.exists() }?.toLead()
+
+    override fun fillPublishedOn(id: String, date: LocalDate) {
+        val document = leadCollection.document(id)
+        firestore.runTransaction { transaction ->
+            val current = transaction.get(document).get()
+            if (current.exists() && current.getString("publishedOn").isNullOrBlank()) {
+                transaction.update(document, "publishedOn", date.toString())
+            }
+            Unit
+        }.get()
+    }
 
     override fun saveLead(lead: JobLead): JobLead {
         leadCollection.document(lead.id).set(
@@ -249,8 +267,7 @@ class JobSearchService(
         found.filter { it.publishedOn != null && !it.publishedOn.isAfter(today) }
             .distinctBy { normalizeUrl(it.url) }.forEach { job ->
                 known.firstOrNull { normalizeUrl(it.url) == normalizeUrl(job.url) }
-                    ?.takeIf { it.publishedOn == null }
-                    ?.let { repository.saveLead(it.copy(publishedOn = job.publishedOn)) }
+                    ?.let { repository.fillPublishedOn(it.id, job.publishedOn!!) }
             }
         val fresh = filterNew(found, known, settings.blockedCompanies).map {
             repository.saveLead(JobLead(
