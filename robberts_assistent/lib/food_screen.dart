@@ -842,11 +842,13 @@ class MealPhoto extends StatefulWidget {
     required this.api,
     required this.photoId,
     required this.size,
+    this.canEnlarge = false,
   });
 
   final ApiClient api;
   final String? photoId;
   final double size;
+  final bool canEnlarge;
 
   @override
   State<MealPhoto> createState() => _MealPhotoState();
@@ -865,7 +867,10 @@ class _MealPhotoState extends State<MealPhoto> {
   @override
   void didUpdateWidget(MealPhoto old) {
     super.didUpdateWidget(old);
-    if (old.photoId != widget.photoId) _fetch();
+    if (old.photoId != widget.photoId) {
+      _bytes = null;
+      _fetch();
+    }
   }
 
   Future<void> _fetch() async {
@@ -888,7 +893,7 @@ class _MealPhotoState extends State<MealPhoto> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ClipRRect(
+    final thumbnail = ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: Container(
         width: widget.size,
@@ -907,6 +912,67 @@ class _MealPhotoState extends State<MealPhoto> {
                 color: scheme.onSurfaceVariant,
                 size: widget.size * 0.45,
               ),
+      ),
+    );
+    final bytes = _bytes;
+    if (!widget.canEnlarge || bytes == null) return thumbnail;
+    return Tooltip(
+      message: 'Foto vergroten',
+      child: Semantics(
+        button: true,
+        label: 'Foto vergroten',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => Scaffold(
+                backgroundColor: Colors.black,
+                appBar: AppBar(
+                  title: const Text('Foto van maaltijd'),
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                ),
+                body: SafeArea(
+                  child: InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 5,
+                    child: SizedBox.expand(
+                      child: Image.memory(
+                        bytes,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Center(
+                          child: Text(
+                            'Foto kon niet worden geladen.',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          child: Stack(
+            children: [
+              thumbnail,
+              const Positioned(
+                right: 4,
+                bottom: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.zoom_in, color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1372,6 +1438,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                           api: widget.api,
                           photoId: meal.photoIds[i],
                           size: 120,
+                          canEnlarge: true,
                         ),
                       ),
                     ),

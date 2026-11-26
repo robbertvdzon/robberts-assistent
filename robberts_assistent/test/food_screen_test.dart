@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,11 +26,12 @@ Meal _meal({
   String status = 'VOORSTEL',
   List<MealItem> items = const [_potatoes, _sausage],
   String learned = '',
+  List<String> photoIds = const [],
 }) => Meal(
   id: 'm1',
   eatenAt: DateTime(2026, 11, 17, 18, 42),
   title: 'Avondeten',
-  photoIds: const [],
+  photoIds: photoIds,
   note: '',
   status: status,
   kcal: items.fold(0, (sum, i) => sum + i.kcal),
@@ -41,6 +45,11 @@ class _FakeApiClient extends ApiClient {
   bool confirmCalled = false;
   String? correction;
   String? createdNote;
+
+  @override
+  Future<Uint8List> fetchMealPhoto(String id) async => base64Decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+  );
 
   @override
   Future<NutritionDay> getNutritionDay(DateTime date) async => NutritionDay(
@@ -147,6 +156,33 @@ Future<void> _pump(WidgetTester tester, Widget screen) async {
 }
 
 void main() {
+  testWidgets('bestaande maaltijd opent foto schermvullend met zoom en terug', (
+    tester,
+  ) async {
+    final api = _FakeApiClient()..meal = _meal(photoIds: ['zoom-photo']);
+    await _pump(tester, FoodScreen(api: api));
+    await tester.tap(find.text('Avondeten'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MealDetailScreen), findsOneWidget);
+    await tester.tap(find.byTooltip('Foto vergroten'));
+    await tester.pumpAndSettle();
+    expect(find.text('Foto van maaltijd'), findsOneWidget);
+    final zoom = tester.widget<InteractiveViewer>(
+      find.byType(InteractiveViewer),
+    );
+    expect(zoom.maxScale, greaterThan(1));
+    expect(tester.widget<Image>(find.byType(Image).last).fit, BoxFit.contain);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(MealDetailScreen), findsOneWidget);
+    expect(find.byTooltip('Foto vergroten'), findsOneWidget);
+  });
+
+  testWidgets('zonder foto heeft maaltijd geen vergrootactie', (tester) async {
+    await _pump(tester, MealDetailScreen(api: _FakeApiClient(), mealId: 'm1'));
+    expect(find.byTooltip('Foto vergroten'), findsNothing);
+    expect(find.byType(InteractiveViewer), findsNothing);
+  });
   testWidgets('dagoverzicht toont totalen en het eetmoment als voorstel', (
     tester,
   ) async {

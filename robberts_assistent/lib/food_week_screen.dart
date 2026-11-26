@@ -129,6 +129,13 @@ class _FoodWeekScreenState extends State<FoodWeekScreen> {
                         ),
                         for (final d in week.days) _DayRow(day: d),
                         const Divider(height: 24),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Vandaag telt niet mee in de gemiddelden en percentages.',
+                            style: muted,
+                          ),
+                        ),
                         Row(
                           children: [
                             const Expanded(

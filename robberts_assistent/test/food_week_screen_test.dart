@@ -72,6 +72,15 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('40% gewogen'), findsOneWidget);
+    expect(
+      find.text('Vandaag telt niet mee in de gemiddelden en percentages.'),
+      findsOneWidget,
+    );
+    await tester.dragUntilVisible(
+      find.text('2-11: 82,0 kg'),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
     expect(find.text('2-11: 82,0 kg'), findsOneWidget);
   });
 
@@ -82,7 +91,11 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FoodWeekScreen(api: api)));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byType(TextField));
+    await tester.dragUntilVisible(
+      find.byType(TextField),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
     await tester.enterText(find.byType(TextField), '81,4');
     await tester.tap(find.text('Opslaan'));
     await tester.pumpAndSettle();
@@ -96,7 +109,11 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FoodWeekScreen(api: api)));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byType(TextField));
+    await tester.dragUntilVisible(
+      find.byType(TextField),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
     await tester.enterText(find.byType(TextField), '8');
     await tester.tap(find.text('Opslaan'));
     await tester.pump();

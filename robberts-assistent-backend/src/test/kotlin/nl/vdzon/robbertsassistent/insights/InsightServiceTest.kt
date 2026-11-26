@@ -118,18 +118,50 @@ class InsightServiceTest {
         assertEquals(81.2, last.weightKg)
         assertEquals(500, week.days[5].eatenKcal)
         assertEquals(0, week.days[0].mealCount)
-        // Twee dagen met eten: (1000 + 500) / 2; verbruik alleen bekend voor vandaag.
-        assertEquals(750, week.avgEatenKcal)
-        assertEquals(2500, week.avgBurnedKcal)
+        // Vandaag blijft zichtbaar, maar alleen de afgeronde lunchdag telt mee.
+        assertEquals(500, week.avgEatenKcal)
+        assertNull(week.avgBurnedKcal)
+        assertEquals(10.0, week.avgProteinG)
+        assertEquals(5.0, week.avgFiberG)
+        assertEquals(50, week.avgVegetableG)
         // Vandaag is nog niet af en gisteren heeft geen verbruik: nog geen balans.
         assertNull(week.avgBalanceKcal)
         sleep(today.minusDays(1), 420, kcal = 2300)
         assertEquals(-1800, service.week(today).avgBalanceKcal)
-        // 400 van de 1500 kcal is gewogen; twee van de drie bevestigde maaltijden ongewijzigd.
-        assertEquals(mapOf("GEWOGEN" to 26, "GESCHAT" to 73), week.basisShare)
-        assertEquals(66, week.unchangedShare)
+        assertEquals(mapOf("GESCHAT" to 100), week.basisShare)
+        assertEquals(100, week.unchangedShare)
         assertEquals(listOf(82.0, 81.2), week.weights.map { it.weightKg })
         assertEquals("Gegeten 1000 kcal · verbruikt 2500 kcal · 9000 stappen · eiwit 20 g, vezels 10 g, groente 100 g", service.todayLine())
+    }
+
+    @Test
+    fun `alleen vandaag ingevuld levert geen weekgemiddelden of percentages op`() {
+        meal(today, 8, "Ontbijt", 400)
+        sleep(today, 400, kcal = 1200)
+        val week = service.week(today)
+        assertEquals(400, week.days.last().eatenKcal)
+        assertNull(week.avgEatenKcal)
+        assertNull(week.avgBurnedKcal)
+        assertNull(week.avgBalanceKcal)
+        assertNull(week.avgProteinG)
+        assertNull(week.avgFiberG)
+        assertNull(week.avgVegetableG)
+        assertTrue(week.basisShare.isEmpty())
+        assertNull(week.unchangedShare)
+    }
+
+    @Test
+    fun `afgesloten week telt alle zeven dagen mee`() {
+        val end = today.minusDays(1)
+        repeat(7) { day ->
+            meal(end.minusDays(day.toLong()), 12, "Lunch", 500)
+            sleep(end.minusDays(day.toLong()), 420, kcal = 2000)
+        }
+        val week = service.week(end)
+        assertEquals(7, week.days.count { it.mealCount > 0 })
+        assertEquals(500, week.avgEatenKcal)
+        assertEquals(2000, week.avgBurnedKcal)
+        assertEquals(-1500, week.avgBalanceKcal)
     }
 
     @Test

@@ -1,5 +1,11 @@
 # Eetdagboek met foto's — ontwerp
 
+Aanvulling 26 november 2026: vandaag blijft zichtbaar in het weekoverzicht, maar telt niet mee
+in gemiddelden voor eten, verbruik, eiwit, vezels en groente, of in de percentages voor
+onderbouwing en ongewijzigd bevestigen. Alleen afgeronde dagen tellen mee; een historische week
+behoudt alle zeven dagen. Bij een maaltijd kun je op een foto met het vergrooticoon tikken om
+de volledige foto schermvullend te bekijken en tot vijf keer in te zoomen. Terug sluit de foto.
+
 Status (18 november 2026): **alle zes stappen zijn gebouwd, op de onderdelen hieronder na.**
 
 Aanvulling 20 november 2026: de referentiefoto's komen uit een **referentiebibliotheek** (elke unieke combinatie van gerecht, servies en hoeveelheid één keer; dubbelen worden gemarkeerd en niet opnieuw gebruikt) in plaats van drie gewogen maaltijden op kloktijd, en bij een eetmoment is vast te leggen welk **deel is opgegeten**: de portie blijft heel voor de referenties, de dag telt minder.

@@ -53,7 +53,7 @@ data class WeightPoint(val date: LocalDate, val weightKg: Double)
 
 data class WeekOverview(
     val days: List<OverviewDay>,
-    /** Gemiddelden over de dagen waarop iets is gegeten resp. waarvoor verbruik bekend is. */
+    /** Gemiddelden over afgeronde dagen met eten resp. bekend verbruik; vandaag telt niet mee. */
     val avgEatenKcal: Int?,
     val avgBurnedKcal: Int?,
     /**
@@ -107,11 +107,13 @@ class InsightService(
                 mealCount = byDate[date].orEmpty().size,
             )
         }
-        val eaten = days.filter { it.mealCount > 0 }
-        val burned = days.mapNotNull { it.burnedKcal }
-        val allItems = mealList.flatMap { it.eatenItems }
+        val completedDays = days.filter { it.date.isBefore(today) }
+        val completedMeals = mealList.filter { it.eatenAt.atZone(ZONE).toLocalDate().isBefore(today) }
+        val eaten = completedDays.filter { it.mealCount > 0 }
+        val burned = completedDays.mapNotNull { it.burnedKcal }
+        val allItems = completedMeals.flatMap { it.eatenItems }
         val totalKcal = allItems.sumOf { it.kcal }
-        val confirmed = mealList.filter { it.status == MealStatus.BEVESTIGD || it.status == MealStatus.VERBETERD }
+        val confirmed = completedMeals.filter { it.status == MealStatus.BEVESTIGD || it.status == MealStatus.VERBETERD }
         return WeekOverview(
             days = days,
             avgEatenKcal = eaten.takeIf { it.isNotEmpty() }?.map { it.eatenKcal }?.average()?.toInt(),
