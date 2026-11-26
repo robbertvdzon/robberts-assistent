@@ -142,8 +142,10 @@ class _JobsScreenState extends State<JobsScreen> {
     if (saved != null) _show(saved);
   }
 
-  String _when(DateTime at) =>
-      '${at.day}-${at.month} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+  String _when(DateTime at) {
+    final local = at.toLocal();
+    return '${local.day}-${local.month}-${local.year} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +261,14 @@ class _JobsScreenState extends State<JobsScreen> {
                       lead.company,
                       lead.location,
                     ].where((s) => s.isNotEmpty).join(' · '),
+                    style: muted,
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Gevonden op ${_when(lead.foundAt)}', style: muted),
+                  Text(
+                    lead.publishedOn == null
+                        ? 'Publicatiedatum onbekend'
+                        : 'Geplaatst op ${lead.publishedOn!.day}-${lead.publishedOn!.month}-${lead.publishedOn!.year}',
                     style: muted,
                   ),
                   if (lead.summary.isNotEmpty) ...[

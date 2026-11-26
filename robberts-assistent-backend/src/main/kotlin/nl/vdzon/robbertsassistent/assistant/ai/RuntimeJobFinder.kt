@@ -2,6 +2,8 @@ package nl.vdzon.robbertsassistent.assistant.ai
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import java.time.LocalDate
+import java.time.ZoneId
 import nl.vdzon.robbertsassistent.config.AppSecrets
 import nl.vdzon.robbertsassistent.jobs.FoundJob
 import nl.vdzon.robbertsassistent.jobs.JobFinder
@@ -43,6 +45,7 @@ class RuntimeJobFinder(
                 location = node.path("plaats").asText("").trim().take(120),
                 url = url,
                 summary = node.path("samenvatting").asText("").trim().take(600),
+                publishedOn = parsePublishedOn(node.path("publicatiedatum").asText("")),
             )
         }
     }
@@ -77,17 +80,26 @@ class RuntimeJobFinder(
         }
         if (known.isNotEmpty()) {
             appendLine()
-            appendLine("## Al eerder gemeld (niet opnieuw melden)")
+            appendLine("## Al eerder gemeld (niet opnieuw als nieuw melden)")
             known.sortedByDescending { it.foundAt }.take(MAX_KNOWN_IN_PROMPT).forEach { appendLine("- ${it.title} bij ${it.company} (${it.url})") }
         }
         appendLine()
         appendLine("## Regels")
-        appendLine("- Meld hooguit ${JobSearchService.MAX_PER_RUN} vacatures, de best passende eerst; liever weinig goede dan veel matige.")
+        appendLine("- Meld hooguit ${JobSearchService.MAX_PER_RUN} nieuwe vacatures, de best passende eerst; liever weinig goede dan veel matige.")
         appendLine("- Alleen vacatures die je zelf op een pagina hebt gezien; verzin niets. `url` is de pagina van de vacature zelf.")
         appendLine("- Geen detacheerders of recruiters die de werkgever niet noemen, tenzij de zoekvraag daar om vraagt.")
         appendLine("- `samenvatting`: twee of drie zinnen in het Nederlands over de rol, de techniek en waarom dit past; noem de")
         appendLine("  reisafstand of thuiswerkregeling als die op de pagina staat.")
-        appendLine("- Vind je niets nieuws, geef dan een lege lijst.")
+        appendLine("- Vind je niets nieuws en geen ontbrekende publicatiedatums, geef dan een lege lijst.")
+        appendLine("- Vandaag is ${LocalDate.now(ZoneId.of("Europe/Amsterdam"))}. `publicatiedatum`: de oorspronkelijke plaatsingsdatum")
+        appendLine("  die de vacaturepagina noemt (bijvoorbeeld datePosted), als YYYY-MM-DD; anders null. Verzin geen datum.")
+        appendLine("  Gebruik niet de datum waarop jij hem vindt, een sluitingsdatum, wijzigingsdatum of copyrightjaar.")
+        appendLine("- Controleer daarnaast hooguit 10 van de onderstaande bestaande vacatures zonder publicatiedatum.")
+        appendLine("  Alleen als je hun plaatsingsdatum daadwerkelijk vindt, mag je ze naast de nieuwe vacatures in dezelfde lijst")
+        appendLine("  teruggeven, met exact hun bestaande url. De app vult alleen de datum aan, zonder nieuwe melding.")
+        known.filter { it.publishedOn == null && it.verdict != LeadVerdict.NIET }
+            .sortedByDescending { it.foundAt }.take(10)
+            .forEach { appendLine("  - ${it.title} bij ${it.company}: ${it.url}") }
     }
 
     internal fun learnInstruction(settings: JobSearchSettings, lead: JobLead): String = buildString {
@@ -120,13 +132,18 @@ class RuntimeJobFinder(
         const val MAX_KNOWN_IN_PROMPT = 80
         const val MAX_PREFERENCES = 4000
 
+        internal fun parsePublishedOn(text: String): LocalDate? =
+            runCatching { LocalDate.parse(text.trim()) }.getOrNull()
+                ?.takeUnless { it.isAfter(LocalDate.now(ZoneId.of("Europe/Amsterdam"))) }
+
         val FIND_SCHEMA: JsonNode = ObjectMapper().readTree(
             """
             {"type":"object","required":["vacatures"],"additionalProperties":false,
              "properties":{"vacatures":{"type":"array","items":{"type":"object",
-               "required":["titel","bedrijf","plaats","url","samenvatting"],"additionalProperties":false,
+               "required":["titel","bedrijf","plaats","url","samenvatting","publicatiedatum"],"additionalProperties":false,
                "properties":{"titel":{"type":"string"},"bedrijf":{"type":"string"},"plaats":{"type":"string"},
-                             "url":{"type":"string"},"samenvatting":{"type":"string"}}}}}}
+                             "url":{"type":"string"},"samenvatting":{"type":"string"},
+                             "publicatiedatum":{"type":["string","null"]}}}}}}
             """.trimIndent(),
         )
         val LEARN_SCHEMA: JsonNode = ObjectMapper().readTree(

@@ -4,6 +4,8 @@ import com.google.cloud.firestore.DocumentSnapshot
 import com.google.cloud.firestore.Firestore
 import jakarta.annotation.PreDestroy
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -42,6 +44,8 @@ data class JobLead(
     val foundAt: Instant,
     val verdict: LeadVerdict = LeadVerdict.NIEUW,
     val reason: String = "",
+    /** Publicatiedatum zoals vermeld door de vacaturebron; null als die niet bekend is. */
+    val publishedOn: LocalDate? = null,
 )
 
 /**
@@ -132,6 +136,7 @@ class FirestoreJobRepository(private val firestore: Firestore) : JobRepository {
                 "foundAt" to lead.foundAt.toEpochMilli(),
                 "verdict" to lead.verdict.name,
                 "reason" to lead.reason,
+                "publishedOn" to lead.publishedOn?.toString(),
             ),
         ).get()
         return lead
@@ -147,6 +152,7 @@ class FirestoreJobRepository(private val firestore: Firestore) : JobRepository {
         foundAt = Instant.ofEpochMilli(getLong("foundAt") ?: 0L),
         verdict = runCatching { LeadVerdict.valueOf(getString("verdict").orEmpty()) }.getOrDefault(LeadVerdict.NIEUW),
         reason = getString("reason").orEmpty(),
+        publishedOn = getString("publishedOn")?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
     )
 }
 
@@ -169,7 +175,10 @@ class JobStoreConfig {
     }
 }
 
-data class FoundJob(val title: String, val company: String, val location: String, val url: String, val summary: String)
+data class FoundJob(
+    val title: String, val company: String, val location: String, val url: String, val summary: String,
+    val publishedOn: LocalDate? = null,
+)
 
 /** Wat er uit één oordeel geleerd is: de bijgewerkte voorkeurentekst en de bedrijven die wegblijven. */
 data class LearnedPreferences(val preferences: String, val blockedCompanies: List<String>)
@@ -235,8 +244,19 @@ class JobSearchService(
             repository.saveSettings(repository.settings().copy(lastRunAt = Instant.now(), lastRunNote = "Zoeken is mislukt; morgen opnieuw."))
             return emptyList()
         }
+        val today = LocalDate.now(ZoneId.of("Europe/Amsterdam"))
+        // Een teruggevonden datum vult alleen metadata aan; vinddatum en oordeel blijven staan.
+        found.filter { it.publishedOn != null && !it.publishedOn.isAfter(today) }
+            .distinctBy { normalizeUrl(it.url) }.forEach { job ->
+                known.firstOrNull { normalizeUrl(it.url) == normalizeUrl(job.url) }
+                    ?.takeIf { it.publishedOn == null }
+                    ?.let { repository.saveLead(it.copy(publishedOn = job.publishedOn)) }
+            }
         val fresh = filterNew(found, known, settings.blockedCompanies).map {
-            repository.saveLead(JobLead(UUID.randomUUID().toString(), it.title, it.company, it.location, it.url, it.summary, Instant.now()))
+            repository.saveLead(JobLead(
+                UUID.randomUUID().toString(), it.title, it.company, it.location, it.url, it.summary, Instant.now(),
+                publishedOn = it.publishedOn?.takeUnless { date -> date.isAfter(today) },
+            ))
         }
         val note = when (fresh.size) {
             0 -> "Niets nieuws gevonden."
@@ -353,6 +373,7 @@ data class JobLeadDto(
     val foundAt: String,
     val verdict: String,
     val reason: String,
+    val publishedOn: String? = null,
 )
 
 data class JobOverviewDto(
@@ -426,7 +447,7 @@ class JobSearchController(private val authService: AuthService, private val serv
             lastRunNote = settings.lastRunNote,
             running = service.isRunning,
             leads = service.leads().map {
-                JobLeadDto(it.id, it.title, it.company, it.location, it.url, it.summary, it.foundAt.toString(), it.verdict.name, it.reason)
+                JobLeadDto(it.id, it.title, it.company, it.location, it.url, it.summary, it.foundAt.toString(), it.verdict.name, it.reason, it.publishedOn?.toString())
             },
         )
     }

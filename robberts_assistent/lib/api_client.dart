@@ -1600,6 +1600,7 @@ class JobLead {
   final DateTime foundAt;
   final String verdict;
   final String reason;
+  final DateTime? publishedOn;
   const JobLead({
     required this.id,
     required this.title,
@@ -1610,6 +1611,7 @@ class JobLead {
     required this.foundAt,
     this.verdict = 'NIEUW',
     this.reason = '',
+    this.publishedOn,
   });
 
   static JobLead fromJson(Map<String, dynamic> m) => JobLead(
@@ -1622,6 +1624,7 @@ class JobLead {
     foundAt: DateTime.parse(m['foundAt'] as String).toLocal(),
     verdict: m['verdict'] as String? ?? 'NIEUW',
     reason: m['reason'] as String? ?? '',
+    publishedOn: DateTime.tryParse(m['publishedOn'] as String? ?? ''),
   );
 }
 

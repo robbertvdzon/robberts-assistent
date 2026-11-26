@@ -15,6 +15,7 @@ class _Api extends ApiClient {
         company: 'Tata Steel',
         location: 'IJmuiden',
         foundAt: DateTime(2026, 11, 20, 8, 30),
+        publishedOn: DateTime(2026, 11, 12),
         summary: 'Agents bouwen.',
       ),
       JobLead(
@@ -46,6 +47,7 @@ class _Api extends ApiClient {
                   title: l.title,
                   company: l.company,
                   foundAt: l.foundAt,
+                  publishedOn: l.publishedOn,
                   verdict: verdict,
                   reason: reason,
                 )
@@ -94,6 +96,28 @@ Future<void> _pump(WidgetTester tester, _Api api) async {
 }
 
 void main() {
+  testWidgets(
+    'vacatures tonen vinddatum en bekende of onbekende publicatiedatum',
+    (tester) async {
+      await _pump(tester, _Api());
+      expect(find.text('Gevonden op 20-11-2026 08:30'), findsNWidgets(2));
+      expect(find.text('Geplaatst op 12-11-2026'), findsOneWidget);
+      expect(find.text('Publicatiedatum onbekend'), findsOneWidget);
+    },
+  );
+
+  test('publicatiedatum uit API is optioneel en los van vinddatum', () {
+    final json = <String, dynamic>{
+      'id': 'a',
+      'title': 'Developer',
+      'company': 'Acme',
+      'foundAt': '2026-11-20T07:30:00Z',
+    };
+    expect(JobLead.fromJson(json).publishedOn, isNull);
+    final lead = JobLead.fromJson({...json, 'publishedOn': '2026-11-12'});
+    expect(lead.publishedOn, DateTime(2026, 11, 12));
+    expect(lead.foundAt.toUtc(), DateTime.utc(2026, 11, 20, 7, 30));
+  });
   testWidgets(
     'niet interessant met reden verplaatst de vacature naar zijn groep',
     (tester) async {

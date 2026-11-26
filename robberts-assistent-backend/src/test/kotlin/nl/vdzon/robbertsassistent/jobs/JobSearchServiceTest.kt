@@ -1,6 +1,7 @@
 package nl.vdzon.robbertsassistent.jobs
 
 import nl.vdzon.robbertsassistent.push.PushService
+import java.time.LocalDate
 import org.mockito.Mockito
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,6 +30,39 @@ class JobSearchServiceTest {
     private val service = JobSearchService(repository, finder, push)
 
     private fun job(title: String, company: String, url: String = "https://x.nl/$title") = FoundJob(title, company, "Haarlem", url, "samenvatting")
+
+    @Test
+    fun `nieuwe vacature bewaart publicatiedatum en oordeel behoudt beide datums`() {
+        val date = LocalDate.parse("2026-11-01")
+        finder.found = listOf(job("Kotlin", "Acme").copy(publishedOn = date))
+        val lead = service.run(notify = false).single()
+        assertEquals(date, lead.publishedOn)
+        val rated = service.rate(lead.id, LeadVerdict.INTERESSANT, "leuk")
+        assertEquals(date, rated.publishedOn)
+        assertEquals(lead.foundAt, rated.foundAt)
+    }
+
+    @Test
+    fun `bestaande vacature krijgt ontbrekende datum zonder nieuwe melding of aangepast oordeel`() {
+        finder.found = listOf(job("Kotlin", "Acme"))
+        val lead = service.run(notify = false).single()
+        val rated = service.rate(lead.id, LeadVerdict.INTERESSANT, "goede techniek")
+        finder.found = listOf(job("Kotlin", "Acme").copy(publishedOn = LocalDate.parse("2026-11-01")))
+        assertTrue(service.run(notify = true).isEmpty())
+        val enriched = service.leads().single()
+        assertEquals(rated.copy(publishedOn = LocalDate.parse("2026-11-01")), enriched)
+        Mockito.verifyNoInteractions(push)
+        // Een latere herplaatsingsdatum overschrijft de eerder gevonden publicatiedatum niet.
+        finder.found = listOf(job("Kotlin", "Acme").copy(publishedOn = LocalDate.parse("2026-11-10")))
+        service.run(notify = false)
+        assertEquals(enriched, service.leads().single())
+    }
+
+    @Test
+    fun `toekomstige datum wordt niet als publicatiedatum opgeslagen`() {
+        finder.found = listOf(job("Kotlin", "Acme").copy(publishedOn = LocalDate.of(2099, 1, 1)))
+        assertEquals(null, service.run(notify = false).single().publishedOn)
+    }
 
     @Test
     fun `nieuwe vacatures worden bewaard en gemeld, een tweede ronde meldt ze niet opnieuw`() {
