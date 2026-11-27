@@ -57,6 +57,10 @@ dependencies:
   go_router: ^17.5.0
   file_picker: ^13.4.0
 
+  # De notitie-editor, gedeeld met de losse notities-app (../notities).
+  notes_editor:
+    path: packages/notes_editor
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

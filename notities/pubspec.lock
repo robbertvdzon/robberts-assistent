@@ -445,6 +445,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.18.0"
+  notes_editor:
+    dependency: "direct main"
+    description:
+      path: "../robberts_assistent/packages/notes_editor"
+      relative: true
+    source: path
+    version: "1.0.0"
   path:
     dependency: transitive
     description:

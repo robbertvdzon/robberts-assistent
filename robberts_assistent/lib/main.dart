@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'more_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:notes_editor/notes_editor.dart'
+    show notesEditorLocalizationsDelegate;
 
 import 'alarm_scheduler.dart';
 import 'admin_screen.dart';
@@ -77,6 +79,8 @@ class RobbertsAssistentApp extends StatelessWidget {
       routerConfig: appRouter,
       title: "Robbert's assistent",
       theme: robbertsAssistentTheme,
+      // Nodig voor de notitie-editor (Meer → Notities).
+      localizationsDelegates: const [notesEditorLocalizationsDelegate],
     );
   }
 }

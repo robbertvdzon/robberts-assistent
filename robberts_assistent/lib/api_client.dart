@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:notes_editor/notes_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Praat met `robberts-assistent-backend`. Zelfde patroon als de softwarefactory
@@ -57,6 +58,17 @@ class ApiClient {
   Map<String, String> authHeaders() => {
     if (token != null) 'Authorization': 'Bearer $token',
   };
+
+  /// De notitiedocumenten voor het scherm Meer → Notities; dezelfde aanroepen als de losse
+  /// notities-app, met de sessie van deze app.
+  NotesApi get notes => HttpNotesApi(
+    baseUrl: baseUrl,
+    headers: authHeaders,
+    onUnauthorized: () async {
+      await clearSession();
+      throw const UnauthorizedException();
+    },
+  );
 
   Future<NotificationPage> notifications({String? before}) async {
     final query = before == null

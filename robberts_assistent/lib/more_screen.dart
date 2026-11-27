@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:notes_editor/notes_editor.dart';
 
 import 'ai_models_screen.dart';
 import 'api_client.dart';
@@ -22,6 +23,7 @@ class MoreScreen extends StatelessWidget {
 
   static const paths = [
     'meldingen',
+    'notities',
     'bankzaken',
     'moestuin',
     'health',
@@ -43,6 +45,8 @@ class MoreScreen extends StatelessWidget {
     ValueChanged<Map<String, String>>? onBankLocationChanged,
   }) => switch (name) {
     'meldingen' => NotificationsScreen(api: api),
+    // Dezelfde editor als de losse notities-app; uitloggen loopt via de app zelf.
+    'notities' => NotesEditorScreen(api: api.notes),
     'bankzaken' => BankingScreen(
       api: api,
       initialMonth: month,
@@ -75,6 +79,12 @@ class MoreScreen extends StatelessWidget {
         Icons.notifications_outlined,
         'Meldingen',
         'Alle meldingen en hun geschiedenis',
+      ),
+      (
+        'notities',
+        Icons.edit_note_outlined,
+        'Notities',
+        'Dezelfde documenten als in de notities-app',
       ),
       (
         'bankzaken',

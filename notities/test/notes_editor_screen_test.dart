@@ -18,7 +18,7 @@ Widget _app(ApiClient api, {ThemeData? theme}) => MaterialApp(
   theme: theme,
   localizationsDelegates: FlutterQuillLocalizations.localizationsDelegates,
   supportedLocales: FlutterQuillLocalizations.supportedLocales,
-  home: NotesEditorScreen(api: api, onLoggedOut: () {}),
+  home: NotesEditorScreen(api: api, onLoggedOut: () {}, editorBackground: notitiesEditorBackground),
 );
 
 /// Pumpt tot de notitie geladen is (geen `pumpAndSettle`: de laadspinner blijft

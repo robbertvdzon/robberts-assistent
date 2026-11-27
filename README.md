@@ -22,7 +22,9 @@ vier Flutter/Android-apps.
   tekst, datum, gelezenstatus en een knop naar het bijbehorende scherm. De geschiedenis wordt op
   de backend bewaard vanaf het moment dat deze functie actief is; lezen verwijdert niets.
 - **`groentetuin/`** — moestuin-chat met tekst en foto's, als APK en web-app.
-- **`notities/`** — auto-opslaande notitie-app, als APK.
+- **`notities/`** — auto-opslaande notitie-app, als APK. Dezelfde editor zit ook in
+  `robberts_assistent` onder Meer → Notities (web en APK); de code staat in het gedeelde pakket
+  `robberts_assistent/packages/notes_editor`.
 - **`wind/`** — handsfree Wind-app: Android App Actions starten een
   backendvraag, waarna het antwoord wordt uitgesproken en als notificatie wordt
   getoond. Zie [`wind/README.md`](wind/README.md).

@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths:
       - 'notities/**'
+      # De editor zelf staat in het gedeelde pakket bij robberts_assistent.
+      - 'robberts_assistent/packages/notes_editor/**'
       - '.github/workflows/notities-apk.yml'
   workflow_dispatch:
 

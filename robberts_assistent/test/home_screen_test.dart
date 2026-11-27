@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:notes_editor/notes_editor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:robberts_assistent/api_client.dart';
 import 'package:robberts_assistent/app_shortcuts.dart';
@@ -26,7 +28,24 @@ import 'package:robberts_assistent/watches_screen.dart';
 
 /// Stub-ApiClient die alleen de door de vier hoofdschermen aangeroepen methodes overschrijft
 /// met lege/harmloze resultaten, zodat er geen echte netwerkcalls in de test plaatsvinden.
+/// Eén notitiedocument 'todo'; alleen wat de editor bij het openen aanroept doet iets.
+class _FakeNotesApi implements NotesApi {
+  @override
+  Future<List<NoteDocument>> listNoteDocuments() async => const [
+    NoteDocument(id: 'note', title: 'todo', order: 0),
+  ];
+
+  @override
+  Future<String> getNoteDocumentText(String id) async => 'melk halen';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _FakeApiClient extends ApiClient {
+  @override
+  NotesApi get notes => _FakeNotesApi();
+
   var watchLoadCount = 0;
   bool returnChangingWatch = false;
   final loggedLaunches = <Map<String, dynamic>>[];
@@ -138,7 +157,7 @@ void main() {
       expect(find.byType(MoreScreen), findsOneWidget);
       expect(find.text('Health check'), findsOneWidget);
       expect(find.text('Zoekopdrachten'), findsOneWidget);
-      expect(find.text('Koppelingen'), findsOneWidget);
+      expect(find.text('Notities'), findsOneWidget);
       expect(find.text('Bankzaken'), findsOneWidget);
       // Onder 'Beheer' staan de instellingen; de lijst is langer dan het testscherm.
       expect(find.text('Moestuin'), findsOneWidget);
@@ -149,6 +168,7 @@ void main() {
         const Offset(0, -100),
       );
       expect(find.text('Nachtchecks'), findsOneWidget);
+      expect(find.text('Koppelingen'), findsOneWidget);
       await tester.dragUntilVisible(
         find.text('Updates'),
         find.byType(MoreScreen),
@@ -226,6 +246,12 @@ void main() {
 
     await tester.tap(find.text('Meer'));
     await tester.pump();
+    await tester.dragUntilVisible(
+      find.text('Koppelingen'),
+      find.byType(MoreScreen),
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Koppelingen'));
     await tester.pumpAndSettle();
     expect(find.byType(CouplingsScreen), findsOneWidget);
@@ -332,6 +358,12 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
+    await tester.dragUntilVisible(
+      find.text('Koppelingen'),
+      find.byType(MoreScreen),
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Koppelingen'));
     await tester.pumpAndSettle();
     expect(find.byType(CouplingsScreen), findsOneWidget);
@@ -339,6 +371,12 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
+    await tester.dragUntilVisible(
+      find.text('Nachtchecks'),
+      find.byType(MoreScreen),
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Nachtchecks'));
     await tester.pumpAndSettle();
     expect(find.byType(NightlyChecksScreen), findsOneWidget);
@@ -346,6 +384,12 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
+    await tester.dragUntilVisible(
+      find.text('Geheugen'),
+      find.byType(MoreScreen),
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Geheugen'));
     await tester.pumpAndSettle();
     expect(find.byType(MemoryScreen), findsOneWidget);
@@ -362,6 +406,36 @@ void main() {
     await tester.tap(find.text('Updates'));
     await tester.pumpAndSettle();
     expect(find.byType(UpdatesScreen), findsOneWidget);
+  });
+
+  testWidgets('Notities onder Meer opent de editor van de notities-app', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: robbertsAssistentTheme,
+        localizationsDelegates: const [notesEditorLocalizationsDelegate],
+        home: MoreScreen(api: _FakeApiClient()),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Notities'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NotesEditorScreen), findsOneWidget);
+    expect(find.text('todo'), findsOneWidget);
+    expect(
+      find.textContaining('melk halen', findRichText: true),
+      findsOneWidget,
+    );
+
+    // Uitloggen loopt via de app zelf en staat dus niet in het menu van de editor.
+    await tester.tap(find.byKey(const ValueKey('overflowmenu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Versies'), findsOneWidget);
+    expect(find.text('Uitloggen'), findsNothing);
   });
 
   testWidgets(
@@ -471,36 +545,35 @@ void main() {
     expect(AppShortcuts.pending.value, isNull);
   });
 
-  testWidgets(
-    'terugknop van de telefoon sluit het open scherm en niet de app',
-    (tester) async {
-      final router = createAppRouter(
-        initialLocation: '/dagboek',
-        rootBuilder: (uri) => HomeScreen(
-          api: _FakeApiClient(),
-          onLoggedOut: () {},
-          initialTab: 2,
-          onNavigate: (_) {},
-        ),
-      );
-      addTearDown(router.dispose);
-      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-      await tester.pump();
+  testWidgets('terugknop van de telefoon sluit het open scherm en niet de app', (
+    tester,
+  ) async {
+    final router = createAppRouter(
+      initialLocation: '/dagboek',
+      rootBuilder: (uri) => HomeScreen(
+        api: _FakeApiClient(),
+        onLoggedOut: () {},
+        initialTab: 2,
+        onNavigate: (_) {},
+      ),
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pump();
 
-      // Een scherm openen vanuit het dagboek zelf, zoals een eetmoment: dat komt op de
-      // navigator binnen het startscherm, niet op de buitenste.
-      await tester.tap(find.text('Gevoel'));
-      await tester.pumpAndSettle();
-      expect(find.text('Hoe voel je je?'), findsOneWidget);
+    // Een scherm openen vanuit het dagboek zelf, zoals een eetmoment: dat komt op de
+    // navigator binnen het startscherm, niet op de buitenste.
+    await tester.tap(find.text('Gevoel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hoe voel je je?'), findsOneWidget);
 
-      // De systeem-terugknop komt bij de buitenste navigator binnen.
-      final handled = await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(handled, isTrue);
-      expect(find.text('Hoe voel je je?'), findsNothing);
-      expect(find.byType(NavigationBar), findsOneWidget);
-    },
-  );
+    // De systeem-terugknop komt bij de buitenste navigator binnen.
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(handled, isTrue);
+    expect(find.text('Hoe voel je je?'), findsNothing);
+    expect(find.byType(NavigationBar), findsOneWidget);
+  });
 
   testWidgets('snelkoppeling Gewicht opent het dagboek met het invoerblad', (
     tester,

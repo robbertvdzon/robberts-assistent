@@ -39,6 +39,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flutter_quill: ^11.5.1
+  # Gedeelde editor; staat bij robberts_assistent zodat diens Docker-build hem meeneemt.
+  notes_editor:
+    path: ../robberts_assistent/packages/notes_editor
 
 dev_dependencies:
   flutter_test:

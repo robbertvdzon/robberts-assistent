@@ -3,6 +3,8 @@
 FROM ghcr.io/cirruslabs/flutter:3.44.0 AS build
 WORKDIR /src
 COPY pubspec.yaml pubspec.lock ./
+# Het lokale pakket moet er al staan voordat pub get de path-dependency oplost.
+COPY packages packages
 RUN flutter pub get
 COPY . .
 ARG API_BASE_URL=

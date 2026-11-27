@@ -338,6 +338,15 @@ In de webversie blijft plakken tekst-only. In `conversations_screen.dart`: de ee
   save), Documenten beheren, Versies en Uitloggen. De statustekst (`_status`, o.a. `Opgeslagen`)
   is verdwenen; `Opslaan mislukt: …`/`Laden mislukt: …` komen met ongewijzigde tekst als
   `SnackBar`, de harde `_error`-body blijft.
+- **Notities in de hoofdapp** (27 nov 2026): `robberts_assistent` toont onder Meer → Notities
+  (`/meer/notities`, dus ook in de webversie op de pc) dezelfde editor als de losse notities-app.
+  De code staat in het gedeelde pakket `robberts_assistent/packages/notes_editor` (editor,
+  documentbeheer, versies, `markdown_delta.dart` en `NotesApi`/`HttpNotesApi`); beide apps hangen
+  er met een path-dependency aan en de bestanden in `notities/lib/` exporteren alleen nog het
+  pakket. Het pakket staat bij `robberts_assistent` omdat diens Docker-build alleen die map als
+  context heeft (`COPY packages packages` vóór `flutter pub get`). In de hoofdapp volgt de editor
+  het lichte thema, ontbreekt 'Uitloggen' in het menu (`onLoggedOut` is optioneel) en loopt de API
+  via `ApiClient.notes`; `main.dart` zet daarvoor `notesEditorLocalizationsDelegate`.
 - **`wind/`** — PoC "Hey Google" → App Actions → native trampoline (TTS + notificatie), praat
   met de backend-chat-assistent voor het windantwoord. Alleen APK.
 

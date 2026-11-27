@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_client.dart';
 import 'notes_editor_screen.dart';
+import 'self_update_prompt.dart';
 
 void main() {
   runApp(const NotitiesApp());
@@ -120,7 +121,12 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     if (!initialized) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (api.token == null) return _loginView();
-    return NotesEditorScreen(api: api, onLoggedOut: _logout);
+    return NotesEditorScreen(
+      api: api,
+      onLoggedOut: _logout,
+      onOpened: maybePromptSelfUpdate,
+      editorBackground: notitiesEditorBackground,
+    );
   }
 
   Widget _loginView() => Scaffold(

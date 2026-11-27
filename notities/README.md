@@ -3,6 +3,13 @@
 Flutter-app (APK-only) met meerdere auto-opslaande notitiedocumenten, gekoppeld aan
 `robberts-assistent-backend`. Google-login vereist.
 
+De editor, het documentbeheer, het versiescherm, de markdown-conversie en de notitie-API staan
+sinds 27 nov 2026 in het gedeelde pakket `../robberts_assistent/packages/notes_editor`, omdat
+`robberts_assistent` dezelfde schermen toont onder Meer → Notities (ook in de webversie). De
+bestanden met die namen in `lib/` hier exporteren alleen het pakket; wijzig de editor dus daar.
+Deze app levert zelf het donkere thema, de login, de updatecheck (`onOpened`) en de
+donkergrijze editorachtergrond (`editorBackground`).
+
 ## Gedrag
 
 - **Meerdere documenten** (sinds SF-1891): in de AppBar van de editor staat een
